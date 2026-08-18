@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A visual guide to closures in JavaScript: lexical scope, retained state, practical patterns, and common traps.">
+  <title>Closures in JavaScript</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1117;
+      --surface-soft: #10161d;
+      --text: #e6edf3;
+      --muted: #8b98a7;
+      --line: #293442;
+      --line-strong: #415166;
+      --blue: #79c0ff;
+      --violet: #d2a8ff;
+      --green: #7ee787;
+      --amber: #e3b341;
+      --code: #171e27;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 50% -12rem, rgba(121, 192, 255, 0.1), transparent 34rem),
+        var(--bg);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding: 5rem 0;
+    }
+
+    header {
+      max-width: 760px;
+      margin-bottom: 3rem;
+    }
+
+    h1, h2, h3 {
+      line-height: 1.15;
+      letter-spacing: -0.035em;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-weight: 760;
+    }
+
+    h2 { margin: 2.5rem 0 0.75rem; }
+
+    p { max-width: 68ch; }
+
+    a { color: inherit; }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .accent { color: var(--blue); }
+    .violet { color: var(--violet); }
+    .green { color: var(--green); }
+    .amber { color: var(--amber); }
+
+    .plain-language {
+      margin-top: 1.25rem;
+      color: var(--muted);
+    }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 4px;
+      background: var(--code);
+      color: #f0f6fc;
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+      color: var(--violet);
+    }
+
+    pre {
+      position: relative;
+      overflow-x: auto;
+      padding: 1.25rem;
+      border-radius: 10px;
+      background: var(--surface-soft);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: none; }
+
+    .kw { color: var(--violet); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .num { color: var(--amber); }
+    .comment { color: var(--muted); font-style: italic; }
+    .callout {
+      max-width: 760px;
+      margin: 2rem 0;
+    }
+
+    .sequence {
+      margin-top: 1.5rem;
+      padding-left: 1rem;
+      list-style: none;
+      counter-reset: sequence;
+    }
+
+    .sequence li {
+      position: relative;
+      max-width: 720px;
+      padding: 0 0 1rem 2.7rem;
+      border-left: 1px solid var(--line-strong);
+      counter-increment: sequence;
+    }
+
+    .sequence li:last-child { padding-bottom: 0; border-left-color: transparent; }
+
+    .sequence li::before {
+      content: counter(sequence);
+      position: absolute;
+      top: -0.05rem;
+      left: -1rem;
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      place-items: center;
+      border: 1px solid var(--line-strong);
+      border-radius: 50%;
+      background: var(--bg);
+      color: var(--blue);
+      font-family: var(--mono);
+      font-weight: 700;
+    }
+
+    .sequence strong { color: var(--text); }
+    .sequence p { margin: 0.25rem 0 0; color: var(--muted); }
+
+    .example + .example {
+      margin-top: 1.75rem;
+    }
+
+    .example h3 { margin: 0 0 0.25rem; }
+    .example > p { margin: 0; color: var(--muted); }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+      margin-top: 1.5rem;
+    }
+
+    .compare pre { margin: 0; }
+
+    .code-label {
+      display: inline-block;
+      margin-bottom: 0.55rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .takeaways {
+      margin: 1.5rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .takeaways li {
+      position: relative;
+      max-width: 720px;
+      padding-left: 1.6rem;
+    }
+
+    .takeaways li::before {
+      content: "→";
+      position: absolute;
+      left: 0;
+      color: var(--green);
+    }
+
+    .quiz {
+      padding-left: 1.5rem;
+    }
+
+    .quiz > li { margin-bottom: 2rem; padding-left: 0.25rem; }
+    .quiz > li::marker { color: var(--violet); font-weight: 700; }
+    .quiz pre { margin: 0.75rem 0; }
+
+    details {
+      padding: 0.5rem 0;
+    }
+
+    summary {
+      color: var(--blue);
+      cursor: pointer;
+      font-weight: 680;
+    }
+
+    details p { color: var(--muted); }
+    details p:last-child { margin-bottom: 0; }
+
+    @media (max-width: 720px) {
+      main { padding: 3rem 0; }
+      .compare { grid-template-columns: 1fr; }
+      pre { padding: 1.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Closures</h1>
+      <p class="lede">A closure is a function that keeps access to variables from the <span class="violet">scope where it was created</span>, even after that scope has finished.</p>
+    </header>
+
+    <section aria-labelledby="first-closure">
+      <h2 id="first-closure">A closure, step by step</h2>
+      <pre><code><span class="kw">function</span> <span class="fn">makeCounter</span>() {
+  <span class="kw">let</span> count = <span class="num">0</span>;
+
+  <span class="kw">return function</span> <span class="fn">increment</span>() {
+    count += <span class="num">1</span>;
+    <span class="kw">return</span> count;
+  };
+}
+
+<span class="kw">const</span> counter = <span class="fn">makeCounter</span>();
+
+<span class="fn">console.log</span>(<span class="fn">counter</span>()); <span class="comment">// 1</span>
+<span class="fn">console.log</span>(<span class="fn">counter</span>()); <span class="comment">// 2</span></code></pre>
+
+      <ol class="sequence">
+        <li><strong><code>makeCounter()</code> runs.</strong><p>A new local binding named <code>count</code> is created.</p></li>
+        <li><strong>It returns <code>increment</code>.</strong><p>The inner function closes over the binding, not a frozen copy of its value.</p></li>
+        <li><strong>The outer call finishes.</strong><p>Normally its locals could be discarded, but <code>increment</code> still references <code>count</code>.</p></li>
+        <li><strong>Each call updates the same binding.</strong><p>That is why the results progress from <code>1</code> to <code>2</code>.</p></li>
+      </ol>
+
+      <aside class="callout">
+        <p><strong>Key distinction:</strong> closures retain <span class="green">bindings</span>, not snapshots. If the binding changes, the closure observes its current value.</p>
+      </aside>
+    </section>
+
+    <section aria-labelledby="independent-state">
+      <h2 id="independent-state">Each outer call creates new state</h2>
+      <p>Calling the factory twice creates two separate lexical environments. The counters do not interfere with each other.</p>
+      <pre><code><span class="kw">const</span> likes = <span class="fn">makeCounter</span>();
+<span class="kw">const</span> shares = <span class="fn">makeCounter</span>();
+
+<span class="fn">likes</span>();  <span class="comment">// 1</span>
+<span class="fn">likes</span>();  <span class="comment">// 2</span>
+<span class="fn">shares</span>(); <span class="comment">// 1, its own count</span></code></pre>
+    </section>
+
+    <section aria-labelledby="uses">
+      <h2 id="uses">What closures are good for</h2>
+
+      <div class="example">
+        <h3>Private state</h3>
+        <p>Expose a small public API while keeping the underlying value inaccessible from the outside.</p>
+        <pre><code><span class="kw">function</span> <span class="fn">createWallet</span>(startingBalance) {
+  <span class="kw">let</span> balance = startingBalance;
+
+  <span class="kw">return</span> {
+    deposit(amount) { balance += amount; },
+    getBalance() { <span class="kw">return</span> balance; }
+  };
+}
+
+<span class="kw">const</span> wallet = <span class="fn">createWallet</span>(<span class="num">100</span>);
+wallet.<span class="fn">deposit</span>(<span class="num">50</span>);
+wallet.<span class="fn">getBalance</span>(); <span class="comment">// 150</span>
+wallet.balance;      <span class="comment">// undefined</span></code></pre>
+      </div>
+
+      <div class="example">
+        <h3>Function configuration</h3>
+        <p>Create specialized functions without repeatedly passing the same input.</p>
+        <pre><code><span class="kw">function</span> <span class="fn">multiplyBy</span>(factor) {
+  <span class="kw">return</span> number =&gt; number * factor;
+}
+
+<span class="kw">const</span> double = <span class="fn">multiplyBy</span>(<span class="num">2</span>);
+<span class="kw">const</span> triple = <span class="fn">multiplyBy</span>(<span class="num">3</span>);
+
+<span class="fn">double</span>(<span class="num">8</span>); <span class="comment">// 16</span>
+<span class="fn">triple</span>(<span class="num">8</span>); <span class="comment">// 24</span></code></pre>
+      </div>
+
+      <div class="example">
+        <h3>Callbacks and event handlers</h3>
+        <p>A callback can retain context from the code that registered it.</p>
+        <pre><code><span class="kw">function</span> <span class="fn">setupButton</span>(button, message) {
+  button.<span class="fn">addEventListener</span>(<span class="str">"click"</span>, () =&gt; {
+    <span class="fn">console.log</span>(message);
+  });
+}
+
+<span class="fn">setupButton</span>(saveButton, <span class="str">"Saved!"</span>);
+<span class="comment">// The handler remembers message after setupButton returns.</span></code></pre>
+      </div>
+    </section>
+
+    <section aria-labelledby="loop-trap">
+      <h2 id="loop-trap">The classic loop trap</h2>
+      <p><code>var</code> creates one function-scoped binding, so every callback shares it. <code>let</code> creates a fresh binding for each iteration.</p>
+
+      <div class="compare">
+        <div>
+          <span class="code-label">One shared binding</span>
+          <pre><code><span class="kw">for</span> (<span class="kw">var</span> i = <span class="num">0</span>; i &lt; <span class="num">3</span>; i++) {
+  <span class="fn">setTimeout</span>(() =&gt; {
+    <span class="fn">console.log</span>(i);
+  }, <span class="num">0</span>);
+}
+
+<span class="comment">// 3, 3, 3</span></code></pre>
+        </div>
+        <div>
+          <span class="code-label">A binding per iteration</span>
+          <pre><code><span class="kw">for</span> (<span class="kw">let</span> i = <span class="num">0</span>; i &lt; <span class="num">3</span>; i++) {
+  <span class="fn">setTimeout</span>(() =&gt; {
+    <span class="fn">console.log</span>(i);
+  }, <span class="num">0</span>);
+}
+
+<span class="comment">// 0, 1, 2</span></code></pre>
+        </div>
+      </div>
+      <p class="plain-language">The callbacks run after the loop. By then the single <code>var i</code> binding contains <code>3</code>; the three <code>let i</code> bindings still contain <code>0</code>, <code>1</code>, and <code>2</code>.</p>
+    </section>
+
+    <section aria-labelledby="memory">
+      <h2 id="memory">Closures and memory</h2>
+      <p>A closure keeps referenced values reachable. This is useful, but long-lived listeners, timers, or caches can unintentionally retain large objects.</p>
+      <ul class="takeaways">
+        <li>Remove event listeners and clear timers when they are no longer needed.</li>
+        <li>Capture only the data the callback actually needs.</li>
+        <li>Do not treat every closure as a leak; retained state is often the point.</li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="questions">
+      <h2 id="questions">Check your understanding</h2>
+      <p>Predict each result before opening the answer.</p>
+
+      <ol class="quiz">
+        <li>
+          <p><strong>What does this print?</strong></p>
+          <pre><code><span class="kw">let</span> label = <span class="str">"before"</span>;
+
+<span class="kw">function</span> <span class="fn">showLabel</span>() {
+  <span class="fn">console.log</span>(label);
+}
+
+label = <span class="str">"after"</span>;
+<span class="fn">showLabel</span>();</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p><code>"after"</code>. The closure references the <code>label</code> binding, not the value it held when the function was defined.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>What are the two results?</strong></p>
+          <pre><code><span class="kw">function</span> <span class="fn">makeAdder</span>(amount) {
+  <span class="kw">return</span> value =&gt; value + amount;
+}
+
+<span class="kw">const</span> addFive = <span class="fn">makeAdder</span>(<span class="num">5</span>);
+<span class="kw">const</span> addTen = <span class="fn">makeAdder</span>(<span class="num">10</span>);
+
+<span class="fn">addFive</span>(<span class="num">2</span>);
+<span class="fn">addTen</span>(<span class="num">2</span>);</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p><code>7</code> and <code>12</code>. Each call to <code>makeAdder</code> creates a new <code>amount</code> binding, so each returned function closes over different state.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>Can outside code set <code>secret</code> directly?</strong></p>
+          <pre><code><span class="kw">function</span> <span class="fn">createSecret</span>() {
+  <span class="kw">let</span> secret = <span class="str">"orbit"</span>;
+  <span class="kw">return</span> () =&gt; secret;
+}
+
+<span class="kw">const</span> reveal = <span class="fn">createSecret</span>();</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p>No. <code>secret</code> is outside the caller's scope. Only the returned function has access to it, which makes closure-based data privacy possible.</p>
+          </details>
+        </li>
+      </ol>
+    </section>
+
+  </main>
+</body>
+</html>

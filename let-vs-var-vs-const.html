@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>let vs. var vs. const</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f3ed;
+      --surface: #fffdf8;
+      --text: #20201e;
+      --muted: #68665f;
+      --line: #d9d4c9;
+      --accent: #245f52;
+      --code: #ece8df;
+      --code-block: #f3f0e9;
+      --syntax-keyword: #7c3aed;
+      --syntax-string: #087f5b;
+      --syntax-number: #b45309;
+      --syntax-comment: #6b7280;
+      --syntax-function: #0369a1;
+      --syntax-error: #b42318;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #171817;
+        --surface: #202220;
+        --text: #efeee8;
+        --muted: #aaa89f;
+        --line: #3a3d39;
+        --accent: #7bc5b1;
+        --code: #292c29;
+        --code-block: #1e211f;
+        --syntax-keyword: #c792ea;
+        --syntax-string: #c3e88d;
+        --syntax-number: #f78c6c;
+        --syntax-comment: #87918a;
+        --syntax-function: #82aaff;
+        --syntax-error: #ff657a;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(900px, calc(100% - 2rem));
+      margin: 0 auto;
+      padding: 5rem 0;
+    }
+
+    header { margin-bottom: 3rem; }
+
+    h1, h2 {
+      line-height: 1.15;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+    }
+
+    h2 { margin: 2.5rem 0 0.75rem; }
+
+    p { max-width: 68ch; }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+    }
+
+    .verdict {
+      margin: 2rem 0;
+      padding: 1.25rem 1.5rem;
+      border-left: 4px solid var(--accent);
+      background: var(--surface);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--surface);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 650px;
+    }
+
+    th, td {
+      padding: 0.9rem 1rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { color: var(--accent); }
+    tr:last-child td { border-bottom: 0; }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 4px;
+      background: var(--code);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--syntax-keyword);
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--code-block);
+      line-height: 1.55;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: none; }
+
+    .token-keyword { color: var(--syntax-keyword); font-weight: 650; }
+    .token-string { color: var(--syntax-string); }
+    .token-number { color: var(--syntax-number); }
+    .token-comment { color: var(--syntax-comment); font-style: italic; }
+    .token-function { color: var(--syntax-function); }
+    .token-error { color: var(--syntax-error); }
+
+    .definition + .definition { margin-top: 1.75rem; }
+    .definition h3 { margin: 0 0 0.25rem; }
+    .definition p { margin: 0; }
+
+    .quiz { padding-left: 1.5rem; }
+    .quiz > li { margin-bottom: 2rem; padding-left: 0.25rem; }
+    .quiz pre { margin: 0.75rem 0; }
+
+    details {
+      padding: 0.5rem 0 0.5rem 1rem;
+      border-left: 3px solid var(--accent);
+    }
+
+    summary {
+      color: var(--accent);
+      cursor: pointer;
+      font-weight: 650;
+    }
+
+    details p:last-child { margin-bottom: 0; }
+
+    @media (max-width: 720px) {
+      main { padding: 3rem 0; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1><code>let</code> vs. <code>var</code> vs. <code>const</code></h1>
+      <p class="lede">Three ways to declare JavaScript variables—one good default, one useful alternative, and one mostly for legacy code.</p>
+    </header>
+
+    <section aria-labelledby="definitions">
+      <h2 id="definitions">Definitions</h2>
+      <div class="definition">
+        <h3><code>let</code></h3>
+        <p>Declares a block-scoped variable whose value can be reassigned.</p>
+      </div>
+      <div class="definition">
+        <h3><code>var</code></h3>
+        <p>Declares a function-scoped or global variable that can be reassigned and redeclared.</p>
+      </div>
+      <div class="definition">
+        <h3><code>const</code></h3>
+        <p>Declares a block-scoped binding that must be initialized and cannot be reassigned.</p>
+      </div>
+    </section>
+
+    <aside class="verdict">
+      <strong>Rule of thumb:</strong> use <code>const</code> by default, switch to <code>let</code> when the binding must be reassigned, and avoid <code>var</code> in new code.
+    </aside>
+
+    <section aria-labelledby="comparison">
+      <h2 id="comparison">At a glance</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Behavior</th>
+              <th><code>const</code></th>
+              <th><code>let</code></th>
+              <th><code>var</code></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Scope</td>
+              <td>Block</td>
+              <td>Block</td>
+              <td>Function or global</td>
+            </tr>
+            <tr>
+              <td>Reassignment</td>
+              <td>No</td>
+              <td>Yes</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Redeclaration in the same scope</td>
+              <td>No</td>
+              <td>No</td>
+              <td>Yes</td>
+            </tr>
+            <tr>
+              <td>Initialization required</td>
+              <td>Yes</td>
+              <td>No</td>
+              <td>No</td>
+            </tr>
+            <tr>
+              <td>Before its declaration</td>
+              <td>Temporal dead zone</td>
+              <td>Temporal dead zone</td>
+              <td>Reads as <code>undefined</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="scope">
+      <h2 id="scope">Block scope matters</h2>
+      <p><code>let</code> and <code>const</code> stay inside the nearest block. <code>var</code> ignores ordinary blocks and remains visible throughout the containing function.</p>
+      <pre><code><span class="token-keyword">if</span> (<span class="token-keyword">true</span>) {
+  <span class="token-keyword">const</span> message = <span class="token-string">"inside"</span>;
+  <span class="token-keyword">let</span> count = <span class="token-number">1</span>;
+  <span class="token-keyword">var</span> legacy = <span class="token-string">"still visible"</span>;
+}
+
+<span class="token-function">console.log</span>(legacy); <span class="token-comment">// "still visible"</span>
+<span class="token-function">console.log</span>(count);  <span class="token-comment">// <span class="token-error">ReferenceError</span></span></code></pre>
+    </section>
+
+    <section aria-labelledby="hoisting">
+      <h2 id="hoisting">Hoisting and the temporal dead zone</h2>
+      <p>All three declarations are processed before execution reaches them. The difference is initialization: <code>var</code> starts as <code>undefined</code>, while <code>let</code> and <code>const</code> cannot be accessed until their declaration runs.</p>
+      <pre><code><span class="token-function">console.log</span>(oldValue); <span class="token-comment">// undefined</span>
+<span class="token-keyword">var</span> oldValue = <span class="token-number">10</span>;
+
+<span class="token-function">console.log</span>(newValue); <span class="token-comment">// <span class="token-error">ReferenceError</span></span>
+<span class="token-keyword">let</span> newValue = <span class="token-number">10</span>;</code></pre>
+
+      <h3>Why does the temporal dead zone occur?</h3>
+      <p>When a scope is created, JavaScript creates its <code>let</code> and <code>const</code> bindings but leaves them uninitialized. The temporal dead zone is the time between entering that scope and executing the declaration. Reading the binding during that interval throws a <code>ReferenceError</code>.</p>
+      <p>This behavior makes block-scoped shadowing consistent across the entire block and exposes use-before-initialization bugs. It also ensures that a <code>const</code> binding receives its required initial value exactly at its declaration. By contrast, <code>var</code> is initialized to <code>undefined</code> as soon as its function scope is created.</p>
+    </section>
+
+    <section aria-labelledby="const-objects">
+      <h2 id="const-objects"><code>const</code> does not make values immutable</h2>
+      <p><code>const</code> protects the binding, not the object stored in it. Object properties and array contents may still change.</p>
+      <pre><code><span class="token-keyword">const</span> user = { name: <span class="token-string">"Ada"</span> };
+user.name = <span class="token-string">"Grace"</span>;       <span class="token-comment">// allowed</span>
+
+user = { name: <span class="token-string">"Linus"</span> };  <span class="token-comment">// <span class="token-error">TypeError</span></span></code></pre>
+    </section>
+
+    <section aria-labelledby="choice">
+      <h2 id="choice">Choosing one</h2>
+      <pre><code><span class="token-keyword">const</span> apiUrl = <span class="token-string">"/api/users"</span>; <span class="token-comment">// binding stays the same</span>
+
+<span class="token-keyword">let</span> page = <span class="token-number">1</span>;
+page += <span class="token-number">1</span>;                   <span class="token-comment">// binding changes</span>
+
+<span class="token-comment">// Use var only when maintaining code that already depends on it.</span></code></pre>
+    </section>
+
+    <section aria-labelledby="output-questions">
+      <h2 id="output-questions">Code output questions</h2>
+      <p>Predict the result before opening each answer. Some snippets test behavior that is easy to miss.</p>
+
+      <ol class="quiz">
+        <li>
+          <p><strong>What is printed?</strong></p>
+          <pre><code><span class="token-function">console.log</span>(total);
+<span class="token-keyword">var</span> total = <span class="token-number">5</span>;</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p><code>undefined</code>. The <code>var</code> declaration is hoisted and initialized before the assignment runs.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>Does this print <code>"outer"</code>?</strong></p>
+          <pre><code><span class="token-keyword">let</span> label = <span class="token-string">"outer"</span>;
+
+{
+  <span class="token-function">console.log</span>(label);
+  <span class="token-keyword">let</span> label = <span class="token-string">"inner"</span>;
+}</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p>No. It throws a <code>ReferenceError</code>. The inner <code>label</code> shadows the outer one throughout the block, but remains in its temporal dead zone until its declaration runs.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>What is printed after the loop finishes?</strong></p>
+          <pre><code><span class="token-keyword">for</span> (<span class="token-keyword">var</span> i = <span class="token-number">0</span>; i &lt; <span class="token-number">3</span>; i++) {
+  <span class="token-function">setTimeout</span>(() =&gt; <span class="token-function">console.log</span>(i), <span class="token-number">0</span>);
+}</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p><code>3</code>, three times. Every callback closes over the same function-scoped <code>i</code>, and the callbacks run after the loop has changed it to <code>3</code>. Replacing <code>var</code> with <code>let</code> would create a new binding for each iteration and print <code>0</code>, <code>1</code>, <code>2</code>.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>What is printed?</strong></p>
+          <pre><code><span class="token-keyword">const</span> profile = { name: <span class="token-string">"Ada"</span> };
+profile.name = <span class="token-string">"Grace"</span>;
+
+<span class="token-function">console.log</span>(profile.name);</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p><code>"Grace"</code>. The object can be mutated; only reassignment of the <code>profile</code> binding is forbidden.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>What are the two outputs?</strong></p>
+          <pre><code><span class="token-keyword">function</span> <span class="token-function">inspect</span>() {
+  <span class="token-keyword">if</span> (<span class="token-keyword">true</span>) {
+    <span class="token-keyword">var</span> message = <span class="token-string">"ready"</span>;
+    <span class="token-keyword">let</span> count = <span class="token-number">1</span>;
+  }
+
+  <span class="token-function">console.log</span>(message);
+  <span class="token-function">console.log</span>(<span class="token-keyword">typeof</span> count);
+}
+
+<span class="token-function">inspect</span>();</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p><code>"ready"</code>, then <code>"undefined"</code>. <code>var</code> escapes the <code>if</code> block because it is function-scoped. <code>count</code> is outside its scope, and <code>typeof</code> on an undeclared name returns <code>"undefined"</code>.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>Why is the global value not printed?</strong></p>
+          <pre><code><span class="token-keyword">var</span> mode = <span class="token-string">"global"</span>;
+
+<span class="token-keyword">function</span> <span class="token-function">show</span>() {
+  <span class="token-function">console.log</span>(mode);
+  <span class="token-keyword">var</span> mode = <span class="token-string">"local"</span>;
+}
+
+<span class="token-function">show</span>();</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p>It prints <code>undefined</code>. The local <code>var mode</code> is hoisted to the top of <code>show</code>, shadows the global binding, and is initialized to <code>undefined</code> before the log runs.</p>
+          </details>
+        </li>
+
+        <li>
+          <p><strong>Does either line run?</strong></p>
+          <pre><code><span class="token-keyword">const</span> answer;
+<span class="token-function">console.log</span>(<span class="token-string">"finished"</span>);</code></pre>
+          <details>
+            <summary>Show answer</summary>
+            <p>No. Parsing fails with a <code>SyntaxError</code> because <code>const</code> requires an initializer. The program never begins executing.</p>
+          </details>
+        </li>
+      </ol>
+    </section>
+
+  </main>
+</body>
+</html>
