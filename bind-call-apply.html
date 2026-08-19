@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Practical notes on bind, call, and apply in JavaScript, including this, argument handling, and arrow functions.">
+  <title>bind, call, and apply in JavaScript</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --bind: #f1c66d;
+      --call: #68d7ff;
+      --apply: #d5a6ff;
+      --pink: #ff91b8;
+      --green: #8ee6a2;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    main { padding-top: 3rem; }
+    h1, h2, h3, p, pre, figure, ol, ul, table { margin: 0; }
+    h1 { padding-bottom: 0.75rem; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+    .lede, .muted, figcaption { color: var(--muted); }
+    .bind { color: var(--bind); }
+    .call { color: var(--call); }
+    .apply { color: var(--apply); }
+
+    code { padding: 0.12em 0.35em; border-radius: 4px; background: var(--surface); font-family: var(--mono); }
+    :is(h1, h2, h3) code { padding: 0; background: transparent; }
+    pre { overflow-x: auto; padding: 1.25rem; background: var(--surface); line-height: 1.5; tab-size: 2; }
+    pre code { padding: 0; background: transparent; }
+    .kw { color: var(--pink); }
+    .fn { color: var(--call); }
+    .str { color: var(--green); }
+    .num { color: var(--bind); }
+    .comment { color: var(--muted); }
+
+    .core {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .core article { padding-top: 0.9rem; border-top: 2px solid var(--line); }
+    .core article:nth-child(1) { border-color: var(--call); }
+    .core article:nth-child(2) { border-color: var(--apply); }
+    .core article:nth-child(3) { border-color: var(--bind); }
+    .core p { color: var(--muted); }
+
+    .syntax { overflow-x: auto; padding-top: 1.75rem; }
+    table { width: 100%; min-width: 600px; border-collapse: collapse; }
+    th, td { padding: 0.8rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-weight: 500; }
+    th:first-child, td:first-child { padding-left: 0; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .this-rule { padding-top: 1.75rem; color: var(--muted); }
+    .this-rule strong { color: var(--call); }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .compare p { color: var(--muted); padding-bottom: 0.75rem; }
+    .compare pre { height: calc(100% - 2.25rem); }
+
+    .rules, .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .rules { display: grid; gap: 1.75rem; }
+    .rules li::marker, .quiz li::marker { color: var(--bind); font-weight: 700; }
+    .rules p { padding-top: 0.35rem; color: var(--muted); }
+    .quiz > li + li { padding-top: 2rem; }
+    .quiz pre { margin-top: 0.75rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--call); cursor: pointer; }
+    details p { padding-top: 0.75rem; color: var(--muted); }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .core, .compare { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1><span class="bind">bind</span>, <span class="call">call</span>, and <span class="apply">apply</span></h1>
+      <p class="lede">All three control what <code>this</code> means inside a regular function. The difference is when the function runs and how you pass its arguments.</p>
+    </header>
+
+    <main>
+    <section aria-labelledby="one-idea">
+      <h2 id="one-idea">One idea, three methods</h2>
+      <div class="core">
+        <article>
+          <h3 class="call"><code>call</code></h3>
+          <p>Runs the function now. Pass arguments one by one.</p>
+        </article>
+        <article>
+          <h3 class="apply"><code>apply</code></h3>
+          <p>Runs the function now. Pass arguments in an array or array-like object.</p>
+        </article>
+        <article>
+          <h3 class="bind"><code>bind</code></h3>
+          <p>Returns a new function for later. It can also prefill arguments.</p>
+        </article>
+      </div>
+
+      <div class="syntax">
+        <table>
+          <thead><tr><th>Method</th><th>Shape</th><th>Runs now?</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td class="call"><code>call</code></td><td><code>fn.call(thisArg, a, b)</code></td><td>Yes</td><td>Function's return value</td></tr>
+            <tr><td class="apply"><code>apply</code></td><td><code>fn.apply(thisArg, [a, b])</code></td><td>Yes</td><td>Function's return value</td></tr>
+            <tr><td class="bind"><code>bind</code></td><td><code>fn.bind(thisArg, a, b)</code></td><td>No</td><td>A new function</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section aria-labelledby="this-section">
+      <h2 id="this-section">First, understand <code>this</code></h2>
+      <p>For a regular function, <code>this</code> usually depends on how the function is called. Pulling a method away from its object also pulls away the call-site context.</p>
+
+      <figure class="example">
+        <pre><code><span class="kw">const</span> account = {
+  owner: <span class="str">"Mira"</span>,
+  <span class="fn">introduce</span>() {
+    <span class="kw">return</span> <span class="str">`I am ${this.owner}`</span>;
+  }
+};
+
+account.<span class="fn">introduce</span>();       <span class="comment">// "I am Mira"</span>
+
+<span class="kw">const</span> introduce = account.introduce;
+<span class="fn">introduce</span>();               <span class="comment">// `this` is no longer `account`</span></code></pre>
+      </figure>
+
+      <p class="this-rule"><strong>The question to ask:</strong> what value sits to the left of the dot at the call site? Explicit methods such as <code>call</code>, <code>apply</code>, and <code>bind</code> let you supply that value yourself.</p>
+    </section>
+
+    <section aria-labelledby="call-section">
+      <h2 id="call-section"><span class="call">call</span> invokes with separate arguments</h2>
+      <p>The first argument becomes <code>this</code>. Every later argument goes to the function in order.</p>
+
+      <figure class="example">
+        <pre><code><span class="kw">function</span> <span class="fn">describe</span>(role, punctuation) {
+  <span class="kw">return</span> <span class="str">`${this.name} is a ${role}${punctuation}`</span>;
+}
+
+<span class="kw">const</span> person = { name: <span class="str">"Asha"</span> };
+
+describe.<span class="fn">call</span>(person, <span class="str">"designer"</span>, <span class="str">"!"</span>);
+<span class="comment">// "Asha is a designer!"</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="apply-section">
+      <h2 id="apply-section"><span class="apply">apply</span> invokes with collected arguments</h2>
+      <p><code>apply</code> is handy when the arguments already live in an array. Modern spread syntax often reads more naturally when no custom <code>this</code> value is needed.</p>
+
+      <div class="compare">
+        <div>
+          <p>With <code>apply</code></p>
+          <pre><code><span class="kw">const</span> scores = [<span class="num">18</span>, <span class="num">31</span>, <span class="num">24</span>];
+
+Math.max.<span class="fn">apply</span>(<span class="kw">null</span>, scores);
+<span class="comment">// 31</span></code></pre>
+        </div>
+        <div>
+          <p>With spread syntax</p>
+          <pre><code><span class="kw">const</span> scores = [<span class="num">18</span>, <span class="num">31</span>, <span class="num">24</span>];
+
+Math.<span class="fn">max</span>(...scores);
+<span class="comment">// 31</span></code></pre>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="bind-section">
+      <h2 id="bind-section"><span class="bind">bind</span> makes a reusable function</h2>
+      <p><code>bind</code> does not call the original function. It creates a new function whose <code>this</code> value is fixed.</p>
+
+      <figure class="example">
+        <figcaption>Keep the method's context when passing it elsewhere.</figcaption>
+        <pre><code><span class="kw">const</span> user = {
+  name: <span class="str">"Dev"</span>,
+  <span class="fn">greet</span>() {
+    console.<span class="fn">log</span>(<span class="str">`Hello, ${this.name}`</span>);
+  }
+};
+
+<span class="kw">const</span> greetDev = user.greet.<span class="fn">bind</span>(user);
+
+setTimeout(greetDev, <span class="num">100</span>);
+<span class="comment">// "Hello, Dev"</span></code></pre>
+      </figure>
+
+      <figure class="example">
+        <figcaption><code>bind</code> can prefill arguments. This is partial application.</figcaption>
+        <pre><code><span class="kw">function</span> <span class="fn">multiply</span>(a, b) {
+  <span class="kw">return</span> a * b;
+}
+
+<span class="kw">const</span> double = multiply.<span class="fn">bind</span>(<span class="kw">null</span>, <span class="num">2</span>);
+
+<span class="fn">double</span>(<span class="num">7</span>); <span class="comment">// 14</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="borrowing">
+      <h2 id="borrowing">Borrow a method</h2>
+      <p>A function does not belong permanently to the object where it was defined. <code>call</code> can run it with another compatible object as <code>this</code>.</p>
+
+      <figure class="example">
+        <pre><code><span class="kw">const</span> member = {
+  firstName: <span class="str">"Nikhil"</span>,
+  <span class="fn">fullName</span>() {
+    <span class="kw">return</span> <span class="str">`${this.firstName} ${this.lastName}`</span>;
+  }
+};
+
+<span class="kw">const</span> guest = { firstName: <span class="str">"Rhea"</span>, lastName: <span class="str">"Sen"</span> };
+
+member.fullName.<span class="fn">call</span>(guest);
+<span class="comment">// "Rhea Sen"</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="arrows">
+      <h2 id="arrows">Arrow functions are different</h2>
+      <p>Arrow functions do not create their own <code>this</code>. They capture it from the surrounding scope, so <code>call</code>, <code>apply</code>, and <code>bind</code> cannot replace it.</p>
+
+      <figure class="example">
+        <pre><code><span class="kw">const</span> showName = () =&gt; this.name;
+
+showName.<span class="fn">call</span>({ name: <span class="str">"Asha"</span> });
+<span class="comment">// not "Asha"</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="mistakes">
+      <h2 id="mistakes">Common mistakes</h2>
+      <ul class="rules">
+        <li><strong>Calling the result of <code>call</code> later.</strong><p><code>call</code> has already run the function. Use <code>bind</code> when an event handler or timer needs a function.</p></li>
+        <li><strong>Passing an array to <code>call</code>.</strong><p><code>fn.call(obj, [1, 2])</code> passes one array argument. Use <code>apply</code> or spread when the function expects two arguments.</p></li>
+        <li><strong>Trying to rebind an arrow function.</strong><p>Use a regular function when the caller should control <code>this</code>.</p></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="qa">
+      <h2 id="qa">Check your understanding</h2>
+      <ol class="quiz">
+        <li>
+          Which method returns a function without running it?
+          <details><summary>Show answer</summary><p><code>bind</code>. It creates a new function with fixed context and optional prefilled arguments.</p></details>
+        </li>
+        <li>
+          What is the difference between <code>fn.call(obj, 1, 2)</code> and <code>fn.apply(obj, [1, 2])</code>?
+          <details><summary>Show answer</summary><p>Both run immediately with <code>obj</code> as <code>this</code>. <code>call</code> takes separate arguments, while <code>apply</code> takes one array-like collection.</p></details>
+        </li>
+        <li>
+          Can <code>bind</code> change the <code>this</code> value captured by an arrow function?
+          <details><summary>Show answer</summary><p>No. An arrow function gets <code>this</code> from the scope where the arrow was created.</p></details>
+        </li>
+      </ol>
+    </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,50 @@
+pre {
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+}
+
+li::marker {
+  color: currentColor !important;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  z-index: 1;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.375rem;
+  background: var(--surface, var(--code, #121923));
+  color: var(--muted);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+  opacity: 0;
+  pointer-events: none;
+}
+
+pre:hover > .copy-code-button,
+pre:focus-within > .copy-code-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.copy-code-button:hover {
+  border-color: var(--blue, #68d7ff);
+  color: var(--text);
+}
+
+.copy-code-button:focus-visible {
+  outline: 2px solid var(--blue, #68d7ff);
+  outline-offset: 2px;
+}
+
+.copy-code-button[data-state="copied"] {
+  color: var(--green, #8ee6a2);
+}
+
+.copy-code-button[data-state="failed"] {
+  color: var(--pink, #ff91b8);
+}

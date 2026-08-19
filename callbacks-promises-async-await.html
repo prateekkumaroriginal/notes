@@ -8,25 +8,26 @@
   <style>
     :root {
       color-scheme: dark;
-      --background: #0d0f12;
-      --surface: #15191f;
-      --text: #e7e9ed;
-      --muted: #a1a8b3;
-      --line: #303640;
-      --callback: #f5c26b;
-      --promise: #b7a5ff;
-      --await: #79c0ff;
-      --error: #ff8993;
-      --code-blue: #86cfff;
-      --code-pink: #f0a6ca;
-      --code-green: #b9df83;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --callback: #f1c66d;
+      --promise: #d5a6ff;
+      --await: #68d7ff;
+      --success: #8ee6a2;
+      --error: #ff91b8;
+      --code-blue: #68d7ff;
+      --code-pink: #ff91b8;
+      --code-green: #8ee6a2;
     }
 
     * { box-sizing: border-box; }
 
     body {
       margin: 0;
-      background: var(--background);
+      background: var(--bg);
       color: var(--text);
       font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
@@ -43,7 +44,6 @@
     h1 { padding-bottom: 0.75rem; }
 
     .intro {
-      max-width: 42rem;
       color: var(--muted);
     }
 
@@ -61,6 +61,7 @@
     .callback { color: var(--callback); }
     .promise { color: var(--promise); }
     .await { color: var(--await); }
+    .success { color: var(--success); }
     .error { color: var(--error); }
 
     .example {
@@ -90,7 +91,7 @@
     .keyword { color: var(--code-pink); }
     .function { color: var(--code-blue); }
     .string { color: var(--code-green); }
-    .comment { color: #7f8996; }
+    .comment { color: var(--muted); }
 
     .steps {
       display: grid;
@@ -182,6 +183,8 @@
       table { display: block; overflow-x: auto; white-space: nowrap; }
     }
   </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
 </head>
 <body>
   <div class="page">
@@ -253,7 +256,7 @@ console.<span class="function">log</span>(user.name);</code></pre>
 
         <ul class="steps promise-states">
           <li><strong class="promise">Pending:</strong> the operation is still running.</li>
-          <li><strong class="await">Fulfilled:</strong> the operation completed successfully and produced a value.</li>
+          <li><strong class="success">Fulfilled:</strong> the operation completed successfully and produced a value.</li>
           <li><strong class="error">Rejected:</strong> the operation failed and produced an error.</li>
         </ul>
 

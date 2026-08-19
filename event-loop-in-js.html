@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A visual guide to the JavaScript event loop, call stack, task queue, microtask queue, timers, and async await.">
+  <title>The event loop in JavaScript</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --stack: #68d7ff;
+      --runtime: #8ee6a2;
+      --task: #f1c66d;
+      --micro: #d5a6ff;
+      --render: #ff91b8;
+      --pink: #ff91b8;
+      --green: #8ee6a2;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page { width: min(960px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    main { padding-top: 3rem; }
+    h1, h2, h3, p, pre, figure, ol, ul { margin: 0; }
+    h1 { padding-bottom: 0.75rem; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+    .lede, .muted, figcaption { color: var(--muted); }
+    .stack { color: var(--stack); }
+    .runtime { color: var(--runtime); }
+    .task { color: var(--task); }
+    .micro { color: var(--micro); }
+    .render { color: var(--render); }
+
+    code { padding: 0.12em 0.35em; border-radius: 4px; background: var(--surface); font-family: var(--mono); }
+    :is(h1, h2, h3) code { padding: 0; background: transparent; }
+    pre { overflow-x: auto; padding: 1.25rem; background: var(--surface); line-height: 1.5; tab-size: 2; }
+    pre code { padding: 0; background: transparent; }
+    .kw { color: var(--pink); }
+    .fn { color: var(--stack); }
+    .str { color: var(--green); }
+    .num { color: var(--task); }
+    .comment { color: var(--muted); }
+
+    .system {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .part { padding-top: 0.9rem; border-top: 2px solid var(--line); }
+    .part:nth-child(1) { border-color: var(--stack); }
+    .part:nth-child(2) { border-color: var(--runtime); }
+    .part:nth-child(3) { border-color: var(--task); }
+    .part:nth-child(4) { border-color: var(--micro); }
+    .part p { color: var(--muted); }
+
+    .cycle {
+      display: grid;
+      grid-template-columns: repeat(7, auto);
+      gap: 0.5rem;
+      align-items: center;
+      justify-content: start;
+      padding-top: 1.75rem;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .cycle span { color: var(--muted); }
+    .cycle strong { padding: 0.55rem 0.75rem; border: 1px solid var(--line); font-family: var(--mono); font-weight: 500; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .trace { padding: 1.75rem 0 0 1.25rem; counter-reset: trace; list-style: none; }
+    .trace li { position: relative; padding: 0 0 1.5rem 2.5rem; border-left: 1px solid var(--line); counter-increment: trace; }
+    .trace li:last-child { padding-bottom: 0; border-left-color: transparent; }
+    .trace li::before {
+      content: counter(trace);
+      position: absolute;
+      top: -0.1rem;
+      left: -0.9rem;
+      display: grid;
+      width: 1.8rem;
+      height: 1.8rem;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 50%;
+      background: var(--bg);
+      color: var(--micro);
+      font-family: var(--mono);
+    }
+    .trace p { padding-top: 0.35rem; color: var(--muted); }
+
+    .output {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(12rem, 0.45fr);
+      gap: 1.5rem;
+      padding-top: 1.75rem;
+      align-items: start;
+    }
+    .output pre { margin: 0; }
+    .output ol { padding-left: 1.5rem; }
+    .output li + li { padding-top: 0.55rem; }
+    .output li::marker { color: var(--micro); font-family: var(--mono); }
+
+    .note { padding-top: 1.75rem; color: var(--muted); }
+    .note strong { color: var(--task); }
+
+    .rules, .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .rules { display: grid; gap: 1.75rem; }
+    .rules li::marker, .quiz li::marker { color: var(--micro); font-weight: 700; }
+    .rules p { padding-top: 0.35rem; color: var(--muted); }
+    .quiz > li + li { padding-top: 2rem; }
+    .quiz pre { margin-top: 0.75rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--stack); cursor: pointer; }
+    details p { padding-top: 0.75rem; color: var(--muted); }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .system { grid-template-columns: 1fr 1fr; }
+      .output { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 440px) {
+      .system { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>The event loop in JavaScript</h1>
+      <p class="lede">JavaScript runs one piece of code at a time. The event loop decides when queued callbacks may enter the call stack.</p>
+    </header>
+
+    <main>
+    <section aria-labelledby="pieces">
+      <h2 id="pieces">The moving pieces</h2>
+      <div class="system">
+        <article class="part">
+          <h3 class="stack">Call stack</h3>
+          <p>Runs synchronous JavaScript, one function frame at a time.</p>
+        </article>
+        <article class="part">
+          <h3 class="runtime">Host runtime</h3>
+          <p>Handles timers, network requests, user input, and other work outside the stack.</p>
+        </article>
+        <article class="part">
+          <h3 class="task">Task queue</h3>
+          <p>Holds timer, event, and message callbacks ready for a future turn.</p>
+        </article>
+        <article class="part">
+          <h3 class="micro">Microtask queue</h3>
+          <p>Holds Promise reactions and <code>queueMicrotask</code> callbacks.</p>
+        </article>
+      </div>
+    </section>
+
+    <section aria-labelledby="rule">
+      <h2 id="rule">The rule that predicts the output</h2>
+      <p>Run the current script or task to completion. When the stack is empty, drain every microtask. The browser may render, then the event loop can start the next task.</p>
+
+      <div class="cycle" aria-label="One turn of the browser event loop">
+        <strong class="task">one task</strong><span>→</span>
+        <strong class="stack">run stack</strong><span>→</span>
+        <strong class="micro">drain microtasks</strong><span>→</span>
+        <strong class="render">browser may render</strong>
+      </div>
+
+      <p class="note"><strong>Microtasks go first</strong> after the current synchronous work, even if a timer with a delay of <code>0</code> is ready.</p>
+    </section>
+
+    <section aria-labelledby="trace-section">
+      <h2 id="trace-section">Trace one example</h2>
+      <div class="output">
+        <pre><code>console.<span class="fn">log</span>(<span class="str">"A"</span>);
+
+setTimeout(() =&gt; {
+  console.<span class="fn">log</span>(<span class="str">"B"</span>);
+}, <span class="num">0</span>);
+
+Promise.<span class="fn">resolve</span>().<span class="fn">then</span>(() =&gt; {
+  console.<span class="fn">log</span>(<span class="str">"C"</span>);
+});
+
+console.<span class="fn">log</span>(<span class="str">"D"</span>);</code></pre>
+
+        <div>
+          <p class="muted">Output</p>
+          <ol>
+            <li><code>A</code></li>
+            <li><code>D</code></li>
+            <li><code>C</code></li>
+            <li><code>B</code></li>
+          </ol>
+        </div>
+      </div>
+
+      <ol class="trace">
+        <li><strong>The script starts as a task.</strong><p><code>A</code> prints synchronously.</p></li>
+        <li><strong>The timer starts.</strong><p>Its callback will enter the task queue when the timer is eligible. It does not enter the stack yet.</p></li>
+        <li><strong><code>.then</code> schedules a microtask.</strong><p>The Promise is already fulfilled, but its reaction still runs later.</p></li>
+        <li><strong><code>D</code> prints synchronously.</strong><p>The script finishes and the call stack becomes empty.</p></li>
+        <li><strong>The engine drains microtasks.</strong><p><code>C</code> prints before another task can begin.</p></li>
+        <li><strong>The timer callback becomes the next task.</strong><p><code>B</code> prints.</p></li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="promises">
+      <h2 id="promises">Promises contain synchronous and asynchronous parts</h2>
+      <p>The function passed to <code>new Promise</code> runs immediately. A callback passed to <code>.then</code> runs as a microtask.</p>
+
+      <figure class="example">
+        <pre><code>console.<span class="fn">log</span>(<span class="str">"start"</span>);
+
+<span class="kw">new</span> Promise(resolve =&gt; {
+  console.<span class="fn">log</span>(<span class="str">"executor"</span>); <span class="comment">// synchronous</span>
+  <span class="fn">resolve</span>();
+}).<span class="fn">then</span>(() =&gt; {
+  console.<span class="fn">log</span>(<span class="str">"then"</span>);     <span class="comment">// microtask</span>
+});
+
+console.<span class="fn">log</span>(<span class="str">"end"</span>);
+
+<span class="comment">// start, executor, end, then</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="await-section">
+      <h2 id="await-section"><code>await</code> pauses one async function</h2>
+      <p>Code before the first <code>await</code> runs synchronously. The rest of that async function resumes in a microtask after the awaited value settles. The thread itself is not blocked.</p>
+
+      <figure class="example">
+        <pre><code><span class="kw">async function</span> <span class="fn">run</span>() {
+  console.<span class="fn">log</span>(<span class="str">"inside 1"</span>);
+  <span class="kw">await</span> <span class="num">0</span>;
+  console.<span class="fn">log</span>(<span class="str">"inside 2"</span>);
+}
+
+console.<span class="fn">log</span>(<span class="str">"outside 1"</span>);
+<span class="fn">run</span>();
+console.<span class="fn">log</span>(<span class="str">"outside 2"</span>);
+
+<span class="comment">// outside 1, inside 1, outside 2, inside 2</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="timers">
+      <h2 id="timers"><code>setTimeout(0)</code> does not mean now</h2>
+      <p>The delay is the minimum wait before the callback becomes eligible for a task. Existing synchronous work and all queued microtasks still get their turn first. Browsers may also clamp short nested timers.</p>
+
+      <figure class="example">
+        <pre><code>setTimeout(() =&gt; console.<span class="fn">log</span>(<span class="str">"timer"</span>), <span class="num">0</span>);
+
+<span class="kw">const</span> end = Date.now() + <span class="num">200</span>;
+<span class="kw">while</span> (Date.now() &lt; end) {
+  <span class="comment">// blocks the call stack for about 200 ms</span>
+}
+
+console.<span class="fn">log</span>(<span class="str">"loop finished"</span>);
+<span class="comment">// "loop finished" appears before "timer"</span></code></pre>
+      </figure>
+    </section>
+
+    <section aria-labelledby="blocking">
+      <h2 id="blocking">Long work still blocks the page</h2>
+      <p>The event loop provides concurrency, not parallel execution of JavaScript on the same thread. A long task delays input handlers, timers, rendering, and queued Promise callbacks.</p>
+
+      <ul class="rules">
+        <li><strong>Split heavy work into smaller tasks.</strong><p>Yield between chunks when the interface needs to stay responsive.</p></li>
+        <li><strong>Use a Web Worker for CPU-heavy work.</strong><p>A worker runs JavaScript on another thread and communicates through messages.</p></li>
+        <li><strong>Do not create an endless microtask chain.</strong><p>The browser drains microtasks before moving on, so continuously adding more can starve tasks and rendering.</p></li>
+      </ul>
+    </section>
+
+    <section aria-labelledby="qa">
+      <h2 id="qa">Check your understanding</h2>
+      <ol class="quiz">
+        <li>
+          Which runs first after synchronous code: a resolved Promise's <code>.then</code> callback or <code>setTimeout(..., 0)</code>?
+          <details><summary>Show answer</summary><p>The <code>.then</code> callback. It is a microtask, and the event loop drains microtasks before starting the next task.</p></details>
+        </li>
+        <li>
+          Does <code>await</code> block all JavaScript on the page?
+          <details><summary>Show answer</summary><p>No. It pauses that async function. Other synchronous code continues, and the function resumes later in a microtask.</p></details>
+        </li>
+        <li>
+          Why might a zero-delay timer run much later than zero milliseconds?
+          <details><summary>Show answer</summary><p>The current task must finish, the microtask queue must drain, and other scheduling delays may apply before the timer callback gets a turn.</p></details>
+        </li>
+      </ol>
+    </section>
+    </main>
+  </div>
+</body>
+</html>
