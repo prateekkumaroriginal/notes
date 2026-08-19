@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A clear introduction to callbacks, Promises, and async/await in JavaScript.">
+  <title>Callbacks, Promises, and async/await</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --background: #0d0f12;
+      --surface: #15191f;
+      --text: #e7e9ed;
+      --muted: #a1a8b3;
+      --line: #303640;
+      --callback: #f5c26b;
+      --promise: #b7a5ff;
+      --await: #79c0ff;
+      --error: #ff8993;
+      --code-blue: #86cfff;
+      --code-pink: #f0a6ca;
+      --code-green: #b9df83;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--background);
+      color: var(--text);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    h1, h2, h3, p, pre, ol, ul, figure { margin: 0; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+    .page {
+      width: min(calc(100% - 3rem), 50rem);
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .intro {
+      max-width: 42rem;
+      color: var(--muted);
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section {
+      padding-top: 2.5rem;
+    }
+
+    h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.75rem; }
+    p + p { padding-top: 1rem; }
+
+    .muted { color: var(--muted); }
+    .callback { color: var(--callback); }
+    .promise { color: var(--promise); }
+    .await { color: var(--await); }
+    .error { color: var(--error); }
+
+    .example {
+      display: grid;
+      gap: 0.75rem;
+      padding-block: 1.75rem;
+    }
+
+    .example figcaption { color: var(--muted); }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    :not(pre) > code {
+      padding: 0.1rem 0.3rem;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 0.25rem;
+    }
+
+    .keyword { color: var(--code-pink); }
+    .function { color: var(--code-blue); }
+    .string { color: var(--code-green); }
+    .comment { color: #7f8996; }
+
+    .steps {
+      display: grid;
+      gap: 1rem;
+      padding: 0 0 1.75rem 1.25rem;
+    }
+
+    .steps li::marker { color: var(--await); font-weight: 700; }
+
+    .promise-states {
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .note {
+      padding-block: 1rem;
+      color: var(--muted);
+    }
+
+    .warning { color: var(--error); }
+
+    .split {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-block: 1.75rem;
+    }
+
+    .split article {
+      padding-top: 0.75rem;
+    }
+
+    .split article:first-child h3 { color: var(--error); }
+    .split article:last-child h3 { color: var(--await); }
+    .split p { color: var(--muted); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 1.75rem;
+    }
+
+    th, td {
+      padding: 0.8rem 0.7rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { color: var(--muted); font-weight: 500; }
+    th:first-child, td:first-child { padding-left: 0; }
+
+    .rules {
+      display: grid;
+      gap: 1.75rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules li::marker { color: var(--await); }
+    .rules p { padding-top: 0.35rem; color: var(--muted); }
+
+    .qa {
+      display: grid;
+      gap: 2rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .qa li::marker { color: var(--await); }
+    .question { padding-bottom: 0.75rem; }
+    details p { padding-top: 0.75rem; }
+    .qa pre + details { padding-top: 0.75rem; }
+
+    summary {
+      color: var(--await);
+      cursor: pointer;
+    }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        width: min(calc(100% - 2rem), 50rem);
+        padding-block: 3rem;
+      }
+
+      .split { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; white-space: nowrap; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Callbacks, Promises, and async/await</h1>
+      <p class="intro">These are three ways to handle work that finishes later, such as loading data from a server, reading a file, or waiting for a timer.</p>
+    </header>
+
+    <main>
+      <section>
+        <h2>The problem they solve</h2>
+        <p>Some operations do not produce a result immediately. A network request might take 200 milliseconds or several seconds.</p>
+        <p>JavaScript starts the operation and continues running other code. You need a way to say, “When the result is ready, run this code.”</p>
+
+        <figure class="example">
+          <figcaption>This code cannot use the user until the request finishes:</figcaption>
+          <pre><code><span class="keyword">const</span> user = <span class="function">getUser</span>(42);
+console.<span class="function">log</span>(user.name);</code></pre>
+        </figure>
+
+        <p class="note">Callbacks, Promises, and async/await provide different ways to wait for that result.</p>
+      </section>
+
+      <section>
+        <h2><span class="callback">Callbacks</span></h2>
+        <p>A callback is a function passed to another function. The other function calls it when the work is complete.</p>
+
+        <figure class="example">
+          <figcaption>Pass the next step as a function:</figcaption>
+          <pre><code><span class="function">getUser</span>(42, (error, user) =&gt; {
+  <span class="keyword">if</span> (error) {
+    console.<span class="function">error</span>(error);
+    <span class="keyword">return</span>;
+  }
+
+  console.<span class="function">log</span>(user.name);
+});</code></pre>
+        </figure>
+
+        <ol class="steps">
+          <li><code>getUser</code> starts the request.</li>
+          <li>JavaScript continues running other code.</li>
+          <li>The request finishes.</li>
+          <li><code>getUser</code> calls the callback with an error or a user.</li>
+        </ol>
+
+        <p class="note">A callback is just a function. Callbacks can also be used for synchronous operations, but they are common in asynchronous APIs.</p>
+
+        <figure class="example">
+          <figcaption>Several dependent callbacks create nesting:</figcaption>
+          <pre><code><span class="function">getUser</span>(42, (error, user) =&gt; {
+  <span class="keyword">if</span> (error) <span class="keyword">return</span> <span class="function">handleError</span>(error);
+
+  <span class="function">getPosts</span>(user.id, (error, posts) =&gt; {
+    <span class="keyword">if</span> (error) <span class="keyword">return</span> <span class="function">handleError</span>(error);
+    <span class="function">showPosts</span>(posts);
+  });
+});</code></pre>
+        </figure>
+
+        <p>The repeated error checks and increasing indentation become difficult to manage as more steps are added.</p>
+      </section>
+
+      <section>
+        <h2><span class="promise">Promises</span></h2>
+        <p>A Promise is an object that represents one result that may become available later.</p>
+
+        <p>A Promise is always in one of three states:</p>
+
+        <ul class="steps promise-states">
+          <li><strong class="promise">Pending:</strong> the operation is still running.</li>
+          <li><strong class="await">Fulfilled:</strong> the operation completed successfully and produced a value.</li>
+          <li><strong class="error">Rejected:</strong> the operation failed and produced an error.</li>
+        </ul>
+
+        <p><code>.then()</code> handles a fulfilled value. <code>.catch()</code> handles a rejection.</p>
+
+        <figure class="example">
+          <figcaption>The same user request with a Promise:</figcaption>
+          <pre><code><span class="function">getUser</span>(42)
+  .<span class="function">then</span>(user =&gt; {
+    console.<span class="function">log</span>(user.name);
+  })
+  .<span class="function">catch</span>(error =&gt; {
+    console.<span class="function">error</span>(error);
+  });</code></pre>
+        </figure>
+
+        <p>Promises are useful because they can be chained. Each <code>.then()</code> produces a new Promise.</p>
+
+        <figure class="example">
+          <figcaption>Return the next Promise so the chain waits for it:</figcaption>
+          <pre><code><span class="function">getUser</span>(42)
+  .<span class="function">then</span>(user =&gt; {
+    <span class="keyword">return</span> <span class="function">getPosts</span>(user.id);
+  })
+  .<span class="function">then</span>(posts =&gt; {
+    <span class="function">showPosts</span>(posts);
+  })
+  .<span class="function">catch</span>(<span class="function">handleError</span>);</code></pre>
+        </figure>
+
+        <p class="note warning">If you forget to return <code>getPosts()</code>, the next <code>.then()</code> will run without waiting for it.</p>
+      </section>
+
+      <section>
+        <h2><span class="await">Async and await</span></h2>
+        <p>Async/await is another way to work with Promises. It does not replace Promises.</p>
+        <p>An <code>async</code> function always returns a Promise. Inside that function, <code>await</code> waits for a Promise to settle.</p>
+
+        <figure class="example">
+          <figcaption>The same request written with async/await:</figcaption>
+          <pre><code><span class="keyword">async function</span> <span class="function">showUser</span>() {
+  <span class="keyword">try</span> {
+    <span class="keyword">const</span> user = <span class="keyword">await</span> <span class="function">getUser</span>(42);
+    console.<span class="function">log</span>(user.name);
+  } <span class="keyword">catch</span> (error) {
+    console.<span class="function">error</span>(error);
+  }
+}
+
+<span class="function">showUser</span>();</code></pre>
+        </figure>
+
+        <ol class="steps">
+          <li><code>getUser(42)</code> returns a Promise.</li>
+          <li><code>await</code> pauses <code>showUser</code> until that Promise settles.</li>
+          <li>If it fulfills, <code>user</code> receives the value.</li>
+          <li>If it rejects, execution moves to <code>catch</code>.</li>
+        </ol>
+
+        <p class="note"><code>await</code> pauses only the current async function. It does not block the entire JavaScript program.</p>
+
+        <figure class="example">
+          <figcaption>Dependent steps read from top to bottom:</figcaption>
+          <pre><code><span class="keyword">async function</span> <span class="function">loadPosts</span>() {
+  <span class="keyword">try</span> {
+    <span class="keyword">const</span> user = <span class="keyword">await</span> <span class="function">getUser</span>(42);
+    <span class="keyword">const</span> posts = <span class="keyword">await</span> <span class="function">getPosts</span>(user.id);
+    <span class="function">showPosts</span>(posts);
+  } <span class="keyword">catch</span> (error) {
+    <span class="function">handleError</span>(error);
+  }
+}</code></pre>
+        </figure>
+      </section>
+
+      <section>
+        <h2>Waiting in sequence or together</h2>
+        <p>Use consecutive awaits when the second operation needs the first result.</p>
+
+        <figure class="example">
+          <figcaption>These requests are dependent:</figcaption>
+          <pre><code><span class="keyword">const</span> user = <span class="keyword">await</span> <span class="function">getUser</span>(42);
+<span class="keyword">const</span> posts = <span class="keyword">await</span> <span class="function">getPosts</span>(user.id);</code></pre>
+        </figure>
+
+        <p>If operations do not depend on each other, start them together with <code>Promise.all()</code>.</p>
+
+        <figure class="example">
+          <figcaption>These requests are independent:</figcaption>
+          <pre><code><span class="keyword">const</span> [user, settings] = <span class="keyword">await</span> Promise.<span class="function">all</span>([
+  <span class="function">getUser</span>(42),
+  <span class="function">getSettings</span>()
+]);</code></pre>
+        </figure>
+
+        <div class="split">
+          <article>
+            <h3>Consecutive awaits</h3>
+            <p>The second operation starts after the first finishes.</p>
+          </article>
+          <article>
+            <h3>Promise.all</h3>
+            <p>Both operations start immediately, then the code waits for both.</p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <h2>How the three styles compare</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Style</th>
+              <th>Success</th>
+              <th>Failure</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="callback">Callback</td>
+              <td>Callback argument</td>
+              <td>Error argument</td>
+            </tr>
+            <tr>
+              <td class="promise">Promise</td>
+              <td><code>.then()</code></td>
+              <td><code>.catch()</code></td>
+            </tr>
+            <tr>
+              <td class="await">Async/await</td>
+              <td><code>await</code></td>
+              <td><code>try/catch</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Practical rules</h2>
+        <ol class="rules">
+          <li>
+            <strong>Use async/await for most Promise-based application code.</strong>
+            <p>It usually makes dependent steps easier to read.</p>
+          </li>
+          <li>
+            <strong>Use callbacks for events and callback-only APIs.</strong>
+            <p>For example, click handlers and older Node.js APIs.</p>
+          </li>
+          <li>
+            <strong>Return or await every Promise that matters.</strong>
+            <p>This keeps errors and completion connected to the caller.</p>
+          </li>
+          <li>
+            <strong>Use Promise.all for independent operations.</strong>
+            <p>This avoids waiting longer than necessary.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Check your understanding</h2>
+        <ol class="qa">
+          <li>
+            <p class="question">What does a callback provide to an asynchronous function?</p>
+            <details>
+              <summary>Show answer</summary>
+              <p>It provides the code to run after the operation finishes. The asynchronous function calls the callback with the result or an error.</p>
+            </details>
+          </li>
+          <li>
+            <p class="question">What are the three states of a Promise?</p>
+            <details>
+              <summary>Show answer</summary>
+              <p>Pending means the operation has not finished. Fulfilled means it completed successfully and produced a value. Rejected means it failed and produced an error.</p>
+            </details>
+          </li>
+          <li>
+            <p class="question">Does <code>await</code> block the entire JavaScript program?</p>
+            <details>
+              <summary>Show answer</summary>
+              <p>No. It pauses only the current async function. Other JavaScript can continue running while the function waits for the Promise.</p>
+            </details>
+          </li>
+          <li>
+            <p class="question">When should you use <code>Promise.all()</code> instead of consecutive awaits?</p>
+            <details>
+              <summary>Show answer</summary>
+              <p>Use it when the operations are independent. They can start together, which usually finishes sooner than waiting for each one separately.</p>
+            </details>
+          </li>
+          <li>
+            <p class="question">What does this code print?</p>
+            <pre><code>Promise.<span class="function">resolve</span>(2)
+  .<span class="function">then</span>(number =&gt; number * 3)
+  .<span class="function">then</span>(console.log);</code></pre>
+            <details>
+              <summary>Show answer</summary>
+              <p>It prints <code>6</code>. The first <code>.then()</code> receives <code>2</code> and returns <code>6</code>. The next <code>.then()</code> receives that returned value.</p>
+            </details>
+          </li>
+          <li>
+            <p class="question">In what order does this code print the letters?</p>
+            <pre><code><span class="keyword">async function</span> <span class="function">run</span>() {
+  console.<span class="function">log</span>(<span class="string">"A"</span>);
+  <span class="keyword">await</span> Promise.<span class="function">resolve</span>();
+  console.<span class="function">log</span>(<span class="string">"B"</span>);
+}
+
+<span class="function">run</span>();
+console.<span class="function">log</span>(<span class="string">"C"</span>);</code></pre>
+            <details>
+              <summary>Show answer</summary>
+              <p>It prints <code>A</code>, <code>C</code>, then <code>B</code>. Calling <code>run()</code> prints A. The <code>await</code> pauses <code>run</code>, so the program continues and prints C. Then <code>run</code> resumes and prints B.</p>
+            </details>
+          </li>
+          <li>
+            <p class="question">What does this code print?</p>
+            <pre><code><span class="keyword">async function</span> <span class="function">run</span>() {
+  <span class="keyword">try</span> {
+    <span class="keyword">await</span> Promise.<span class="function">reject</span>(<span class="string">"Failed"</span>);
+    console.<span class="function">log</span>(<span class="string">"Done"</span>);
+  } <span class="keyword">catch</span> (error) {
+    console.<span class="function">log</span>(error);
+  }
+}
+
+<span class="function">run</span>();</code></pre>
+            <details>
+              <summary>Show answer</summary>
+              <p>It prints <code>Failed</code>. Awaiting the rejected Promise moves execution directly to <code>catch</code>, so <code>Done</code> is never printed.</p>
+            </details>
+          </li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <p>Callbacks pass a function. Promises return a future result. Async/await provides simpler Promise syntax.</p>
+    </footer>
+  </div>
+</body>
+</html>

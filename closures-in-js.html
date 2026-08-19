@@ -317,6 +317,53 @@ wallet.balance;      <span class="comment">// undefined</span></code></pre>
 <span class="fn">setupButton</span>(saveButton, <span class="str">"Saved!"</span>);
 <span class="comment">// The handler remembers message after setupButton returns.</span></code></pre>
       </div>
+
+      <div class="example">
+        <h3>Debouncing</h3>
+        <p>Delay a function until calls stop arriving. The returned function closes over <code>timerId</code>, so every call can cancel the previous timer.</p>
+        <pre><code><span class="kw">function</span> <span class="fn">debounce</span>(fn, delay) {
+  <span class="kw">let</span> timerId;
+
+  <span class="kw">return function</span> (...args) {
+    <span class="fn">clearTimeout</span>(timerId);
+
+    timerId = <span class="fn">setTimeout</span>(() =&gt; {
+      fn.<span class="fn">apply</span>(<span class="kw">this</span>, args);
+    }, delay);
+  };
+}
+
+<span class="kw">const</span> search = <span class="fn">debounce</span>(query =&gt; {
+  <span class="fn">console.log</span>(query);
+}, <span class="num">300</span>);
+
+<span class="fn">search</span>(<span class="str">"j"</span>);
+<span class="fn">search</span>(<span class="str">"ja"</span>);
+<span class="fn">search</span>(<span class="str">"javascript"</span>); <span class="comment">// only this call runs</span></code></pre>
+      </div>
+
+      <div class="example">
+        <h3>Throttling</h3>
+        <p>Limit a function to one call per interval. The returned function closes over <code>ready</code>, which records whether another call is allowed.</p>
+        <pre><code><span class="kw">function</span> <span class="fn">throttle</span>(fn, interval) {
+  <span class="kw">let</span> ready = <span class="kw">true</span>;
+
+  <span class="kw">return function</span> (...args) {
+    <span class="kw">if</span> (!ready) <span class="kw">return</span>;
+
+    ready = <span class="kw">false</span>;
+    fn.<span class="fn">apply</span>(<span class="kw">this</span>, args);
+
+    <span class="fn">setTimeout</span>(() =&gt; {
+      ready = <span class="kw">true</span>;
+    }, interval);
+  };
+}
+
+<span class="kw">const</span> trackScroll = <span class="fn">throttle</span>(() =&gt; {
+  <span class="fn">console.log</span>(<span class="str">"scroll position recorded"</span>);
+}, <span class="num">200</span>);</code></pre>
+      </div>
     </section>
 
     <section aria-labelledby="loop-trap">
