@@ -6,8 +6,8 @@ Use this palette for note pages.
 
 - Page background (`--bg`): `#0c1015`
 - Code surface (`--surface`): `#121923`
-- Primary text (`--text`): `#e8edf3`
-- Supporting text (`--muted`): `#99a6b5`
+- Scan-target text (`--text`): `#e8edf3`
+- Sustained-reading text (`--muted`): `#99a6b5`
 - Functional borders (`--line`): `#2b3745`
 - Blue accent: `#68d7ff`
 - Green accent: `#8ee6a2`
@@ -17,15 +17,18 @@ Use this palette for note pages.
 
 ## Assignments
 
+- Headings, short labels, and brief standalone statements: `--text`
+- Paragraphs, definitions, explanations, list content, captions, and metadata: `--muted`
 - Functions, interactions, and primary focus words: blue
 - Strings and success states: green
 - Third concept group: violet
 - Numbers and cautions: amber
 - JavaScript keywords and errors: pink
-- Code comments: supporting text
+- Code comments: `--muted`
 
 ## Rules
 
+- Classify text by reading mode, not importance. Essential prose still uses `--muted`.
 - Assign one accent to each concept and keep that assignment consistent.
 - Use borders only when they communicate structure.
 - Keep meaning visible without color.

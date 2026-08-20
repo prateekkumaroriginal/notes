@@ -8,9 +8,10 @@
 - Use spacing to clearly associate each definition with its heading.
 - If and only if Q&A exists, keep it at the end.
 - Emphasize focus words with color.
-- Use [COLORS.md](COLORS.md) for page colors and syntax highlighting.
+- Use [COLORS.md](COLORS.md) for page colors, text hierarchy, and syntax highlighting.
 - Keep heading text free of code-pill backgrounds.
 - Dark mode only.
+- Use Inter for all non-code text, including headings. Keep code in ui-monospace font.
 - Use browser-default font sizes.
 - Use the main content width `min(900px, calc(100% - 2rem))` for paragraphs, headings, and text callouts. Do not set a separate `max-width` on these elements.
 - Use `line-height: 1.5` for code snippets.
