@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A collection of practical JavaScript notes and visual guides.">
-  <title>JavaScript notes</title>
+  <meta name="description" content="A collection of practical JavaScript and React notes.">
+  <title>JavaScript and React notes</title>
   <style>
     :root {
       color-scheme: dark;
@@ -24,10 +24,10 @@
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    h1, h2, p, ul { margin: 0; }
+    h1, ul { margin: 0; }
 
     .page {
       width: min(900px, calc(100% - 2rem));
@@ -35,101 +35,125 @@
       padding-block: 5rem;
     }
 
-    h1 { padding-bottom: 0.75rem; }
-
-    .intro {
-      color: var(--muted);
-      max-width: 38rem;
-    }
-
     main { padding-top: 3rem; }
 
-    h2 { padding-bottom: 0.75rem; }
-
-    .notes {
+    .folders {
       display: grid;
       gap: 1.75rem;
-      padding: 0;
+    }
+
+    .folder:nth-child(1) { --folder-color: var(--blue); }
+    .folder:nth-child(2) { --folder-color: var(--green); }
+
+    summary {
+      display: grid;
+      grid-template-columns: 1.35rem 1fr;
+      align-items: center;
+      gap: 0.4rem;
+      width: fit-content;
+      cursor: pointer;
+      border-radius: 0.4rem;
+      color: var(--folder-color);
+      font-weight: 750;
       list-style: none;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .note-link {
-      display: inline-block;
-      border-radius: 0.35rem;
-      color: var(--blue);
-      font-weight: 650;
-      text-decoration-thickness: 0.08em;
-      text-underline-offset: 0.2em;
+    summary::-webkit-details-marker { display: none; }
+
+    .disclosure-icon {
+      position: relative;
+      width: 1.1rem;
+      height: 1.1rem;
+      transform: rotate(0deg);
+      transform-origin: 50% 50%;
+      transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      backface-visibility: hidden;
+      will-change: transform;
     }
 
-    .notes li:nth-child(2n) .note-link { color: var(--green); }
-    .notes li:nth-child(3n) .note-link { color: var(--violet); }
-    .notes li:nth-child(4n) .note-link { color: var(--amber); }
-    .notes li:nth-child(5n) .note-link { color: var(--pink); }
+    .disclosure-icon::before {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0.55rem;
+      height: 0.68rem;
+      transform: translate(-33.333%, -50%);
+      border-radius: 0.08rem;
+      background: currentColor;
+      clip-path: polygon(0 0, 100% 50%, 0 100%);
+      content: "";
+    }
 
-    .note-link:hover { text-decoration-thickness: 0.14em; }
+    details[open] > summary .disclosure-icon { transform: rotate(90deg); }
 
-    .note-link:focus-visible {
-      outline: 0.15rem solid currentColor;
+    summary:focus-visible {
+      outline: 0.15rem solid var(--folder-color);
       outline-offset: 0.3rem;
     }
 
-    .description {
-      padding-top: 0.35rem;
+    .notes {
+      display: grid;
+      gap: 0.65rem;
+      padding: 0.85rem 0 0 1.75rem;
+      list-style: none;
+    }
+
+    .notes a {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 0.3rem;
       color: var(--muted);
+      text-decoration-color: transparent;
+      text-underline-offset: 0.2em;
+    }
+
+    .notes a:hover {
+      color: var(--folder-color);
+      text-decoration-color: currentColor;
+    }
+
+    .notes a:focus-visible {
+      outline: 0.13rem solid var(--folder-color);
+      outline-offset: 0.25rem;
     }
 
     @media (max-width: 720px) {
-      .page {
-        padding-block: 3rem;
-      }
+      .page { padding-block: 3rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .disclosure-icon { transition-duration: 0.001ms; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <header>
-      <h1>JavaScript notes</h1>
-      <p class="intro">Short explanations, worked examples, and visual guides for the parts of JavaScript that usually need a second look.</p>
+      <h1>JavaScript and React notes</h1>
     </header>
 
     <main>
-      <section aria-labelledby="all-notes">
-        <h2 id="all-notes">All notes</h2>
-        <ul class="notes">
-          <li>
-            <a class="note-link" href="let-vs-var-vs-const.html">let vs. var vs. const</a>
-            <p class="description">How the three declarations differ in scope, reassignment, hoisting, and everyday use.</p>
-          </li>
-          <li>
-            <a class="note-link" href="closures-in-js.html">Closures</a>
-            <p class="description">Lexical scope, retained state, practical patterns, and common traps.</p>
-          </li>
-          <li>
-            <a class="note-link" href="currying-in-js.html">Currying</a>
-            <p class="description">Closures, partial application, useful examples, and tradeoffs.</p>
-          </li>
-          <li>
-            <a class="note-link" href="bind-call-apply.html">bind, call, and apply</a>
-            <p class="description">Control <code>this</code> and pass arguments with JavaScript's function methods.</p>
-          </li>
-          <li>
-            <a class="note-link" href="map-filter-reduce.html">map, filter, and reduce</a>
-            <p class="description">Mental models, examples, and mistakes to avoid when transforming arrays.</p>
-          </li>
-          <li>
-            <a class="note-link" href="callbacks-promises-async-await.html">Callbacks, Promises, and async/await</a>
-            <p class="description">Three ways to handle work that finishes later.</p>
-          </li>
-          <li>
-            <a class="note-link" href="event-loop-in-js.html">The event loop</a>
-            <p class="description">The call stack, task queue, microtask queue, timers, and async/await.</p>
-          </li>
-          <li>
-            <a class="note-link" href="react.html">React</a>
-            <p class="description">What React is, why it was created, and the problem it solves.</p>
-          </li>
-        </ul>
+      <section class="folders" aria-label="Note folders">
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>JavaScript</span></summary>
+          <ul class="notes">
+            <li><a href="let-vs-var-vs-const.html">let vs. var vs. const</a></li>
+            <li><a href="closures-in-js.html">Closures</a></li>
+            <li><a href="currying-in-js.html">Currying</a></li>
+            <li><a href="bind-call-apply.html">bind, call, and apply</a></li>
+            <li><a href="map-filter-reduce.html">map, filter, and reduce</a></li>
+            <li><a href="callbacks-promises-async-await.html">Callbacks, Promises, and async/await</a></li>
+            <li><a href="event-loop-in-js.html">The event loop</a></li>
+          </ul>
+        </details>
+
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>React</span></summary>
+          <ul class="notes">
+            <li><a href="react.html">React</a></li>
+          </ul>
+        </details>
       </section>
     </main>
   </div>
