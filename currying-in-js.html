@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Practical notes on currying in JavaScript, with closures, partial application, examples, and tradeoffs.">
+  <meta name="description" content="Practical notes on currying in JavaScript, with closures, examples, and tradeoffs.">
   <title>Currying in JavaScript</title>
   <style>
     :root {
@@ -32,18 +32,15 @@
 
     .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
     main { padding-top: 3rem; }
-    h1, h2, h3, p, pre, figure, ol, ul { margin: 0; }
+    h1, h2, p, pre, figure, ol, ul { margin: 0; }
     h1 { padding-bottom: 0.75rem; }
     h2 { padding-bottom: 0.75rem; }
-    h3 { padding-bottom: 0.4rem; }
     section + section { padding-top: 2.5rem; }
     p + p { padding-top: 1rem; }
-    .lede, .muted, figcaption { color: var(--muted); }
-    .accent { color: var(--accent); }
-    .violet { color: var(--violet); }
+    .lede { color: var(--muted); }
 
     code { padding: 0.12em 0.35em; border-radius: 4px; background: var(--surface); font-family: var(--mono); }
-    :is(h1, h2, h3) code { padding: 0; background: transparent; }
+    :is(h1, h2) code { padding: 0; background: transparent; }
     pre { overflow-x: auto; padding: 1.25rem; background: var(--surface); line-height: 1.5; tab-size: 2; }
     pre code { padding: 0; background: transparent; }
     .kw { color: var(--pink); }
@@ -71,20 +68,6 @@
     .sequence p { padding-top: 0.35rem; color: var(--muted); }
 
     .example { padding-top: 1.75rem; }
-    .example figcaption { padding-bottom: 0.75rem; }
-
-    .compare {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 1.75rem;
-      padding-top: 1.75rem;
-    }
-
-    .compare article { padding-top: 0.9rem; border-top: 2px solid var(--line); }
-    .compare article:first-child { border-color: var(--accent); }
-    .compare article:last-child { border-color: var(--violet); }
-    .compare p { color: var(--muted); }
-
     .note { padding-top: 1.75rem; color: var(--muted); }
     .note strong { color: var(--accent); }
 
@@ -102,7 +85,6 @@
       .page { padding-block: 3rem; }
       .equation { grid-template-columns: 1fr; }
       .equation > span { text-align: center; }
-      .compare { grid-template-columns: 1fr; }
     }
   </style>
   <link rel="stylesheet" href="code-blocks.css">
@@ -185,30 +167,6 @@
       <p class="note">The final function has the callback shape that <code>filter</code> needs. The configuration has already been supplied.</p>
     </section>
 
-    <section aria-labelledby="partial-application">
-      <h2 id="partial-application">Currying and partial application</h2>
-      <div class="compare">
-        <article>
-          <h3 class="accent">Currying</h3>
-          <p>Changes a multi-argument function into nested one-argument functions. Example: <code>f(a, b, c)</code> becomes <code>f(a)(b)(c)</code>.</p>
-        </article>
-        <article>
-          <h3 class="violet">Partial application</h3>
-          <p>Prefills some arguments and returns a function for the rest. The returned function may still accept several arguments.</p>
-        </article>
-      </div>
-
-      <figure class="example">
-        <figcaption><code>bind</code> can partially apply a regular function without currying it.</figcaption>
-        <pre><code><span class="kw">const</span> volume = (length, width, height) =&gt;
-  length * width * height;
-
-<span class="kw">const</span> volumeWithLength10 = volume.<span class="fn">bind</span>(<span class="kw">null</span>, <span class="num">10</span>);
-
-<span class="fn">volumeWithLength10</span>(<span class="num">4</span>, <span class="num">3</span>); <span class="comment">// 120</span></code></pre>
-      </figure>
-    </section>
-
     <section aria-labelledby="generic-curry">
       <h2 id="generic-curry">A generic curry helper</h2>
       <p>This helper keeps collecting arguments until it has at least as many as the original function declares.</p>
@@ -252,8 +210,8 @@
           <details><summary>Show answer</summary><p><code>multiply(4)</code> returns a function that remembers <code>a = 4</code>. The second call supplies <code>b = 5</code>.</p></details>
         </li>
         <li>
-          Is every partial application a curried function?
-          <details><summary>Show answer</summary><p>No. Partial application preloads some arguments, but the returned function may accept multiple remaining arguments.</p></details>
+          When does the generic <code>curry</code> helper call the original function?
+          <details><summary>Show answer</summary><p>It calls the original function when it has collected at least as many arguments as <code>fn.length</code> reports.</p></details>
         </li>
         <li>
           What JavaScript feature lets a returned function remember earlier arguments?

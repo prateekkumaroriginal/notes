@@ -12,7 +12,7 @@
 - Keep heading text free of code-pill backgrounds.
 - Dark mode only.
 - Use browser-default font sizes.
-- Use the main content width for paragraphs, headings, and text callouts. Do not set a separate `max-width` on these elements.
+- Use the main content width `min(900px, calc(100% - 2rem))` for paragraphs, headings, and text callouts. Do not set a separate `max-width` on these elements.
 - Use `line-height: 1.5` for code snippets.
 
 ## Don't use these css properties until necessary:
