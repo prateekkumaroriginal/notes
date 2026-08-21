@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on useRef, DOM refs, mutable values that do not affect rendering, and choosing between state and refs.">
+  <title>React useRef, DOM Refs, and State vs Refs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol, dl, dt, dd { margin: 0; }
+    h1, h2, h3, strong, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .ref { color: var(--blue); }
+    .dom { color: var(--green); }
+    .mutable { color: var(--violet); }
+    .state { color: var(--amber); }
+    .caution { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .kw { color: var(--pink); }
+    .fn, .tag { color: var(--blue); }
+    .str { color: var(--green); }
+    .name { color: var(--violet); }
+    .num { color: var(--amber); }
+    .comment { color: var(--muted); }
+
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .concept {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .concept:nth-child(1) { border-color: var(--blue); }
+    .concept:nth-child(2) { border-color: var(--green); }
+    .concept:nth-child(3) { border-color: var(--violet); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .steps,
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .steps,
+    .rules { display: grid; gap: 1.75rem; }
+    .steps p,
+    .rules p { padding-top: 0.35rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .comparison .state-side { border-color: var(--amber); }
+    .comparison .ref-side { border-color: var(--blue); }
+    .comparison dd { padding-top: 0.25rem; }
+    .comparison dd + dt { padding-top: 1rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .example + .note,
+    .rules + .note,
+    .comparison + .note { margin-top: 1.75rem; }
+
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .concepts,
+      .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>useRef, DOM Refs, and State vs Refs</h1>
+      <p>A ref is a persistent container for a value that React does not use to render the interface. Use it to reach a DOM node or remember mutable information without requesting another render.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="mental-model-heading">
+        <h2 id="mental-model-heading">The <span class="ref">ref</span> mental model</h2>
+        <p><code>useRef(initialValue)</code> returns the same object on every render. Its one writable property, <code>current</code>, starts with the initial value and can later hold any JavaScript value.</p>
+
+        <div class="concepts">
+          <article class="concept">
+            <h3 class="ref">Stable container</h3>
+            <p>The ref object keeps its identity between renders.</p>
+          </article>
+          <article class="concept">
+            <h3 class="dom">Imperative access</h3>
+            <p>A JSX <code>ref</code> can point to a browser DOM node.</p>
+          </article>
+          <article class="concept">
+            <h3 class="mutable">Quiet mutation</h3>
+            <p>Changing <code>current</code> does not trigger a render.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>A ref survives renders, and changing its current value takes effect immediately.</figcaption>
+          <pre><code><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="str">"react"</span>;
+
+<span class="kw">function</span> <span class="name">Example</span>() {
+  <span class="kw">const</span> visitCount = <span class="fn">useRef</span>(<span class="num">0</span>);
+
+  <span class="kw">function</span> <span class="fn">recordVisit</span>() {
+    visitCount.current += <span class="num">1</span>;
+    console.log(visitCount.current); <span class="comment">// Updated immediately</span>
+  }
+
+  <span class="kw">return</span> &lt;<span class="tag">button</span> onClick={recordVisit}&gt;Record visit&lt;/<span class="tag">button</span>&gt;;
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Do not read or write <code>ref.current</code> while rendering.</span> Rendering should stay pure. Read or change refs in event handlers or Effects instead. Predictable one-time initialization is the narrow exception.</p>
+      </section>
+
+      <section aria-labelledby="dom-heading">
+        <h2 id="dom-heading"><span class="dom">DOM refs</span></h2>
+        <p>Sometimes code must perform an imperative browser action such as focusing an input, scrolling an element into view, measuring its size, or controlling media. Pass a ref object to a built-in element's <code>ref</code> attribute so React can place that DOM node in <code>current</code>.</p>
+
+        <figure class="example">
+          <figcaption>Clicking the button focuses the input without storing focus in state.</figcaption>
+          <pre><code><span class="kw">import</span> { useRef } <span class="kw">from</span> <span class="str">"react"</span>;
+
+<span class="kw">export default function</span> <span class="name">SearchForm</span>() {
+  <span class="kw">const</span> inputRef = <span class="fn">useRef</span>(<span class="kw">null</span>);
+
+  <span class="kw">function</span> <span class="fn">focusSearch</span>() {
+    inputRef.current?.focus();
+  }
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">form</span>&gt;
+      &lt;<span class="tag">label</span> htmlFor=<span class="str">"search"</span>&gt;Search notes&lt;/<span class="tag">label</span>&gt;
+      &lt;<span class="tag">input</span> id=<span class="str">"search"</span> ref={inputRef} /&gt;
+      &lt;<span class="tag">button</span> type=<span class="str">"button"</span> onClick={focusSearch}&gt;
+        Focus search
+      &lt;/<span class="tag">button</span>&gt;
+    &lt;/<span class="tag">form</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ol class="steps">
+          <li><strong>Start with <code>useRef(null)</code>.</strong><p>There is no DOM node during the first render, so <code>null</code> is the useful initial value.</p></li>
+          <li><strong>Connect the ref in JSX.</strong><p><code>&lt;input ref={inputRef} /&gt;</code> tells React which node the ref should track.</p></li>
+          <li><strong>Use the node after React commits it.</strong><p>In an event handler, <code>inputRef.current</code> refers to the input. React sets it back to <code>null</code> when that node is removed.</p></li>
+        </ol>
+
+        <p class="note"><strong>Keep React in charge of structure.</strong> Non-destructive actions such as focus, scroll, and measurement are normal ref uses. Avoid manually removing nodes or rewriting content that React renders because the next commit may conflict with those changes.</p>
+      </section>
+
+      <section aria-labelledby="mutable-heading">
+        <h2 id="mutable-heading"><span class="mutable">Mutable non-rendering values</span></h2>
+        <p>A ref can hold more than a DOM node. It is useful for information that must survive renders but does not describe what the user sees, such as a timeout ID, an external library instance, or bookkeeping used by an event handler.</p>
+
+        <figure class="example">
+          <figcaption>This button restarts one delayed save. The timeout ID is implementation bookkeeping, so it belongs in a ref.</figcaption>
+          <pre><code><span class="kw">import</span> { useRef, useState } <span class="kw">from</span> <span class="str">"react"</span>;
+
+<span class="kw">export default function</span> <span class="name">DraftSaver</span>() {
+  <span class="kw">const</span> [status, setStatus] = <span class="fn">useState</span>(<span class="str">"Ready"</span>);
+  <span class="kw">const</span> timeoutRef = <span class="fn">useRef</span>(<span class="kw">null</span>);
+
+  <span class="kw">function</span> <span class="fn">scheduleSave</span>() {
+    clearTimeout(timeoutRef.current);
+    <span class="fn">setStatus</span>(<span class="str">"Waiting to save"</span>);
+
+    timeoutRef.current = setTimeout(() =&gt; {
+      <span class="comment">// Send the latest draft to a server here.</span>
+      <span class="fn">setStatus</span>(<span class="str">"Saved"</span>);
+    }, <span class="num">1000</span>);
+  }
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">section</span>&gt;
+      &lt;<span class="tag">button</span> onClick={scheduleSave}&gt;Schedule save&lt;/<span class="tag">button</span>&gt;
+      &lt;<span class="tag">p</span> aria-live=<span class="str">"polite"</span>&gt;{status}&lt;/<span class="tag">p</span>&gt;
+    &lt;/<span class="tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>The user-visible <code>status</code> is state because the paragraph must update. The timeout ID is a ref because React never renders it. Both values persist, but only the state setter requests a new render.</p>
+
+        <ul class="rules">
+          <li><strong>Use a ref for information that rendering does not need.</strong><p>Ask: would changing this value alone need to update the screen? If not, a ref may fit.</p></li>
+          <li><strong>Mutate only <code>current</code>, not the ref binding.</strong><p>The ref object is stable. Store the changing value in its <code>current</code> property.</p></li>
+          <li><strong>Clean up external work when needed.</strong><p>If a ref tracks a timer, subscription, or third-party object that can outlive the component, cancel or dispose of it in an Effect cleanup.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="comparison-heading">
+        <h2 id="comparison-heading"><span class="state">State</span> vs <span class="ref">refs</span></h2>
+        <p>State and refs both retain values between renders. The deciding question is whether changing the value should make React calculate and commit a new interface.</p>
+
+        <div class="comparison">
+          <article class="state-side">
+            <h3 class="state">Use state</h3>
+            <dl>
+              <dt>Purpose</dt>
+              <dd>Data used to produce JSX.</dd>
+              <dt>How to update</dt>
+              <dd>Call a setter such as <code>setCount</code>.</dd>
+              <dt>Rendering behavior</dt>
+              <dd>The setter requests a new render. Each render sees a snapshot.</dd>
+              <dt>Examples</dt>
+              <dd>Typed text, selected tab, validation message, count.</dd>
+            </dl>
+          </article>
+          <article class="ref-side">
+            <h3 class="ref">Use a ref</h3>
+            <dl>
+              <dt>Purpose</dt>
+              <dd>Data not needed to produce JSX, or an imperative handle.</dd>
+              <dt>How to update</dt>
+              <dd>Assign to <code>ref.current</code>.</dd>
+              <dt>Rendering behavior</dt>
+              <dd>The value changes immediately without requesting a render.</dd>
+              <dt>Examples</dt>
+              <dd>DOM node, timeout ID, media element, library instance.</dd>
+            </dl>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>A ref is the wrong place for a count displayed in JSX because clicking changes the value without re-rendering the label.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="name">BrokenCounter</span>() {
+  <span class="kw">const</span> countRef = <span class="fn">useRef</span>(<span class="num">0</span>);
+
+  <span class="kw">function</span> <span class="fn">handleClick</span>() {
+    countRef.current += <span class="num">1</span>;
+    <span class="comment">// No render was requested, so the button text stays stale.</span>
+  }
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">button</span> onClick={handleClick}&gt;
+      Count: {countRef.current}
+    &lt;/<span class="tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><strong>Decision rule:</strong> if a value affects rendered output, store it in state. If it only supports an event, browser API, or external system behind the scenes, store it in a ref.</p>
+      </section>
+
+      <section aria-label="Summary">
+        <p class="note"><strong>Keep this model:</strong> <code>useRef</code> gives a component a stable, mutable container. React can fill it with a DOM node, or your code can keep a non-rendering value in it. Updating <code>current</code> is immediate, but only state updates tell React to render again.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Why does changing <code>ref.current</code> not update text already displayed on the page?
+            <details><summary>Show answer</summary><p>React does not track ref mutations as rendering updates. The value changes immediately, but no new render is requested, so existing DOM output remains unchanged.</p></details>
+          </li>
+          <li>
+            Why does a DOM ref usually start with <code>null</code>?
+            <details><summary>Show answer</summary><p>The DOM node does not exist during the first render. React assigns the node to <code>current</code> during the commit and returns it to <code>null</code> when the node is removed.</p></details>
+          </li>
+          <li>
+            Should a visible form error message be stored in state or a ref?
+            <details><summary>Show answer</summary><p>Use state because changing the message must update rendered JSX. A ref is better for related bookkeeping that does not appear in the interface, such as a timeout ID.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

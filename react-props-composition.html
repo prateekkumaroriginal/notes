@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on props, children, composition, and component purity with practical examples.">
+  <title>React Props, Children, Composition, and Purity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .lede { color: var(--muted); }
+    .props { color: var(--blue); }
+    .children { color: var(--green); }
+    .composition { color: var(--violet); }
+    .purity { color: var(--amber); }
+    .error { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.25rem;
+      background: var(--surface);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .type { color: var(--violet); }
+    .num { color: var(--amber); }
+    .comment { color: var(--muted); }
+
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .concept {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .concept:nth-child(1) { border-color: var(--blue); }
+    .concept:nth-child(2) { border-color: var(--green); }
+    .concept:nth-child(3) { border-color: var(--violet); }
+    .concept:nth-child(4) { border-color: var(--amber); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption {
+      padding-bottom: 0.75rem;
+      color: var(--muted);
+    }
+
+    .anatomy,
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .anatomy,
+    .rules { display: grid; gap: 1.75rem; }
+    .anatomy p,
+    .rules p { padding-top: 0.35rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .comparison .good { border-color: var(--green); }
+    .comparison .bad { border-color: var(--pink); }
+
+    .callout {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--violet);
+      border-radius: 0.35rem;
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .concepts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .comparison { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 440px) {
+      .concepts { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Props, Children, Composition, and Component Purity</h1>
+      <p class="lede">React components stay reusable when data flows in through props, layouts accept nested content, and rendering remains predictable.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="mental-model">
+        <h2 id="mental-model">The mental model</h2>
+        <p>A component is a JavaScript function that returns JSX. Its inputs describe what it should display.</p>
+
+        <div class="concepts">
+          <article class="concept">
+            <h3 class="props">Props</h3>
+            <p>Named inputs passed by a parent.</p>
+          </article>
+          <article class="concept">
+            <h3 class="children">Children</h3>
+            <p>Content placed between component tags.</p>
+          </article>
+          <article class="concept">
+            <h3 class="composition">Composition</h3>
+            <p>Building features from smaller components.</p>
+          </article>
+          <article class="concept">
+            <h3 class="purity">Purity</h3>
+            <p>Same inputs, same rendered result.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="props-section">
+        <h2 id="props-section"><span class="props">Props</span> are component inputs</h2>
+        <p>A parent passes props with JSX attributes. React gathers them into one object and supplies that object when it calls the component. Props may hold strings, numbers, booleans, objects, arrays, functions, or JSX.</p>
+
+        <figure class="example">
+          <figcaption>Destructure the prop names in the function parameter so each input is easy to see.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="fn">Profile</span>({ name, role, isOnline }) {
+  <span class="kw">return</span> (
+    &lt;article&gt;
+      &lt;h2&gt;{name}&lt;/h2&gt;
+      &lt;p&gt;{role}&lt;/p&gt;
+      &lt;span&gt;{isOnline ? <span class="str">"Online"</span> : <span class="str">"Offline"</span>}&lt;/span&gt;
+    &lt;/article&gt;
+  );
+}
+
+<span class="kw">export default function</span> <span class="fn">App</span>() {
+  <span class="kw">return</span> (
+    &lt;<span class="type">Profile</span>
+      name=<span class="str">"Mina"</span>
+      role=<span class="str">"Frontend developer"</span>
+      isOnline={<span class="kw">true</span>}
+    /&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="anatomy">
+          <li><strong>Quoted attributes are strings.</strong><p><code>name="Mina"</code> passes the string <code>"Mina"</code>.</p></li>
+          <li><strong>Curly braces evaluate JavaScript.</strong><p><code>isOnline={true}</code> passes a boolean, not the string <code>"true"</code>.</p></li>
+          <li><strong>Props are read-only.</strong><p>A child must not assign to a prop. If an interaction should change data, the parent can pass state and an event handler.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>A default parameter supplies a value only when the prop is missing or <code>undefined</code>.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="fn">Avatar</span>({ name, size = <span class="num">48</span> }) {
+  <span class="kw">return</span> &lt;img src={<span class="str">`/avatars/${name}.png`</span>} alt={name} width={size} /&gt;;
+}
+
+&lt;<span class="type">Avatar</span> name=<span class="str">"mina"</span> /&gt;
+&lt;<span class="type">Avatar</span> name=<span class="str">"leo"</span> size={<span class="num">72</span>} /&gt;</code></pre>
+        </figure>
+      </section>
+
+      <section aria-labelledby="children-section">
+        <h2 id="children-section"><span class="children">Children</span> is a special prop</h2>
+        <p>Content nested inside a component becomes its <code>children</code> prop. A wrapper can decide where that content belongs without needing to know what the content is.</p>
+
+        <figure class="example">
+          <figcaption>The <code>Panel</code> component owns the surrounding structure while its caller supplies the contents.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="fn">Panel</span>({ title, children }) {
+  <span class="kw">return</span> (
+    &lt;section className=<span class="str">"panel"</span>&gt;
+      &lt;h2&gt;{title}&lt;/h2&gt;
+      &lt;div className=<span class="str">"panel-content"</span>&gt;{children}&lt;/div&gt;
+    &lt;/section&gt;
+  );
+}
+
+<span class="kw">export default function</span> <span class="fn">App</span>() {
+  <span class="kw">return</span> (
+    &lt;<span class="type">Panel</span> title=<span class="str">"Delivery details"</span>&gt;
+      &lt;p&gt;Arrives on Tuesday.&lt;/p&gt;
+      &lt;button&gt;Track order&lt;/button&gt;
+    &lt;/<span class="type">Panel</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>Children can be text, elements, components, lists, or nothing. A self-closing component such as <code>&lt;Panel /&gt;</code> has no nested children. Use named props when the component needs several distinct content areas, such as <code>header</code>, <code>sidebar</code>, and <code>footer</code>.</p>
+      </section>
+
+      <section aria-labelledby="composition-section">
+        <h2 id="composition-section"><span class="composition">Composition</span> combines focused pieces</h2>
+        <p>Composition means putting components inside other components. It is React's main reuse mechanism: each piece handles a small responsibility, and a parent arranges the pieces into a feature.</p>
+
+        <figure class="example">
+          <figcaption>A product card composes an existing button instead of rebuilding its behavior.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="fn">AddToCartButton</span>({ onAdd }) {
+  <span class="kw">return</span> &lt;button onClick={onAdd}&gt;Add to cart&lt;/button&gt;;
+}
+
+<span class="kw">function</span> <span class="fn">ProductCard</span>({ product, onAdd }) {
+  <span class="kw">return</span> (
+    &lt;article&gt;
+      &lt;h2&gt;{product.name}&lt;/h2&gt;
+      &lt;p&gt;&#8377;{product.price}&lt;/p&gt;
+      &lt;<span class="type">AddToCartButton</span> onAdd={() =&gt; onAdd(product.id)} /&gt;
+    &lt;/article&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Keep leaf components focused.</strong><p>A button can own button behavior while a product card owns product presentation.</p></li>
+          <li><strong>Pass data down.</strong><p>The parent provides the values a child needs through props.</p></li>
+          <li><strong>Pass actions down.</strong><p>A function prop lets a child report an interaction without owning the parent's data.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="purity-section">
+        <h2 id="purity-section"><span class="purity">Component purity</span> keeps rendering predictable</h2>
+        <p>A pure component returns the same JSX when its props, state, and context are the same. Rendering should calculate the interface, not change data that existed before the render.</p>
+
+        <div class="comparison">
+          <article class="bad">
+            <h3 class="error">Impure during render</h3>
+            <p>Mutates a variable outside the component, so repeated renders produce different results.</p>
+          </article>
+          <article class="good">
+            <h3 class="children">Pure during render</h3>
+            <p>Uses its input to calculate a value without changing anything outside the component.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>The first component changes external data. The second derives its label only from props.</figcaption>
+          <pre><code><span class="comment">// Impure: rendering changes an outside variable.</span>
+<span class="kw">let</span> guestNumber = <span class="num">0</span>;
+
+<span class="kw">function</span> <span class="fn">Guest</span>() {
+  guestNumber += <span class="num">1</span>;
+  <span class="kw">return</span> &lt;p&gt;Guest #{guestNumber}&lt;/p&gt;;
+}
+
+<span class="comment">// Pure: the same number always produces the same JSX.</span>
+<span class="kw">function</span> <span class="fn">Guest</span>({ number }) {
+  <span class="kw">const</span> label = <span class="str">`Guest #${number}`</span>;
+  <span class="kw">return</span> &lt;p&gt;{label}&lt;/p&gt;;
+}</code></pre>
+        </figure>
+
+        <p>Local calculation is safe. Creating a new array, object, or variable inside the component does not affect code outside that render. Event handlers may update state because they run in response to an interaction, not while React is rendering.</p>
+      </section>
+
+      <section aria-label="Summary">
+        <p class="callout"><strong>The design rule:</strong> pass information with props, expose flexible space with <code>children</code>, assemble small components through composition, and keep rendering pure.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            What receives the paragraph in <code>&lt;Panel&gt;&lt;p&gt;Hello&lt;/p&gt;&lt;/Panel&gt;</code>?
+            <details><summary>Show answer</summary><p>The <code>children</code> prop receives the paragraph element. <code>Panel</code> can render it with <code>{children}</code>.</p></details>
+          </li>
+          <li>
+            Why should a child not change an object it received as a prop?
+            <details><summary>Show answer</summary><p>Props are read-only inputs. Mutating the object also changes data owned by the parent, making the interface harder to predict. Ask the parent to update it through an event handler instead.</p></details>
+          </li>
+          <li>
+            Is calculating <code>const total = price * quantity</code> during render impure?
+            <details><summary>Show answer</summary><p>No. It only derives a local value from inputs and changes nothing outside the component.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

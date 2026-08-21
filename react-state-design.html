@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on minimal state, derived values, lifting state, one-way data flow, and controlled components.">
+  <title>Designing State in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol, dl, dt, dd { margin: 0; }
+    h1, h2, h3, strong, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .minimal { color: var(--blue); }
+    .derived { color: var(--green); }
+    .lifting { color: var(--violet); }
+    .flow-accent { color: var(--amber); }
+    .controlled { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .model {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .model article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .model article:nth-child(1) { border-color: var(--blue); }
+    .model article:nth-child(2) { border-color: var(--green); }
+    .model article:nth-child(3) { border-color: var(--violet); }
+
+    .decision-list,
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .decision-list,
+    .rules { display: grid; gap: 1.75rem; }
+
+    .decision-list p,
+    .rules p { padding-top: 0.35rem; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .comparison article:first-child { border-color: var(--pink); }
+    .comparison article:last-child { border-color: var(--green); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding: 1.75rem 0 0;
+      list-style: none;
+    }
+
+    .flow li {
+      padding-left: 1rem;
+      border-left: 2px solid var(--amber);
+      border-radius: 0.2rem;
+    }
+
+    .flow strong {
+      display: block;
+      padding-bottom: 0.35rem;
+    }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .example + .note,
+    .comparison + .note,
+    .flow + .note { margin-top: 1.75rem; }
+
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .model,
+      .comparison,
+      .flow { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Designing State in React</h1>
+      <p>Good state design gives every changing value one clear owner. Store the smallest source of truth, calculate what follows from it, and pass data down to the components that render it.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="mental-model-heading">
+        <h2 id="mental-model-heading">Start with the source of truth</h2>
+        <p>Before adding <code>useState</code>, list the pieces of data the interface needs. Then separate values the app must remember from values it can calculate. This prevents two state variables from disagreeing.</p>
+
+        <div class="model">
+          <article>
+            <h3 class="minimal">Store</h3>
+            <p>Keep information that changes and cannot be calculated from current props or state.</p>
+          </article>
+          <article>
+            <h3 class="derived">Derive</h3>
+            <p>Calculate values that follow from the source of truth during rendering.</p>
+          </article>
+          <article>
+            <h3 class="lifting">Share</h3>
+            <p>Move state to the closest common parent when multiple children need to coordinate.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="minimal-heading">
+        <h2 id="minimal-heading">Choose <span class="minimal">minimal state</span></h2>
+        <p>State is the information React must remember between renders. More state is not more capable. Every extra state variable adds another value that code must initialize, update, and keep consistent.</p>
+
+        <ol class="decision-list">
+          <li><strong>Does the value remain constant?</strong><p>If so, declare it outside the component or as a regular constant, not state.</p></li>
+          <li><strong>Does a parent already provide it?</strong><p>Read the prop directly. Copying a prop into state creates a second source of truth unless the copy intentionally represents a separate value, such as an editable draft.</p></li>
+          <li><strong>Can current props or state calculate it?</strong><p>If so, derive it during render instead of synchronizing another state variable.</p></li>
+          <li><strong>Must React remember it after an interaction?</strong><p>If it changes over time and the earlier questions did not remove it, it is a good state candidate.</p></li>
+        </ol>
+
+        <figure class="example">
+          <figcaption>A product search only stores the query. The matching list and result count follow from that one value.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">ProductSearch</span>({ products }) {
+  <span class="token-keyword">const</span> [query, setQuery] = <span class="token-function">useState</span>(<span class="token-string">""</span>);
+
+  <span class="token-comment">// Derived during this render, so it always matches query and products.</span>
+  <span class="token-keyword">const</span> visibleProducts = products.filter(product =&gt;
+    product.name.toLowerCase().includes(query.toLowerCase())
+  );
+  <span class="token-keyword">const</span> resultCount = visibleProducts.length;
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">section</span>&gt;
+      &lt;<span class="token-tag">input</span>
+        value={query}
+        onChange={event =&gt; <span class="token-function">setQuery</span>(event.target.value)}
+        placeholder=<span class="token-string">"Search products"</span>
+      /&gt;
+      &lt;<span class="token-tag">p</span>&gt;{resultCount} results&lt;/<span class="token-tag">p</span>&gt;
+      &lt;<span class="token-tag">ul</span>&gt;
+        {visibleProducts.map(product =&gt; (
+          &lt;<span class="token-tag">li</span> key={product.id}&gt;{product.name}&lt;/<span class="token-tag">li</span>&gt;
+        ))}
+      &lt;/<span class="token-tag">ul</span>&gt;
+    &lt;/<span class="token-tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="minimal">The source of truth is small:</span> the parent owns <code>products</code>, and this component owns <code>query</code>. It does not need <code>visibleProducts</code> or <code>resultCount</code> in state.</p>
+      </section>
+
+      <section aria-labelledby="derived-heading">
+        <h2 id="derived-heading">Calculate <span class="derived">derived values</span> during render</h2>
+        <p>A derived value is a calculation based entirely on current props or state. Regular JavaScript calculations inside the component run whenever it renders, so the result automatically describes the same snapshot as the JSX.</p>
+
+        <div class="comparison">
+          <article>
+            <h3 class="controlled">Redundant state</h3>
+            <p>Storing <code>fullName</code> requires extra updates and can briefly leave the interface showing an old value.</p>
+          </article>
+          <article>
+            <h3 class="derived">Derived value</h3>
+            <p>Calculating <code>fullName</code> makes it correct whenever either source value changes.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>Do not use an Effect and a third state variable for a value that concatenation can produce.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">NameEditor</span>() {
+  <span class="token-keyword">const</span> [firstName, setFirstName] = <span class="token-function">useState</span>(<span class="token-string">"Asha"</span>);
+  <span class="token-keyword">const</span> [lastName, setLastName] = <span class="token-function">useState</span>(<span class="token-string">"Rao"</span>);
+
+  <span class="token-comment">// This is current on every render. No fullName state is needed.</span>
+  <span class="token-keyword">const</span> fullName = `${firstName} ${lastName}`;
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">form</span>&gt;
+      &lt;<span class="token-tag">input</span>
+        value={firstName}
+        onChange={event =&gt; <span class="token-function">setFirstName</span>(event.target.value)}
+      /&gt;
+      &lt;<span class="token-tag">input</span>
+        value={lastName}
+        onChange={event =&gt; <span class="token-function">setLastName</span>(event.target.value)}
+      /&gt;
+      &lt;<span class="token-tag">p</span>&gt;Welcome, {fullName}&lt;/<span class="token-tag">p</span>&gt;
+    &lt;/<span class="token-tag">form</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">Deriving a value does not mean calculating it only once. It means calculating it from the current render's inputs. If a calculation is measurably expensive, <code>useMemo</code> can cache it as a performance optimization, but it should not be needed for correctness.</p>
+      </section>
+
+      <section aria-labelledby="lifting-heading">
+        <h2 id="lifting-heading"><span class="lifting">Lift state</span> when components must agree</h2>
+        <p>Two sibling components cannot directly share local state. Move their shared state to their closest common parent. The parent passes each child the current value and an event handler that lets the child request a change.</p>
+
+        <figure class="example">
+          <figcaption>The parent owns which panel is active, so opening one panel can close the other.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Accordion</span>() {
+  <span class="token-keyword">const</span> [activeId, setActiveId] = <span class="token-function">useState</span>(<span class="token-number">1</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;&gt;
+      &lt;<span class="token-name">Panel</span>
+        title=<span class="token-string">"About"</span>
+        isOpen={activeId === <span class="token-number">1</span>}
+        onOpen={() =&gt; <span class="token-function">setActiveId</span>(<span class="token-number">1</span>)}
+      &gt;
+        React builds interfaces from components.
+      &lt;/<span class="token-name">Panel</span>&gt;
+      &lt;<span class="token-name">Panel</span>
+        title=<span class="token-string">"Details"</span>
+        isOpen={activeId === <span class="token-number">2</span>}
+        onOpen={() =&gt; <span class="token-function">setActiveId</span>(<span class="token-number">2</span>)}
+      &gt;
+        The parent coordinates both panels.
+      &lt;/<span class="token-name">Panel</span>&gt;
+    &lt;/&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">Panel</span>({ title, isOpen, onOpen, children }) {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">section</span>&gt;
+      &lt;<span class="token-tag">h3</span>&gt;{title}&lt;/<span class="token-tag">h3</span>&gt;
+      {isOpen ? children : &lt;<span class="token-tag">button</span> onClick={onOpen}&gt;Open&lt;/<span class="token-tag">button</span>&gt;}
+    &lt;/<span class="token-tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>Lift state only as high as coordination requires. Keeping unrelated state near the component that uses it makes ownership easier to understand and avoids rerendering a larger subtree without a reason.</p>
+      </section>
+
+      <section aria-labelledby="flow-heading">
+        <h2 id="flow-heading"><span class="flow-accent">One-way data flow</span></h2>
+        <p>React data flows from parent to child through props. A child does not modify those props. It reports an interaction by calling a handler prop, the owner updates state, and the new value flows down in the next render.</p>
+
+        <ol class="flow" aria-label="One-way data flow sequence">
+          <li><strong>Value goes down</strong><span>The parent passes <code>isOpen</code> to a child.</span></li>
+          <li><strong>Event goes up</strong><span>The child calls <code>onOpen</code> after a click.</span></li>
+          <li><strong>New value goes down</strong><span>The parent updates state and renders fresh props.</span></li>
+        </ol>
+
+        <p class="note">“Events go up” is a useful shorthand, but React does not automatically send a custom event to the parent. The parent explicitly passes a function, and the child explicitly calls it.</p>
+      </section>
+
+      <section aria-labelledby="controlled-heading">
+        <h2 id="controlled-heading"><span class="controlled">Controlled components</span></h2>
+        <p>A component is controlled when important information about its behavior comes from props. Its parent owns that state. The child renders the value and uses callback props to request changes.</p>
+
+        <figure class="example">
+          <figcaption>This input is controlled because React state supplies its value on every render.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">SearchPage</span>() {
+  <span class="token-keyword">const</span> [query, setQuery] = <span class="token-function">useState</span>(<span class="token-string">""</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-name">SearchInput</span>
+      value={query}
+      onChange={setQuery}
+    /&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">SearchInput</span>({ value, onChange }) {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">input</span>
+      value={value}
+      onChange={event =&gt; <span class="token-function">onChange</span>(event.target.value)}
+    /&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Controlled means the parent decides.</strong><p>For a custom component, a prop such as <code>isOpen</code> controls behavior. For a form input, <code>value</code> or <code>checked</code> makes React state the source of truth.</p></li>
+          <li><strong>Uncontrolled means the component keeps local state.</strong><p>A custom component may initialize and manage its own state. A DOM input using <code>defaultValue</code> keeps its current value in the DOM.</p></li>
+          <li><strong>Choose based on coordination.</strong><p>Controlled components are easier for a parent to synchronize, validate, or reset. Uncontrolled components can need less wiring when no other component cares about their state.</p></li>
+        </ul>
+
+        <p class="note">Do not pass <code>value</code> without a matching <code>onChange</code> that updates it unless the field is intentionally read-only. Otherwise, the input appears frozen because every render restores the same value.</p>
+      </section>
+
+      <section aria-labelledby="summary-heading">
+        <h2 id="summary-heading">A practical state-design routine</h2>
+        <ol class="decision-list">
+          <li><strong>Identify the changing information.</strong><p>Ignore values that never change and values already supplied as props.</p></li>
+          <li><strong>Remove anything derivable.</strong><p>Keep one source of truth and calculate labels, filtered collections, totals, and booleans from it.</p></li>
+          <li><strong>Choose the owner.</strong><p>Keep state local unless multiple components need the same value, then lift it to their closest common parent.</p></li>
+          <li><strong>Connect the flow.</strong><p>Pass current values down as props and pass handlers down so children can request updates.</p></li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            A component stores <code>items</code>, <code>filter</code>, and <code>visibleItems</code>. Which state is probably redundant?
+            <details><summary>Show answer</summary><p><code>visibleItems</code> is derived from <code>items</code> and <code>filter</code>, so calculate it during render. Storing it creates another value that can fall out of sync.</p></details>
+          </li>
+          <li>
+            Two sibling panels must never be open at the same time. Where should their open state live?
+            <details><summary>Show answer</summary><p>Put one shared value, such as <code>activePanelId</code>, in their closest common parent. Pass each panel its open status and an event handler.</p></details>
+          </li>
+          <li>
+            What makes an input controlled?
+            <details><summary>Show answer</summary><p>React supplies its current <code>value</code> or <code>checked</code> prop, and an event handler updates the state that supplies that prop.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

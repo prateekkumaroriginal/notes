@@ -1,0 +1,381 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on useEffect, dependencies, cleanup, external-system synchronization, and avoiding unnecessary Effects.">
+  <title>Effects in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .effect { color: var(--blue); }
+    .dependency { color: var(--green); }
+    .cleanup { color: var(--violet); }
+    .external { color: var(--amber); }
+    .avoid { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .cycle {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .cycle article {
+      padding-left: 1rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .cycle article:nth-child(1) { border-color: var(--blue); }
+    .cycle article:nth-child(2) { border-color: var(--amber); }
+    .cycle article:nth-child(3) { border-color: var(--violet); }
+    .cycle strong { display: block; padding-bottom: 0.35rem; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .example + .note,
+    .rules + .note,
+    .comparison + .note { margin-top: 1.75rem; }
+
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules { display: grid; gap: 1.75rem; }
+    .rules p { padding-top: 0.35rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .comparison article:first-child { border-color: var(--pink); }
+    .comparison article:last-child { border-color: var(--green); }
+
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .cycle, .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Effects in React</h1>
+      <p>An Effect lets a component synchronize with something outside React after the screen has been updated. Use it for external systems, not for calculations React can perform while rendering.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="effect-heading">
+        <h2 id="effect-heading"><span class="effect">useEffect</span> runs after a commit</h2>
+        <p>Rendering calculates what the interface should look like. React then commits the result to the DOM. After that commit, an Effect can connect the rendered component to a browser API, network connection, third-party widget, or another system React does not control.</p>
+
+        <div class="cycle" role="img" aria-label="Effect lifecycle">
+          <article><strong>Render</strong><span>React calculates JSX from the current props and state.</span></article>
+          <article><strong>Commit</strong><span>React applies the necessary DOM changes.</span></article>
+          <article><strong>Effect</strong><span>Setup synchronizes an external system with that committed result.</span></article>
+        </div>
+
+        <figure class="example">
+          <figcaption>This Effect keeps the browser tab title synchronized with the current count.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useEffect, useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">Counter</span>() {
+  <span class="token-keyword">const</span> [count, setCount] = <span class="token-function">useState</span>(<span class="token-number">0</span>);
+
+  <span class="token-function">useEffect</span>(() =&gt; {
+    document.title = <span class="token-string">`Items: ${count}`</span>;
+  }, [count]);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> onClick={() =&gt; <span class="token-function">setCount</span>(count + <span class="token-number">1</span>)}&gt;
+      Items: {count}
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">Call Hooks only at the top level of a component or custom Hook. Do not call <code>useEffect</code> inside a condition, loop, or event handler. Put the condition inside the Effect when setup should sometimes do nothing.</p>
+      </section>
+
+      <section aria-labelledby="dependencies-heading">
+        <h2 id="dependencies-heading"><span class="dependency">Effect dependencies</span></h2>
+        <p>The dependency list describes every reactive value the Effect reads. Reactive values include props, state, and variables or functions declared inside the component. React compares each dependency with its previous value using <code>Object.is</code>.</p>
+
+        <ul class="rules">
+          <li><strong>No dependency array</strong><p><code>useEffect(setup)</code> runs after every commit of the component.</p></li>
+          <li><strong>Empty dependency array</strong><p><code>useEffect(setup, [])</code> does not depend on reactive values, so it normally runs once after mounting. Development Strict Mode performs an extra setup and cleanup cycle to test the logic.</p></li>
+          <li><strong>Listed dependencies</strong><p><code>useEffect(setup, [roomId])</code> runs after mounting and again when <code>roomId</code> changes.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>Both <code>serverUrl</code> and <code>roomId</code> are reactive and must be listed because setup reads them.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">ChatRoom</span>({ roomId }) {
+  <span class="token-keyword">const</span> [serverUrl, setServerUrl] = <span class="token-function">useState</span>(
+    <span class="token-string">"https://chat.example.com"</span>
+  );
+
+  <span class="token-function">useEffect</span>(() =&gt; {
+    <span class="token-keyword">const</span> connection = <span class="token-function">createConnection</span>(serverUrl, roomId);
+    connection.connect();
+
+    <span class="token-keyword">return</span> () =&gt; connection.disconnect();
+  }, [serverUrl, roomId]);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">label</span>&gt;
+      Server URL
+      &lt;<span class="token-tag">input</span>
+        value={serverUrl}
+        onChange={event =&gt; <span class="token-function">setServerUrl</span>(event.target.value)}
+      /&gt;
+    &lt;/<span class="token-tag">label</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">Do not omit a dependency just to stop an Effect from rerunning. That leaves the Effect using values from an older render. Change the code so the dependency is genuinely unnecessary, or make the setup and cleanup safe to repeat.</p>
+      </section>
+
+      <section aria-labelledby="cleanup-heading">
+        <h2 id="cleanup-heading"><span class="cleanup">Cleanup</span> reverses setup</h2>
+        <p>An Effect may return a cleanup function. Before React runs the Effect again with changed dependencies, it first runs the previous cleanup. React also runs cleanup when the component is removed from the screen.</p>
+
+        <figure class="example">
+          <figcaption>Setup subscribes with one function reference, and cleanup removes that exact listener.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">OnlineStatus</span>() {
+  <span class="token-keyword">const</span> [isOnline, setIsOnline] = <span class="token-function">useState</span>(navigator.onLine);
+
+  <span class="token-function">useEffect</span>(() =&gt; {
+    <span class="token-keyword">function</span> <span class="token-function">updateStatus</span>() {
+      <span class="token-function">setIsOnline</span>(navigator.onLine);
+    }
+
+    window.addEventListener(<span class="token-string">"online"</span>, updateStatus);
+    window.addEventListener(<span class="token-string">"offline"</span>, updateStatus);
+
+    <span class="token-keyword">return</span> () =&gt; {
+      window.removeEventListener(<span class="token-string">"online"</span>, updateStatus);
+      window.removeEventListener(<span class="token-string">"offline"</span>, updateStatus);
+    };
+  }, []);
+
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">p</span>&gt;{isOnline ? <span class="token-string">"Online"</span> : <span class="token-string">"Offline"</span>}&lt;/<span class="token-tag">p</span>&gt;;
+}</code></pre>
+        </figure>
+
+        <p>Cleanup should mirror setup. Disconnect connections, unsubscribe listeners, clear timers, stop observations, or ignore obsolete async results. It should make a setup followed by cleanup indistinguishable from setup never having happened.</p>
+
+        <figure class="example">
+          <figcaption>The flag prevents an older request from updating state after the query changes.</figcaption>
+          <pre><code><span class="token-function">useEffect</span>(() =&gt; {
+  <span class="token-keyword">let</span> ignore = <span class="token-keyword">false</span>;
+
+  <span class="token-keyword">async function</span> <span class="token-function">loadResults</span>() {
+    <span class="token-keyword">const</span> results = <span class="token-keyword">await</span> <span class="token-function">fetchResults</span>(query);
+    <span class="token-keyword">if</span> (!ignore) {
+      <span class="token-function">setResults</span>(results);
+    }
+  }
+
+  <span class="token-function">loadResults</span>();
+  <span class="token-keyword">return</span> () =&gt; {
+    ignore = <span class="token-keyword">true</span>;
+  };
+}, [query]);</code></pre>
+        </figure>
+
+        <p class="note">In development, Strict Mode intentionally runs setup, cleanup, and setup again after mounting. This exposes missing cleanup. Fix the cleanup instead of using a ref to hide the second setup.</p>
+      </section>
+
+      <section aria-labelledby="synchronization-heading">
+        <h2 id="synchronization-heading"><span class="external">External-system synchronization</span></h2>
+        <p>Think of each Effect as one independent synchronization process. Its setup starts or updates that process using the current reactive values, and its cleanup stops the previous process.</p>
+
+        <ul class="rules">
+          <li><strong>Connections and subscriptions</strong><p>Connect to a chat room, subscribe to an event source, or observe browser state. Cleanup disconnects or unsubscribes.</p></li>
+          <li><strong>Imperative browser or third-party APIs</strong><p>Keep a map, video player, dialog, or non-React widget synchronized with props and state.</p></li>
+          <li><strong>Network synchronization</strong><p>Fetch data when a reactive query changes and ensure an obsolete response cannot replace newer results. A framework data API or client-side cache may handle this more efficiently.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>An Effect controls a video element because playback is an imperative browser operation outside React.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useEffect, useRef } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">VideoPlayer</span>({ src, isPlaying }) {
+  <span class="token-keyword">const</span> videoRef = <span class="token-function">useRef</span>(<span class="token-keyword">null</span>);
+
+  <span class="token-function">useEffect</span>(() =&gt; {
+    <span class="token-keyword">if</span> (isPlaying) {
+      videoRef.current.play();
+    } <span class="token-keyword">else</span> {
+      videoRef.current.pause();
+    }
+  }, [isPlaying]);
+
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">video</span> ref={videoRef} src={src} controls /&gt;;
+}</code></pre>
+        </figure>
+
+        <p class="note">Effects run only on the client, not during server rendering. The initial server-generated HTML must make sense before an Effect has had a chance to synchronize anything.</p>
+      </section>
+
+      <section aria-labelledby="avoid-heading">
+        <h2 id="avoid-heading"><span class="avoid">Avoid unnecessary Effects</span></h2>
+        <p>If no external system is involved, an Effect is usually the wrong tool. Calculating derived data in an Effect adds an extra render with stale data. Responding to a click in an Effect loses the direct connection between the interaction and the work.</p>
+
+        <div class="comparison">
+          <article>
+            <h3 class="avoid">Extra synchronization</h3>
+            <p>State stores <code>fullName</code>, then an Effect updates it whenever its two source values change.</p>
+          </article>
+          <article>
+            <h3 class="dependency">Calculate while rendering</h3>
+            <p>A regular expression creates <code>fullName</code> from the current props with no extra state or render.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>Derived values belong in rendering. Event-specific work belongs in the event handler.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Profile</span>({ firstName, lastName, onSave }) {
+  <span class="token-comment">// Derive during rendering, not in an Effect.</span>
+  <span class="token-keyword">const</span> fullName = <span class="token-string">`${firstName} ${lastName}`</span>;
+
+  <span class="token-keyword">function</span> <span class="token-function">handleSave</span>() {
+    <span class="token-comment">// The click caused this work, so keep it here.</span>
+    <span class="token-function">onSave</span>({ firstName, lastName });
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">section</span>&gt;
+      &lt;<span class="token-tag">h3</span>&gt;{fullName}&lt;/<span class="token-tag">h3</span>&gt;
+      &lt;<span class="token-tag">button</span> onClick={handleSave}&gt;Save profile&lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Derive values during render.</strong><p>Filter lists, combine names, and calculate booleans directly from current props and state. Use <code>useMemo</code> only if an expensive calculation needs caching.</p></li>
+          <li><strong>Handle user actions in event handlers.</strong><p>Submit forms, send purchase requests, and show interaction-specific notifications where the action occurs.</p></li>
+          <li><strong>Reset a subtree with a key when identity changes.</strong><p>If a different record should get fresh local state, render the component with that record's stable ID as its <code>key</code>.</p></li>
+          <li><strong>Keep Effects for visibility-driven synchronization.</strong><p>Analytics, subscriptions, and connections often belong in Effects because being rendered on screen is what causes the synchronization.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            An Effect reads <code>roomId</code> and <code>serverUrl</code>. Which dependencies should it list?
+            <details><summary>Show answer</summary><p>List both reactive values: <code>[roomId, serverUrl]</code>. The dependency list describes the code, so every reactive value setup reads belongs there.</p></details>
+          </li>
+          <li>
+            When does React run an Effect's cleanup function?
+            <details><summary>Show answer</summary><p>React runs the previous cleanup before rerunning setup after dependency changes, and once more when the component unmounts. Development Strict Mode also adds a setup and cleanup cycle to test the logic.</p></details>
+          </li>
+          <li>
+            Should an Effect calculate <code>visibleItems</code> from <code>items</code> and <code>filter</code> and store the result in state?
+            <details><summary>Show answer</summary><p>Usually no. Calculate <code>visibleItems</code> during rendering so it always matches the same props and state snapshot. Consider <code>useMemo</code> only when the calculation is measurably expensive.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

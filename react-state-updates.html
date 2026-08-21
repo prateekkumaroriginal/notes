@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on state update queues, batching, functional updates, and immutable object and array updates.">
+  <title>State Updates in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .queue { color: var(--blue); }
+    .batch { color: var(--green); }
+    .functional { color: var(--violet); }
+    .immutable { color: var(--amber); }
+    .caution { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .flow > div {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .flow > div:nth-child(1) { border-color: var(--blue); }
+    .flow > div:nth-child(2) { border-color: var(--green); }
+    .flow > div:nth-child(3) { border-color: var(--violet); }
+    .flow strong { display: block; padding-bottom: 0.35rem; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.35rem;
+      background: var(--surface);
+    }
+
+    .example + .note, .note + .example, .recipes + .note { margin-top: 1.75rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .comparison article:first-child { border-color: var(--pink); }
+    .comparison article:last-child { border-color: var(--violet); }
+
+    .recipes {
+      display: grid;
+      gap: 1.75rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .recipes p { padding-top: 0.35rem; }
+
+    .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .flow, .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>State Updates in React</h1>
+      <p>Setting state does not change the current render. It asks React to calculate a later render, and React processes queued updates in a predictable order.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="queue-heading">
+        <h2 id="queue-heading"><span class="queue">State update queues</span></h2>
+        <p>Every render receives a snapshot of state. Calling a setter such as <code>setScore</code> queues an update, but the <code>score</code> variable in the running event handler remains the value from that render.</p>
+
+        <div class="flow" role="img" aria-label="State update sequence">
+          <div><strong>Event runs</strong><span>The handler reads its render's state snapshot.</span></div>
+          <div><strong>Updates queue</strong><span>Setter calls request values for the next render.</span></div>
+          <div><strong>React renders</strong><span>The queue is processed and the UI receives new state.</span></div>
+        </div>
+
+        <figure class="example">
+          <figcaption>The log still prints <code>0</code> because this handler closes over the current render's snapshot.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">Scoreboard</span>() {
+  <span class="token-keyword">const</span> [score, setScore] = useState(<span class="token-number">0</span>);
+
+  <span class="token-keyword">function</span> <span class="token-function">handleClick</span>() {
+    setScore(score + <span class="token-number">1</span>);
+    console.log(score); <span class="token-comment">// 0, not 1</span>
+  }
+
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">button</span> onClick={handleClick}&gt;
+    Score: {score}
+  &lt;/<span class="token-tag">button</span>&gt;;
+}</code></pre>
+        </figure>
+
+        <p class="note">A setter is a request, not an assignment. If later code in the same handler needs the next value, calculate it in a local variable or use a functional update when it depends on queued state.</p>
+      </section>
+
+      <section aria-labelledby="batching-heading">
+        <h2 id="batching-heading"><span class="batch">Batching</span> groups updates</h2>
+        <p>React waits until the event handler has finished before processing its state updates. This batching avoids an extra render after every setter call and prevents the screen from showing half-finished state.</p>
+
+        <figure class="example">
+          <figcaption>Both setters are handled together, so the component normally renders once after the click.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">CheckoutButton</span>() {
+  <span class="token-keyword">const</span> [status, setStatus] = useState(<span class="token-string">"idle"</span>);
+  <span class="token-keyword">const</span> [message, setMessage] = useState(<span class="token-string">""</span>);
+
+  <span class="token-keyword">function</span> <span class="token-function">handleCheckout</span>() {
+    setStatus(<span class="token-string">"submitting"</span>);
+    setMessage(<span class="token-string">"Processing order"</span>);
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> onClick={handleCheckout}&gt;
+      {status === <span class="token-string">"idle"</span> ? <span class="token-string">"Checkout"</span> : message}
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>React does not batch separate intentional interactions into one event. A second click gets its own handler and its own state snapshot. Modern React also batches many updates from promises, timers, and native event handlers when the app uses <code>createRoot</code>.</p>
+      </section>
+
+      <section aria-labelledby="functional-heading">
+        <h2 id="functional-heading"><span class="functional">Functional updates</span> use pending state</h2>
+        <p>When the next value depends on the previous value, pass an updater function to the setter. React puts that function in the queue. During the next render, it calls each updater in order and passes the result to the next one.</p>
+
+        <div class="comparison">
+          <article>
+            <h3 class="caution">Repeats one replacement</h3>
+            <p>Three calls to <code>setCount(count + 1)</code> all calculate from the same snapshot, so they each request the same value.</p>
+          </article>
+          <article>
+            <h3 class="functional">Builds on the queue</h3>
+            <p>Three calls to <code>setCount(c =&gt; c + 1)</code> receive <code>0</code>, then <code>1</code>, then <code>2</code>, producing <code>3</code>.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>This button adds three because every updater receives the latest pending value.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Counter</span>() {
+  <span class="token-keyword">const</span> [count, setCount] = useState(<span class="token-number">0</span>);
+
+  <span class="token-keyword">function</span> <span class="token-function">addThree</span>() {
+    setCount(current =&gt; current + <span class="token-number">1</span>);
+    setCount(current =&gt; current + <span class="token-number">1</span>);
+    setCount(current =&gt; current + <span class="token-number">1</span>);
+  }
+
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">button</span> onClick={addThree}&gt;Count: {count}&lt;/<span class="token-tag">button</span>&gt;;
+}</code></pre>
+        </figure>
+
+        <p class="note">Updater functions run while React renders, so keep them pure. Return the next state without changing existing objects, arrays, variables outside the function, or the DOM. In development, Strict Mode may call an updater twice to reveal accidental mutation.</p>
+      </section>
+
+      <section aria-labelledby="objects-heading">
+        <h2 id="objects-heading"><span class="immutable">Immutable object updates</span></h2>
+        <p>Treat objects stored in state as read-only. Mutating an existing object keeps the same reference and changes data that older render snapshots may still rely on. Instead, create a new object and copy the fields that should remain.</p>
+
+        <figure class="example">
+          <figcaption>Object spread copies the profile, while the later <code>city</code> property replaces only that field.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">ProfileEditor</span>() {
+  <span class="token-keyword">const</span> [profile, setProfile] = useState({
+    name: <span class="token-string">"Mira"</span>,
+    city: <span class="token-string">"Pune"</span>,
+  });
+
+  <span class="token-keyword">function</span> <span class="token-function">handleCityChange</span>(event) {
+    setProfile(current =&gt; ({
+      ...current,
+      city: event.target.value,
+    }));
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">input</span> value={profile.city} onChange={handleCityChange} /&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>Spread syntax is shallow. To change a nested value, copy every object from the changed field back to the top-level state object.</p>
+
+        <figure class="example">
+          <figcaption>Both <code>settings</code> and its nested <code>notifications</code> object receive new references.</figcaption>
+          <pre><code>setSettings(current =&gt; ({
+  ...current,
+  notifications: {
+    ...current.notifications,
+    email: <span class="token-keyword">false</span>,
+  },
+}));</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Do not write <code>profile.city = value</code>.</span> Build a new object and pass it to the setter. When state becomes deeply nested and awkward to copy, consider flattening its shape or using a reducer.</p>
+      </section>
+
+      <section aria-labelledby="arrays-heading">
+        <h2 id="arrays-heading"><span class="immutable">Immutable array updates</span></h2>
+        <p>Arrays in state are objects too, so treat them as read-only. Create a new array with spread syntax, <code>map()</code>, or <code>filter()</code>, then store that array.</p>
+
+        <ul class="recipes">
+          <li><strong>Add with spread.</strong><p>Use <code>[...items, newItem]</code> instead of <code>items.push(newItem)</code>.</p></li>
+          <li><strong>Remove with <code>filter()</code>.</strong><p>Keep every item whose ID is not the one being removed.</p></li>
+          <li><strong>Replace with <code>map()</code>.</strong><p>Return an updated copy for the matching item and return every other item unchanged.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>A small task list shows add, toggle, and remove without mutating state.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">TaskList</span>() {
+  <span class="token-keyword">const</span> [tasks, setTasks] = useState([
+    { id: <span class="token-number">1</span>, title: <span class="token-string">"Read the state notes"</span>, done: <span class="token-keyword">false</span> },
+  ]);
+
+  <span class="token-keyword">function</span> <span class="token-function">addTask</span>(task) {
+    setTasks(current =&gt; [...current, task]);
+  }
+
+  <span class="token-keyword">function</span> <span class="token-function">toggleTask</span>(taskId) {
+    setTasks(current =&gt;
+      current.map(task =&gt;
+        task.id === taskId ? { ...task, done: !task.done } : task
+      )
+    );
+  }
+
+  <span class="token-keyword">function</span> <span class="token-function">removeTask</span>(taskId) {
+    setTasks(current =&gt; current.filter(task =&gt; task.id !== taskId));
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">ul</span>&gt;
+      {tasks.map(task =&gt; (
+        &lt;<span class="token-tag">li</span> key={task.id}&gt;
+          &lt;<span class="token-tag">button</span> onClick={() =&gt; toggleTask(task.id)}&gt;
+            {task.done ? <span class="token-string">"Undo"</span> : <span class="token-string">"Done"</span>}
+          &lt;/<span class="token-tag">button</span>&gt;
+          {task.title}
+          &lt;<span class="token-tag">button</span> onClick={() =&gt; removeTask(task.id)}&gt;
+            Remove
+          &lt;/<span class="token-tag">button</span>&gt;
+        &lt;/<span class="token-tag">li</span>&gt;
+      ))}
+    &lt;/<span class="token-tag">ul</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">Methods such as <code>push()</code>, <code>pop()</code>, <code>splice()</code>, <code>sort()</code>, and <code>reverse()</code> mutate the original array. For sorting or reversing, copy first: <code>const next = [...items]; next.sort(compareItems); setItems(next);</code>.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Why does reading state immediately after its setter return the old value?
+            <details><summary>Show answer</summary><p>The running handler belongs to the current render and sees that render's fixed state snapshot. The setter queues work for a later render rather than changing the local variable.</p></details>
+          </li>
+          <li>
+            When should you prefer <code>setCount(current =&gt; current + 1)</code>?
+            <details><summary>Show answer</summary><p>Use a functional update when the next state depends on previous or already queued state. React passes each updater the latest pending value.</p></details>
+          </li>
+          <li>
+            How do you update one object inside an array without mutation?
+            <details><summary>Show answer</summary><p>Use <code>map()</code> to create a new array. For the matching item, return a new object with the changed field; return every other item unchanged.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on useReducer, reducer design, useContext, and combining reducers with context.">
+  <title>Reducers and Context in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol, dl, dt, dd { margin: 0; }
+    h1, h2, h3, strong, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .reducer { color: var(--blue); }
+    .design { color: var(--green); }
+    .context { color: var(--violet); }
+    .combination { color: var(--amber); }
+    .caution { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .cycle {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .cycle > div {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .cycle > div:nth-child(1) { border-color: var(--blue); }
+    .cycle > div:nth-child(2) { border-color: var(--green); }
+    .cycle > div:nth-child(3) { border-color: var(--violet); }
+    .cycle strong { display: block; padding-bottom: 0.35rem; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+    .example + .example { padding-top: 1.75rem; }
+
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules { display: grid; gap: 1.75rem; }
+    .rules p { padding-top: 0.35rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .comparison article:first-child { border-color: var(--blue); }
+    .comparison article:last-child { border-color: var(--violet); }
+
+    .comparison dd { padding-top: 0.25rem; }
+    .comparison dd + dt { padding-top: 1rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .cycle + .note,
+    .example + .note,
+    .rules + .note,
+    .comparison + .note { margin-top: 1.75rem; }
+
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .cycle, .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Reducers and Context in React</h1>
+      <p>A reducer puts related state transitions in one function. Context makes a value available to descendants. Together, they can give a feature one clear state owner without passing the same state and handlers through every intermediate component.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="reducer-heading">
+        <h2 id="reducer-heading">Manage related updates with <span class="reducer">useReducer</span></h2>
+        <p><code>useReducer</code> is a state Hook. Like <code>useState</code>, it stores state between renders. Instead of calling a different setter for each change, an event handler dispatches an action that describes what happened. React passes the current state and that action to the reducer, then renders with the state the reducer returned.</p>
+
+        <div class="cycle">
+          <div><strong>Dispatch an action</strong><span>An event handler calls <code>dispatch({ type: "added", ... })</code>.</span></div>
+          <div><strong>Reduce</strong><span>The reducer calculates the next state from the current state and action.</span></div>
+          <div><strong>Render</strong><span>React stores the returned state and renders the component again.</span></div>
+        </div>
+
+        <p class="note"><code>dispatch</code> schedules the next render. Reading <code>state</code> immediately after dispatch still gives the current render's snapshot, not the state for the next render.</p>
+
+        <figure class="example">
+          <figcaption>A task list uses one reducer for adding, toggling, and deleting tasks.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useReducer, useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">tasksReducer</span>(tasks, action) {
+  <span class="token-keyword">switch</span> (action.type) {
+    <span class="token-keyword">case</span> <span class="token-string">"added"</span>:
+      <span class="token-keyword">return</span> [
+        ...tasks,
+        { id: action.id, text: action.text, done: <span class="token-keyword">false</span> }
+      ];
+
+    <span class="token-keyword">case</span> <span class="token-string">"toggled"</span>:
+      <span class="token-keyword">return</span> tasks.map(task =&gt;
+        task.id === action.id
+          ? { ...task, done: !task.done }
+          : task
+      );
+
+    <span class="token-keyword">case</span> <span class="token-string">"deleted"</span>:
+      <span class="token-keyword">return</span> tasks.filter(task =&gt; task.id !== action.id);
+
+    <span class="token-keyword">default</span>:
+      <span class="token-keyword">throw new</span> <span class="token-name">Error</span>(<span class="token-string">`Unknown action: ${action.type}`</span>);
+  }
+}
+
+<span class="token-keyword">let</span> nextId = <span class="token-number">2</span>;
+<span class="token-keyword">const</span> initialTasks = [
+  { id: <span class="token-number">1</span>, text: <span class="token-string">"Learn reducers"</span>, done: <span class="token-keyword">false</span> }
+];
+
+<span class="token-keyword">export default function</span> <span class="token-name">TaskApp</span>() {
+  <span class="token-keyword">const</span> [tasks, dispatch] = <span class="token-function">useReducer</span>(tasksReducer, initialTasks);
+  <span class="token-keyword">const</span> [text, setText] = <span class="token-function">useState</span>(<span class="token-string">""</span>);
+
+  <span class="token-keyword">function</span> <span class="token-name">handleAdd</span>() {
+    <span class="token-keyword">if</span> (!text.trim()) <span class="token-keyword">return</span>;
+    <span class="token-function">dispatch</span>({ type: <span class="token-string">"added"</span>, id: nextId++, text });
+    <span class="token-function">setText</span>(<span class="token-string">""</span>);
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">section</span>&gt;
+      &lt;<span class="token-tag">input</span>
+        value={text}
+        onChange={event =&gt; <span class="token-function">setText</span>(event.target.value)}
+      /&gt;
+      &lt;<span class="token-tag">button</span> onClick={handleAdd}&gt;Add&lt;/<span class="token-tag">button</span>&gt;
+      &lt;<span class="token-tag">ul</span>&gt;
+        {tasks.map(task =&gt; (
+          &lt;<span class="token-tag">li</span> key={task.id}&gt;
+            &lt;<span class="token-tag">label</span>&gt;
+              &lt;<span class="token-tag">input</span>
+                type=<span class="token-string">"checkbox"</span>
+                checked={task.done}
+                onChange={() =&gt; <span class="token-function">dispatch</span>({
+                  type: <span class="token-string">"toggled"</span>, id: task.id
+                })}
+              /&gt;
+              {task.text}
+            &lt;/<span class="token-tag">label</span>&gt;
+            &lt;<span class="token-tag">button</span> onClick={() =&gt; <span class="token-function">dispatch</span>({
+              type: <span class="token-string">"deleted"</span>, id: task.id
+            })}&gt;
+              Delete
+            &lt;/<span class="token-tag">button</span>&gt;
+          &lt;/<span class="token-tag">li</span>&gt;
+        ))}
+      &lt;/<span class="token-tag">ul</span>&gt;
+    &lt;/<span class="token-tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+      </section>
+
+      <section aria-labelledby="design-heading">
+        <h2 id="design-heading"><span class="design">Reducer design</span></h2>
+        <p>A reducer is a regular JavaScript function with the shape <code>(state, action) =&gt; nextState</code>. It should describe state transitions, while event handlers describe events from the interface.</p>
+
+        <ul class="rules">
+          <li><strong>Keep it pure.</strong><p>For the same state and action, return the same result. Do not send requests, start timers, read random values, or modify variables outside the reducer.</p></li>
+          <li><strong>Treat state as read-only.</strong><p>Return new objects and arrays instead of mutating the current state. React may call reducers more than once in development Strict Mode to expose accidental impurities.</p></li>
+          <li><strong>Name actions after events.</strong><p>Types such as <code>"task_added"</code> and <code>"form_submitted"</code> explain what happened. Put the data needed for that transition in the action object.</p></li>
+          <li><strong>Let one action represent one interaction.</strong><p>A single action can update several related fields. This keeps the full transition together and prevents partial updates.</p></li>
+          <li><strong>Fail loudly for unknown actions.</strong><p>Throwing in the default branch reveals misspelled or unhandled action types during development.</p></li>
+        </ul>
+
+        <div class="comparison">
+          <article>
+            <h3 class="reducer">Choose useState</h3>
+            <dl>
+              <dt>Good fit</dt>
+              <dd>A few independent values with straightforward updates.</dd>
+              <dt>Benefit</dt>
+              <dd>Less setup and direct setter calls.</dd>
+            </dl>
+          </article>
+          <article>
+            <h3 class="context">Choose useReducer</h3>
+            <dl>
+              <dt>Good fit</dt>
+              <dd>Related fields, many update paths, or transitions worth testing separately.</dd>
+              <dt>Benefit</dt>
+              <dd>Update logic has one named, predictable home.</dd>
+            </dl>
+          </article>
+        </div>
+
+        <p class="note"><span class="caution">A reducer does not make state global.</span> <code>useReducer</code> still owns state in the component that calls it. Lift that component or add context only when descendants genuinely need the same state.</p>
+      </section>
+
+      <section aria-labelledby="context-heading">
+        <h2 id="context-heading">Share values deeply with <span class="context">useContext</span></h2>
+        <p>Context lets a parent provide a value to any descendant below it, even through components that do not use that value. A component calling <code>useContext(SomeContext)</code> reads the value from the closest matching provider above it.</p>
+
+        <figure class="example">
+          <figcaption>A theme provider lets a deeply nested button read the current theme without receiving a theme prop at every level.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { createContext, useContext, useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">const</span> ThemeContext = <span class="token-function">createContext</span>(<span class="token-string">"light"</span>);
+
+<span class="token-keyword">function</span> <span class="token-name">Toolbar</span>() {
+  <span class="token-comment">// Toolbar does not need to receive or forward a theme prop.</span>
+  <span class="token-keyword">return</span> &lt;<span class="token-name">SaveButton</span> /&gt;;
+}
+
+<span class="token-keyword">function</span> <span class="token-name">SaveButton</span>() {
+  <span class="token-keyword">const</span> theme = <span class="token-function">useContext</span>(ThemeContext);
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">button</span> className={theme}&gt;Save&lt;/<span class="token-tag">button</span>&gt;;
+}
+
+<span class="token-keyword">export default function</span> <span class="token-name">App</span>() {
+  <span class="token-keyword">const</span> [theme, setTheme] = <span class="token-function">useState</span>(<span class="token-string">"dark"</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-name">ThemeContext.Provider</span> value={theme}&gt;
+      &lt;<span class="token-name">Toolbar</span> /&gt;
+      &lt;<span class="token-tag">button</span> onClick={() =&gt; <span class="token-function">setTheme</span>(
+        theme === <span class="token-string">"dark"</span> ? <span class="token-string">"light"</span> : <span class="token-string">"dark"</span>
+      )}&gt;
+        Switch theme
+      &lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-name">ThemeContext.Provider</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>The closest provider wins.</strong><p>Providers can be nested. A consumer reads the first matching provider found while moving upward through the rendered tree.</p></li>
+          <li><strong>The default is only a fallback.</strong><p>The value passed to <code>createContext</code> is used only when no matching provider exists above the consumer. It does not change when provider state changes.</p></li>
+          <li><strong>Context is not a separate state store.</strong><p>It transports a value. State still belongs to a component using <code>useState</code> or <code>useReducer</code>, and that component passes the value to the provider.</p></li>
+          <li><strong>Use it for genuinely shared values.</strong><p>Theme, authenticated user, routing, and feature-level state are common examples. Ordinary props remain clearer when only a few nearby components need the data.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="combined-heading">
+        <h2 id="combined-heading">Combine a <span class="combination">reducer with context</span></h2>
+        <p>A common feature pattern puts <code>useReducer</code> in a provider component. One context supplies the current state and another supplies <code>dispatch</code>. Descendants can then read state or request updates without receiving both values through every intermediate component.</p>
+
+        <figure class="example">
+          <figcaption>The provider owns task state. Custom Hooks give consumers a small API and produce a useful error outside the provider.</figcaption>
+          <pre><code><span class="token-keyword">import</span> {
+  createContext,
+  useContext,
+  useReducer
+} <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">const</span> TasksContext = <span class="token-function">createContext</span>(<span class="token-keyword">null</span>);
+<span class="token-keyword">const</span> TasksDispatchContext = <span class="token-function">createContext</span>(<span class="token-keyword">null</span>);
+
+<span class="token-keyword">export function</span> <span class="token-name">TasksProvider</span>({ children }) {
+  <span class="token-keyword">const</span> [tasks, dispatch] = <span class="token-function">useReducer</span>(
+    tasksReducer,
+    initialTasks
+  );
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-name">TasksContext.Provider</span> value={tasks}&gt;
+      &lt;<span class="token-name">TasksDispatchContext.Provider</span> value={dispatch}&gt;
+        {children}
+      &lt;/<span class="token-name">TasksDispatchContext.Provider</span>&gt;
+    &lt;/<span class="token-name">TasksContext.Provider</span>&gt;
+  );
+}
+
+<span class="token-keyword">export function</span> <span class="token-name">useTasks</span>() {
+  <span class="token-keyword">const</span> tasks = <span class="token-function">useContext</span>(TasksContext);
+  <span class="token-keyword">if</span> (tasks === <span class="token-keyword">null</span>) {
+    <span class="token-keyword">throw new</span> <span class="token-name">Error</span>(
+      <span class="token-string">"useTasks must be used inside TasksProvider"</span>
+    );
+  }
+  <span class="token-keyword">return</span> tasks;
+}
+
+<span class="token-keyword">export function</span> <span class="token-name">useTasksDispatch</span>() {
+  <span class="token-keyword">const</span> dispatch = <span class="token-function">useContext</span>(TasksDispatchContext);
+  <span class="token-keyword">if</span> (dispatch === <span class="token-keyword">null</span>) {
+    <span class="token-keyword">throw new</span> <span class="token-name">Error</span>(
+      <span class="token-string">"useTasksDispatch must be used inside TasksProvider"</span>
+    );
+  }
+  <span class="token-keyword">return</span> dispatch;
+}</code></pre>
+        </figure>
+
+        <figure class="example">
+          <figcaption>Consumers opt into only the capability they need.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">TaskCount</span>() {
+  <span class="token-keyword">const</span> tasks = <span class="token-function">useTasks</span>();
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">p</span>&gt;{tasks.length} tasks&lt;/<span class="token-tag">p</span>&gt;;
+}
+
+<span class="token-keyword">function</span> <span class="token-name">DeleteButton</span>({ taskId }) {
+  <span class="token-keyword">const</span> dispatch = <span class="token-function">useTasksDispatch</span>();
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> onClick={() =&gt; <span class="token-function">dispatch</span>({
+      type: <span class="token-string">"deleted"</span>,
+      id: taskId
+    })}&gt;
+      Delete
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">App</span>() {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-name">TasksProvider</span>&gt;
+      &lt;<span class="token-name">TaskCount</span> /&gt;
+      &lt;<span class="token-name">TaskList</span> /&gt;
+    &lt;/<span class="token-name">TasksProvider</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">Splitting state and dispatch is useful because components that only dispatch do not also subscribe to the changing state context. Components that read <code>TasksContext</code> render again when its provided value changes. Reach for further optimization only after measuring a real performance problem.</p>
+      </section>
+
+      <section aria-labelledby="summary-heading">
+        <h2 id="summary-heading">A practical decision guide</h2>
+        <ul class="rules">
+          <li><strong>Start with local state.</strong><p>Use <code>useState</code> when updates are simple. Move to <code>useReducer</code> when related transitions become difficult to understand or test.</p></li>
+          <li><strong>Keep ownership visible.</strong><p>The component calling the state Hook owns the state, even when context makes it available elsewhere.</p></li>
+          <li><strong>Add context for reach, not complexity.</strong><p>Context reduces repeated prop forwarding. A reducer organizes updates. Neither automatically requires the other.</p></li>
+          <li><strong>Keep the provider close.</strong><p>Wrap the smallest meaningful feature subtree so dependencies and update scope remain clear.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            What must a reducer return?
+            <details><summary>Show answer</summary><p>It must return the complete next state for the action. It should calculate that state without mutating the current state or causing side effects.</p></details>
+          </li>
+          <li>
+            Does calling <code>useContext</code> create shared state?
+            <details><summary>Show answer</summary><p>No. Context reads a provided value. A component still owns changing data with a state Hook and supplies that data through a provider.</p></details>
+          </li>
+          <li>
+            Why might an app use separate contexts for reducer state and dispatch?
+            <details><summary>Show answer</summary><p>It gives consumers a clearer dependency. A component that only dispatches actions does not need to subscribe to the changing state context.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

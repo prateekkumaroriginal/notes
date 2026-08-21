@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on preserving and resetting state, component identity, and using keys outside lists.">
+  <title>Preserving and Resetting State in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol, dl, dt, dd { margin: 0; }
+    h1, h2, h3, strong, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .preserve { color: var(--blue); }
+    .reset { color: var(--green); }
+    .identity { color: var(--violet); }
+    .key { color: var(--amber); }
+    .caution { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .identity-rule {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .identity-rule > div {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .identity-rule > div:nth-child(1) { border-color: var(--blue); }
+    .identity-rule > div:nth-child(2) { border-color: var(--violet); }
+    .identity-rule > div:nth-child(3) { border-color: var(--amber); }
+    .identity-rule strong { display: block; padding-bottom: 0.35rem; }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .comparison article:first-child { border-color: var(--blue); }
+    .comparison article:last-child { border-color: var(--green); }
+    .comparison dd { padding-top: 0.25rem; }
+    .comparison dd + dt { padding-top: 1rem; }
+
+    .rules {
+      display: grid;
+      gap: 1.75rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules p { padding-top: 0.35rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .example + .note,
+    .rules + .note { margin-top: 1.75rem; }
+
+    .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .identity-rule, .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Preserving and Resetting State in React</h1>
+      <p>React attaches state to a component's place in the UI tree. Keep the same component identity in that place to preserve state, or change its identity when a fresh start is intentional.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="identity-heading">
+        <h2 id="identity-heading">State belongs to a <span class="identity">component identity</span></h2>
+        <p>A state variable is not stored inside a JSX tag or component function. React stores it and associates it with an identity under a particular parent. By default, that identity comes from the component's type and position among its siblings. A <code>key</code> can become part of the identity.</p>
+
+        <div class="identity-rule" role="img" aria-label="The three parts of component identity">
+          <div><strong>Parent</strong><span>Identity is evaluated within one parent.</span></div>
+          <div><strong>Type</strong><span><code>Counter</code> and <code>Profile</code> are different component types.</span></div>
+          <div><strong>Position or key</strong><span>React matches siblings by order unless keys identify them.</span></div>
+        </div>
+
+        <p class="note"><strong>Useful shortcut:</strong> same type + same position + same key means preserve state. A different type, position, or key can create a new identity and reset state.</p>
+      </section>
+
+      <section aria-labelledby="preserving-heading">
+        <h2 id="preserving-heading"><span class="preserve">Preserving state</span></h2>
+        <p>When React renders the same component type in the same position, it reuses that component instance and its state. Changing props or changing how the JSX was calculated does not reset the state by itself.</p>
+
+        <figure class="example">
+          <figcaption>Toggling the theme changes a prop, but <code>Counter</code> stays the first child of the same <code>main</code>, so its score survives.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">Counter</span>({ isFancy }) {
+  <span class="token-keyword">const</span> [score, setScore] = <span class="token-function">useState</span>(<span class="token-number">0</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span>
+      className={isFancy ? <span class="token-string">"fancy"</span> : <span class="token-string">"plain"</span>}
+      onClick={() =&gt; setScore(score + <span class="token-number">1</span>)}
+    &gt;
+      Score: {score}
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}
+
+<span class="token-keyword">export default function</span> <span class="token-name">Scoreboard</span>() {
+  <span class="token-keyword">const</span> [isFancy, setIsFancy] = <span class="token-function">useState</span>(<span class="token-keyword">false</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">main</span>&gt;
+      &lt;<span class="token-name">Counter</span> isFancy={isFancy} /&gt;
+      &lt;<span class="token-tag">label</span>&gt;
+        &lt;<span class="token-tag">input</span>
+          type=<span class="token-string">"checkbox"</span>
+          checked={isFancy}
+          onChange={event =&gt; setIsFancy(event.target.checked)}
+        /&gt;
+        Fancy style
+      &lt;/<span class="token-tag">label</span>&gt;
+    &lt;/<span class="token-tag">main</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>React cares about the resulting UI tree, not whether the JSX appears in one branch, a variable, or a helper expression. If the resulting component matches the previous identity, its state is preserved.</p>
+      </section>
+
+      <section aria-labelledby="resetting-heading">
+        <h2 id="resetting-heading"><span class="reset">Resetting state</span></h2>
+        <p>When a component at a position is removed or replaced by a different type, React destroys its state. If the original component returns later, it is a new instance initialized from scratch. State in its descendant components is removed too.</p>
+
+        <div class="comparison">
+          <article>
+            <h3 class="preserve">Preserved</h3>
+            <dl>
+              <dt>What React sees</dt>
+              <dd><code>&lt;Counter /&gt;</code> in the same position before and after.</dd>
+              <dt>Result</dt>
+              <dd>The existing state remains.</dd>
+            </dl>
+          </article>
+          <article>
+            <h3 class="reset">Reset</h3>
+            <dl>
+              <dt>What React sees</dt>
+              <dd><code>&lt;Counter /&gt;</code> replaced by <code>&lt;p&gt;</code>, or by a new key.</dd>
+              <dt>Result</dt>
+              <dd>The old state is discarded and later starts from its initial value.</dd>
+            </dl>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>Hiding this counter removes it. Showing it again mounts a new counter with a score of <code>0</code>.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Scoreboard</span>() {
+  <span class="token-keyword">const</span> [showCounter, setShowCounter] = <span class="token-function">useState</span>(<span class="token-keyword">true</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">main</span>&gt;
+      {showCounter ? &lt;<span class="token-name">Counter</span> /&gt; : &lt;<span class="token-tag">p</span>&gt;Counter is hidden.&lt;/<span class="token-tag">p</span>&gt;}
+      &lt;<span class="token-tag">button</span> onClick={() =&gt; setShowCounter(!showCounter)}&gt;
+        Toggle counter
+      &lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">main</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Avoid defining components inside other components.</span> A nested component function is created again on every parent render. React sees a different component type and resets that subtree's state. Define component functions at the top level instead.</p>
+      </section>
+
+      <section aria-labelledby="keys-heading">
+        <h2 id="keys-heading"><span class="key">Keys outside lists</span></h2>
+        <p>Keys are best known for identifying list items, but they can identify any sibling component. A key tells React to use the key instead of sibling order when matching an element with its previous identity.</p>
+
+        <figure class="example">
+          <figcaption>Switching players changes the key, so each player receives a fresh counter even though both render in the same JSX position.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Game</span>() {
+  <span class="token-keyword">const</span> [player, setPlayer] = <span class="token-function">useState</span>(<span class="token-string">"Mira"</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">main</span>&gt;
+      &lt;<span class="token-name">Counter</span> key={player} player={player} /&gt;
+      &lt;<span class="token-tag">button</span>
+        onClick={() =&gt; setPlayer(player === <span class="token-string">"Mira"</span> ? <span class="token-string">"Noah"</span> : <span class="token-string">"Mira"</span>)}
+      &gt;
+        Next player
+      &lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">main</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>The transition from <code>key="Mira"</code> to <code>key="Noah"</code> tells React that the old counter and new counter are different identities. React unmounts the old subtree, creates a new one, and runs its state initializers.</p>
+
+        <figure class="example">
+          <figcaption>A chat composer uses the recipient ID as a key so a draft cannot accidentally carry over to another person.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Messenger</span>({ selectedContact }) {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-name">Chat</span>
+      key={selectedContact.id}
+      contact={selectedContact}
+    /&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">Chat</span>({ contact }) {
+  <span class="token-keyword">const</span> [draft, setDraft] = <span class="token-function">useState</span>(<span class="token-string">""</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">textarea</span>
+      aria-label={<span class="token-string">`Message ${contact.name}`</span>}
+      value={draft}
+      onChange={event =&gt; setDraft(event.target.value)}
+    /&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Keys are local to a parent.</strong><p>A key only needs to distinguish siblings under that parent. It is not a global ID.</p></li>
+          <li><strong>A key is not a prop.</strong><p>React uses it internally. Pass a separate prop if the child needs the same value.</p></li>
+          <li><strong>Choose stable, meaningful keys.</strong><p>Use an entity ID when identity follows data. Do not use a random value on every render because that forces repeated resets.</p></li>
+          <li><strong>Reset deliberately.</strong><p>Keys are useful for forms, games, editors, and other stateful subtrees that should restart when their subject changes.</p></li>
+        </ul>
+      </section>
+
+      <section aria-label="Summary">
+        <p class="note"><strong>Keep this model:</strong> React preserves state for the same component identity under the same parent. Removing it, changing its type, or changing its key gives React a new identity and resets that subtree.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Does changing a component's props automatically reset its state?
+            <details><summary>Show answer</summary><p>No. If the component keeps the same type, position, and key under its parent, React preserves its state and renders it with the new props.</p></details>
+          </li>
+          <li>
+            Why does changing <code>&lt;Chat key={contact.id} /&gt;</code> clear the draft?
+            <details><summary>Show answer</summary><p>The new key creates a different component identity. React removes the previous Chat subtree and mounts a new one, so <code>useState("")</code> supplies a fresh draft.</p></details>
+          </li>
+          <li>
+            Why can a component declared inside its parent lose state whenever the parent renders?
+            <details><summary>Show answer</summary><p>The parent creates a new component function on each render. React sees that function as a different component type, replaces the old subtree, and resets its state.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

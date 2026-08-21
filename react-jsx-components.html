@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly notes on JSX, JavaScript expressions in JSX, React components, and nesting components.">
+  <title>JSX and Components in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .lede { color: var(--muted); }
+    .jsx { color: var(--blue); }
+    .expression { color: var(--green); }
+    .component { color: var(--violet); }
+    .caution { color: var(--amber); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .concept {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .concept:nth-child(1) { border-color: var(--blue); }
+    .concept:nth-child(2) { border-color: var(--green); }
+    .concept:nth-child(3) { border-color: var(--violet); }
+    .concept p { color: var(--muted); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; color: var(--muted); }
+
+    .rules {
+      display: grid;
+      gap: 1.75rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules p { padding-top: 0.35rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.35rem;
+      background: var(--surface);
+      color: var(--muted);
+    }
+
+    .example + .note { margin-top: 1.75rem; }
+
+    .sequence {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .sequence div {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+    }
+
+    .sequence strong { display: block; padding-bottom: 0.35rem; }
+
+    .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .concepts, .sequence { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>JSX and Components</h1>
+      <p class="lede">JSX describes interface structure inside JavaScript. Components turn that structure into reusable pieces that can be nested into a complete React interface.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="jsx-heading">
+        <h2 id="jsx-heading"><span class="jsx">JSX</span> describes the interface</h2>
+        <p>JSX is a syntax extension for JavaScript. It looks similar to HTML, but a build tool transforms it into JavaScript that creates React elements. Browsers do not interpret JSX directly.</p>
+
+        <div class="concepts">
+          <article class="concept">
+            <h3 class="jsx">Structure</h3>
+            <p>Tags describe which elements should appear and how they relate.</p>
+          </article>
+          <article class="concept">
+            <h3 class="expression">Data</h3>
+            <p>Curly braces insert JavaScript values into that structure.</p>
+          </article>
+          <article class="concept">
+            <h3 class="component">Reuse</h3>
+            <p>Capitalized tags refer to components created by your application.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>A JSX value can be stored in a variable and later rendered by React.</figcaption>
+          <pre><code><span class="token-keyword">const</span> heading = (
+  &lt;<span class="token-tag">h1</span> className=<span class="token-string">"page-title"</span>&gt;
+    Learn React
+  &lt;/<span class="token-tag">h1</span>&gt;
+);</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Close every tag.</strong><p>Write <code>&lt;img /&gt;</code> and <code>&lt;li&gt;Item&lt;/li&gt;</code>. JSX requires an explicit closing tag or self-closing slash.</p></li>
+          <li><strong>Return one root.</strong><p>Wrap sibling elements in a parent or a Fragment, written as <code>&lt;&gt;...&lt;/&gt;</code>.</p></li>
+          <li><strong>Use JavaScript-style property names.</strong><p>For example, use <code>className</code> instead of <code>class</code> and <code>htmlFor</code> instead of <code>for</code>.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>A Fragment groups siblings without adding another DOM element.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">ProfileSummary</span>() {
+  <span class="token-keyword">return</span> (
+    &lt;&gt;
+      &lt;<span class="token-tag">h2</span>&gt;Ada Lovelace&lt;/<span class="token-tag">h2</span>&gt;
+      &lt;<span class="token-tag">p</span>&gt;Mathematician and writer&lt;/<span class="token-tag">p</span>&gt;
+    &lt;/&gt;
+  );
+}</code></pre>
+        </figure>
+      </section>
+
+      <section aria-labelledby="expressions-heading">
+        <h2 id="expressions-heading"><span class="expression">JavaScript expressions</span> in JSX</h2>
+        <p>Inside JSX, curly braces switch from markup-like syntax back to JavaScript. Put an <em>expression</em> inside them: code that produces a value, such as a variable, property access, calculation, function call, or conditional expression.</p>
+
+        <figure class="example">
+          <figcaption>Each pair of braces evaluates an expression and inserts its result.</figcaption>
+          <pre><code><span class="token-keyword">const</span> user = { name: <span class="token-string">"Mina"</span>, unread: <span class="token-number">3</span> };
+
+<span class="token-keyword">const</span> greeting = (
+  &lt;<span class="token-tag">section</span>&gt;
+    &lt;<span class="token-tag">h2</span>&gt;Hello, {user.name.toUpperCase()}&lt;/<span class="token-tag">h2</span>&gt;
+    &lt;<span class="token-tag">p</span>&gt;You have {user.unread + <span class="token-number">1</span>} messages.&lt;/<span class="token-tag">p</span>&gt;
+    &lt;<span class="token-tag">img</span> src={user.avatarUrl} alt={<span class="token-string">`Portrait of ${user.name}`</span>} /&gt;
+  &lt;/<span class="token-tag">section</span>&gt;
+);</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Statements do not go directly inside JSX braces.</span> An <code>if</code>, <code>for</code>, or variable declaration does not itself produce a value. Calculate what you need before the returned JSX, or use an expression such as <code>condition ? a : b</code>.</p>
+
+        <figure class="example">
+          <figcaption>Object-valued attributes need one pair of braces for JavaScript and another for the object literal.</figcaption>
+          <pre><code>&lt;<span class="token-tag">div</span> style={{ color: <span class="token-string">"tomato"</span>, padding: <span class="token-number">12</span> }}&gt;
+  Warning
+&lt;/<span class="token-tag">div</span>&gt;</code></pre>
+        </figure>
+      </section>
+
+      <section aria-labelledby="components-heading">
+        <h2 id="components-heading"><span class="component">Components</span> create reusable UI</h2>
+        <p>A React component is a JavaScript function that returns JSX. Its name must begin with a capital letter so React can distinguish it from built-in tags such as <code>&lt;button&gt;</code> and <code>&lt;section&gt;</code>.</p>
+
+        <figure class="example">
+          <figcaption>Define a component as a function, then render it with JSX tag syntax.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Avatar</span>() {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">img</span>
+      src=<span class="token-string">"/images/mina.png"</span>
+      alt=<span class="token-string">"Mina smiling"</span>
+      width={<span class="token-number">80</span>}
+      height={<span class="token-number">80</span>}
+    /&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">App</span>() {
+  <span class="token-keyword">return</span> &lt;<span class="token-name">Avatar</span> /&gt;;
+}</code></pre>
+        </figure>
+
+        <div class="sequence" role="img" aria-label="How React uses a component">
+          <div><strong>Render</strong><span>React encounters <code>&lt;Avatar /&gt;</code>.</span></div>
+          <div><strong>Call</strong><span>React calls the component function.</span></div>
+          <div><strong>Describe</strong><span>The returned JSX describes the output.</span></div>
+        </div>
+
+        <p class="note">Let React call component functions. Use <code>&lt;Avatar /&gt;</code>, not <code>Avatar()</code>. JSX keeps component identity visible to React and lets React apply its rendering rules correctly.</p>
+      </section>
+
+      <section aria-labelledby="nesting-heading">
+        <h2 id="nesting-heading"><span class="jsx">Nesting</span> components</h2>
+        <p>Components can render both built-in elements and other components. A parent component combines smaller pieces, while each child owns a focused part of the interface.</p>
+
+        <figure class="example">
+          <figcaption><code>ProfileCard</code> nests two custom components, and <code>App</code> nests the completed card.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Avatar</span>() {
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">img</span> src=<span class="token-string">"/images/mina.png"</span> alt=<span class="token-string">"Mina smiling"</span> /&gt;;
+}
+
+<span class="token-keyword">function</span> <span class="token-name">StatusBadge</span>() {
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">span</span>&gt;Online&lt;/<span class="token-tag">span</span>&gt;;
+}
+
+<span class="token-keyword">function</span> <span class="token-name">ProfileCard</span>() {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">article</span>&gt;
+      &lt;<span class="token-name">Avatar</span> /&gt;
+      &lt;<span class="token-tag">h2</span>&gt;Mina&lt;/<span class="token-tag">h2</span>&gt;
+      &lt;<span class="token-name">StatusBadge</span> /&gt;
+    &lt;/<span class="token-tag">article</span>&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">App</span>() {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">main</span>&gt;
+      &lt;<span class="token-name">ProfileCard</span> /&gt;
+    &lt;/<span class="token-tag">main</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>Define components at the top level of a module, not inside another component. You can still nest their rendered output by placing one component's JSX tag inside another component's return value.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Why does a custom component name begin with a capital letter?
+            <details><summary>Show answer</summary><p>React treats lowercase JSX tags as built-in HTML elements. A capitalized tag tells React to use the component function in scope.</p></details>
+          </li>
+          <li>
+            Can <code>{if (ready) { ... }}</code> appear directly inside JSX?
+            <details><summary>Show answer</summary><p>No. <code>if</code> is a statement, not an expression. Run it before the JSX or use an expression such as <code>{ready ? &lt;Ready /&gt; : &lt;Loading /&gt;}</code>.</p></details>
+          </li>
+          <li>
+            Does nesting <code>&lt;Avatar /&gt;</code> inside <code>ProfileCard</code> mean defining <code>Avatar</code> inside the <code>ProfileCard</code> function?
+            <details><summary>Show answer</summary><p>No. Nesting describes the returned UI tree. Keep both component definitions at module scope, then render <code>&lt;Avatar /&gt;</code> from <code>ProfileCard</code>.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

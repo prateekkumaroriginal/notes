@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on custom Hooks, reusable stateful logic, the Rules of Hooks, and custom Hook API design.">
+  <title>Custom Hooks in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .custom-hook { color: var(--blue); }
+    .reuse { color: var(--green); }
+    .rules-accent { color: var(--violet); }
+    .api { color: var(--amber); }
+    .caution { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .flow,
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .flow article,
+    .comparison article {
+      padding-left: 1rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .flow article:nth-child(1) { border-color: var(--blue); }
+    .flow article:nth-child(2) { border-color: var(--green); }
+    .flow article:nth-child(3) { border-color: var(--violet); }
+    .flow strong { display: block; padding-bottom: 0.35rem; }
+
+    .comparison { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .comparison article:first-child { border-color: var(--green); }
+    .comparison article:last-child { border-color: var(--amber); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .example + .note,
+    .rules + .note,
+    .comparison + .note { margin-top: 1.75rem; }
+
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules { display: grid; gap: 1.75rem; }
+    .rules p { padding-top: 0.35rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .flow, .comparison { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Custom Hooks in React</h1>
+      <p>A custom Hook is a JavaScript function that packages reusable React logic. It can call built-in Hooks, accept inputs, and return the values or actions a component needs.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="custom-hooks-heading">
+        <h2 id="custom-hooks-heading"><span class="custom-hook">Custom Hooks</span> share logic</h2>
+        <p>When several components repeat the same state, Effect, or subscription logic, move that logic into a function whose name starts with <code>use</code>. React treats that naming convention as a signal that the function may call Hooks.</p>
+
+        <div class="flow" role="img" aria-label="How a custom Hook relates to a component">
+          <article><strong>Component calls</strong><span>A component calls the custom Hook during rendering.</span></article>
+          <article><strong>Hook coordinates</strong><span>The custom Hook combines built-in Hooks and ordinary JavaScript.</span></article>
+          <article><strong>Component renders</strong><span>The returned values and actions drive the interface.</span></article>
+        </div>
+
+        <figure class="example">
+          <figcaption><code>useOnlineStatus</code> hides browser event subscription details behind one meaningful value.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useEffect, useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">export function</span> <span class="token-name">useOnlineStatus</span>() {
+  <span class="token-keyword">const</span> [isOnline, setIsOnline] = <span class="token-function">useState</span>(navigator.onLine);
+
+  <span class="token-function">useEffect</span>(() =&gt; {
+    <span class="token-keyword">function</span> <span class="token-function">updateStatus</span>() {
+      <span class="token-function">setIsOnline</span>(navigator.onLine);
+    }
+
+    window.addEventListener(<span class="token-string">"online"</span>, updateStatus);
+    window.addEventListener(<span class="token-string">"offline"</span>, updateStatus);
+
+    <span class="token-keyword">return</span> () =&gt; {
+      window.removeEventListener(<span class="token-string">"online"</span>, updateStatus);
+      window.removeEventListener(<span class="token-string">"offline"</span>, updateStatus);
+    };
+  }, []);
+
+  <span class="token-keyword">return</span> isOnline;
+}
+
+<span class="token-keyword">function</span> <span class="token-name">SaveButton</span>() {
+  <span class="token-keyword">const</span> isOnline = <span class="token-function">useOnlineStatus</span>();
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> disabled={!isOnline}&gt;
+      {isOnline ? <span class="token-string">"Save"</span> : <span class="token-string">"Reconnect to save"</span>}
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">A custom Hook shares <strong>logic</strong>, not one shared state value. Two components that call <code>useOnlineStatus</code> each get an independent state cell and Effect lifecycle, even though they reuse the same function.</p>
+      </section>
+
+      <section aria-labelledby="reuse-heading">
+        <h2 id="reuse-heading"><span class="reuse">Reusable stateful logic</span></h2>
+        <p>Stateful logic is the behavior around state, such as initializing it, updating it, subscribing to an external source, and cleaning up. A custom Hook lets components reuse that behavior without forcing them to reuse the same markup.</p>
+
+        <div class="comparison">
+          <article>
+            <h3 class="reuse">The Hook owns behavior</h3>
+            <p>It can manage state, Effects, refs, reducers, and event-oriented helper functions.</p>
+          </article>
+          <article>
+            <h3 class="api">The component owns UI</h3>
+            <p>It decides what JSX to render and how returned values appear to the user.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>A reusable form-field Hook returns a controlled input value and the actions that change it.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">useFormField</span>(initialValue = <span class="token-string">""</span>) {
+  <span class="token-keyword">const</span> [value, setValue] = <span class="token-function">useState</span>(initialValue);
+
+  <span class="token-keyword">function</span> <span class="token-function">onChange</span>(event) {
+    <span class="token-function">setValue</span>(event.target.value);
+  }
+
+  <span class="token-keyword">function</span> <span class="token-function">reset</span>() {
+    <span class="token-function">setValue</span>(initialValue);
+  }
+
+  <span class="token-keyword">return</span> { value, onChange, reset };
+}
+
+<span class="token-keyword">function</span> <span class="token-name">ProfileForm</span>() {
+  <span class="token-keyword">const</span> name = <span class="token-function">useFormField</span>(<span class="token-string">"Ada"</span>);
+  <span class="token-keyword">const</span> city = <span class="token-function">useFormField</span>();
+
+  <span class="token-keyword">function</span> <span class="token-function">handleReset</span>() {
+    name.reset();
+    city.reset();
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">form</span>&gt;
+      &lt;<span class="token-tag">input</span> aria-label=<span class="token-string">"Name"</span> value={name.value} onChange={name.onChange} /&gt;
+      &lt;<span class="token-tag">input</span> aria-label=<span class="token-string">"City"</span> value={city.value} onChange={city.onChange} /&gt;
+      &lt;<span class="token-tag">button</span> type=<span class="token-string">"button"</span> onClick={handleReset}&gt;Reset&lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">form</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Extract a concept, not every repeated line.</strong><p>A useful custom Hook describes a purpose such as online status, form fields, media queries, or chat connections.</p></li>
+          <li><strong>Keep pure calculations as regular functions.</strong><p>If a function does not call Hooks, it does not need a <code>use</code> prefix. A normal function is simpler and may be called anywhere.</p></li>
+          <li><strong>Keep ownership explicit.</strong><p>State belongs to each component call. To share the same changing value, lift state or place it in context, then let a Hook read that context.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="rules-heading">
+        <h2 id="rules-heading"><span class="rules-accent">Rules of Hooks</span></h2>
+        <p>Custom Hooks follow the same rules as components. These rules let React match each Hook call to the correct state, ref, or Effect on every render.</p>
+
+        <ul class="rules">
+          <li><strong>Call Hooks at the top level.</strong><p>Do not call them inside loops, conditions, nested functions, event handlers, or <code>try</code>/<code>catch</code> blocks. Keep the sequence of Hook calls stable across renders.</p></li>
+          <li><strong>Call Hooks only from React functions.</strong><p>Call them from function components or other custom Hooks, not from ordinary JavaScript functions.</p></li>
+          <li><strong>Name custom Hooks with <code>use</code>.</strong><p>Names such as <code>useOnlineStatus</code> communicate that the Rules of Hooks apply and allow React tooling to check usage.</p></li>
+          <li><strong>Pass conditions as data.</strong><p>Call the Hook every render and put conditional behavior inside it. An <code>enabled</code> option can tell an Effect whether it should connect.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>Keep the Hook call unconditional. Let its input control the subscription.</figcaption>
+          <pre><code><span class="token-comment">// Incorrect: the Hook call moves in and out of the render sequence.</span>
+<span class="token-keyword">if</span> (roomId) {
+  <span class="token-function">useChatRoom</span>({ roomId });
+}
+
+<span class="token-comment">// Correct: the call order stays stable.</span>
+<span class="token-function">useChatRoom</span>({ roomId, enabled: Boolean(roomId) });
+
+<span class="token-keyword">function</span> <span class="token-name">useChatRoom</span>({ roomId, enabled }) {
+  <span class="token-function">useEffect</span>(() =&gt; {
+    <span class="token-keyword">if</span> (!enabled) <span class="token-keyword">return</span>;
+
+    <span class="token-keyword">const</span> connection = <span class="token-function">createConnection</span>(roomId);
+    connection.connect();
+
+    <span class="token-keyword">return</span> () =&gt; connection.disconnect();
+  }, [roomId, enabled]);
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">A name that starts with <code>use</code> is a contract.</span> If a function never calls Hooks, prefer a regular name. If it does call Hooks, use the prefix and follow the rules.</p>
+      </section>
+
+      <section aria-labelledby="api-heading">
+        <h2 id="api-heading"><span class="api">Custom Hook API design</span></h2>
+        <p>The Hook's parameters and return value form an API. Design it around what the caller needs to express, while keeping implementation details inside the Hook.</p>
+
+        <ul class="rules">
+          <li><strong>Use a specific, purpose-driven name.</strong><p><code>useOnlineStatus</code> communicates more than <code>useEffectWrapper</code>. Name the user-facing capability, not the built-in Hook used internally.</p></li>
+          <li><strong>Accept reactive inputs directly.</strong><p>Pass values such as <code>roomId</code> and <code>serverUrl</code> so dependencies remain visible. Use an options object when several related inputs make positional arguments unclear.</p></li>
+          <li><strong>Return the smallest useful interface.</strong><p>Return values and named actions the component needs. Keep setters, refs, and subscription machinery private unless callers truly need that control.</p></li>
+          <li><strong>Keep behavior predictable.</strong><p>Document whether the Hook subscribes, fetches, or performs cleanup. Prefer actions such as <code>reset</code> and <code>retry</code> over exposing internal state transitions.</p></li>
+          <li><strong>Preserve dependency semantics.</strong><p>Custom Hooks that accept callbacks may need to include them in an Effect dependency list. Callers should pass stable callbacks only when stability is actually required.</p></li>
+        </ul>
+
+        <figure class="example">
+          <figcaption>This API exposes a status and a retry action while keeping request state and cleanup inside the Hook.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">useUser</span>(userId) {
+  <span class="token-keyword">const</span> [attempt, setAttempt] = <span class="token-function">useState</span>(<span class="token-number">0</span>);
+  <span class="token-keyword">const</span> [result, setResult] = <span class="token-function">useState</span>({
+    status: <span class="token-string">"loading"</span>,
+    user: <span class="token-keyword">null</span>
+  });
+
+  <span class="token-function">useEffect</span>(() =&gt; {
+    <span class="token-keyword">let</span> ignore = <span class="token-keyword">false</span>;
+    <span class="token-function">setResult</span>({ status: <span class="token-string">"loading"</span>, user: <span class="token-keyword">null</span> });
+
+    <span class="token-function">fetchUser</span>(userId)
+      .then(user =&gt; {
+        <span class="token-keyword">if</span> (!ignore) {
+          <span class="token-function">setResult</span>({ status: <span class="token-string">"success"</span>, user });
+        }
+      })
+      .catch(() =&gt; {
+        <span class="token-keyword">if</span> (!ignore) {
+          <span class="token-function">setResult</span>({ status: <span class="token-string">"error"</span>, user: <span class="token-keyword">null</span> });
+        }
+      });
+
+    <span class="token-keyword">return</span> () =&gt; {
+      ignore = <span class="token-keyword">true</span>;
+    };
+  }, [userId, attempt]);
+
+  <span class="token-keyword">function</span> <span class="token-function">retry</span>() {
+    <span class="token-function">setAttempt</span>(value =&gt; value + <span class="token-number">1</span>);
+  }
+
+  <span class="token-keyword">return</span> { ...result, retry };
+}
+
+<span class="token-keyword">function</span> <span class="token-name">UserProfile</span>({ userId }) {
+  <span class="token-keyword">const</span> { status, user, retry } = <span class="token-function">useUser</span>(userId);
+
+  <span class="token-keyword">if</span> (status === <span class="token-string">"loading"</span>) <span class="token-keyword">return</span> &lt;<span class="token-tag">p</span>&gt;Loading…&lt;/<span class="token-tag">p</span>&gt;;
+  <span class="token-keyword">if</span> (status === <span class="token-string">"error"</span>) <span class="token-keyword">return</span> &lt;<span class="token-tag">button</span> onClick={retry}&gt;Retry&lt;/<span class="token-tag">button</span>&gt;;
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">h3</span>&gt;{user.name}&lt;/<span class="token-tag">h3</span>&gt;;
+}</code></pre>
+        </figure>
+
+        <p class="note">The example focuses on API shape. Production data fetching usually also represents errors and may use a framework data API or cache that handles deduplication, server rendering, and race conditions.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            If two components call the same custom Hook, do they share one state value?
+            <details><summary>Show answer</summary><p>No. Each call receives independent state and Effect lifecycles. The components share the Hook's logic, not its state. Shared state needs a common owner, often reached through props or context.</p></details>
+          </li>
+          <li>
+            Can a custom Hook be called only when a prop is true?
+            <details><summary>Show answer</summary><p>No. Call it unconditionally at the top level so Hook order stays stable. Pass the prop into the Hook and use it to control behavior inside an Effect or calculation.</p></details>
+          </li>
+          <li>
+            Should a helper named <code>useSortedItems</code> keep the <code>use</code> prefix if it only calls <code>items.toSorted()</code>?
+            <details><summary>Show answer</summary><p>No. If it calls no Hooks, make it a regular function such as <code>sortItems</code>. Then it can be called anywhere without implying the Rules of Hooks apply.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

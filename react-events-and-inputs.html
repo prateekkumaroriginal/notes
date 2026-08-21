@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on event handlers, event propagation, controlled inputs, and uncontrolled inputs.">
+  <title>Events and Inputs in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .event { color: var(--blue); }
+    .propagation { color: var(--green); }
+    .controlled { color: var(--violet); }
+    .uncontrolled, .caution { color: var(--amber); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .concept {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .concept:nth-child(1) { border-color: var(--violet); }
+    .concept:nth-child(2) { border-color: var(--amber); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .steps div {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+    }
+
+    .steps strong { display: block; padding-bottom: 0.35rem; }
+
+    .rules {
+      display: grid;
+      gap: 1.75rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .rules p { padding-top: 0.35rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.35rem;
+      background: var(--surface);
+    }
+
+    .example + .note, .concepts + .note { margin-top: 1.75rem; }
+
+    .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .concepts, .steps { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Events and Inputs in React</h1>
+      <p>Event handlers let components respond to people. Input elements can either take their current value from React state or keep that value in the DOM.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="handlers-heading">
+        <h2 id="handlers-heading"><span class="event">Event handlers</span> respond to interaction</h2>
+        <p>An event handler is a function that React runs after an interaction such as a click, key press, form submission, or input change. Handler prop names use camel case, including <code>onClick</code>, <code>onChange</code>, and <code>onSubmit</code>.</p>
+
+        <figure class="example">
+          <figcaption>Pass the function itself to the event prop. React calls it when the event happens.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">DownloadButton</span>() {
+  <span class="token-keyword">function</span> <span class="token-function">handleClick</span>() {
+    alert(<span class="token-string">"Download started"</span>);
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> onClick={handleClick}&gt;
+      Download
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Pass, do not call.</span> <code>onClick={handleClick}</code> waits for a click. <code>onClick={handleClick()}</code> calls the function during rendering and assigns its return value as the handler.</p>
+
+        <figure class="example">
+          <figcaption>An inline arrow function is useful when a handler needs an argument.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">ProductButton</span>({ productId }) {
+  <span class="token-keyword">function</span> <span class="token-function">addToCart</span>(id) {
+    console.log(<span class="token-string">`Adding ${id}`</span>);
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> onClick={() =&gt; addToCart(productId)}&gt;
+      Add to cart
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>React passes an event object to the handler. Its <code>target</code> is the element where the event began, while <code>currentTarget</code> is the element whose handler is currently running.</p>
+
+        <figure class="example">
+          <figcaption>Prevent the browser's page navigation while React handles the form submission.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">SearchForm</span>() {
+  <span class="token-keyword">function</span> <span class="token-function">handleSubmit</span>(event) {
+    event.preventDefault();
+    console.log(<span class="token-string">"Searching"</span>);
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">form</span> onSubmit={handleSubmit}&gt;
+      &lt;<span class="token-tag">input</span> name=<span class="token-string">"query"</span> /&gt;
+      &lt;<span class="token-tag">button</span> type=<span class="token-string">"submit"</span>&gt;Search&lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">form</span>&gt;
+  );
+}</code></pre>
+        </figure>
+      </section>
+
+      <section aria-labelledby="propagation-heading">
+        <h2 id="propagation-heading"><span class="propagation">Event propagation</span> moves through the tree</h2>
+        <p>Most React events bubble. After a child handler runs, the event continues upward and can run handlers on its ancestors. This makes a parent useful for handling interactions from many descendants.</p>
+
+        <div class="steps" role="img" aria-label="Event propagation sequence">
+          <div><strong>Target</strong><span>The event begins at the interacted element.</span></div>
+          <div><strong>Child handler</strong><span>The target's handler runs.</span></div>
+          <div><strong>Bubble</strong><span>Ancestor handlers run from the inside out.</span></div>
+        </div>
+
+        <figure class="example">
+          <figcaption>Clicking the button logs both messages because the click bubbles to the toolbar.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Toolbar</span>() {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">div</span> onClick={() =&gt; console.log(<span class="token-string">"Toolbar clicked"</span>)}&gt;
+      &lt;<span class="token-tag">button</span> onClick={() =&gt; console.log(<span class="token-string">"Save clicked"</span>)}&gt;
+        Save
+      &lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">div</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <figure class="example">
+          <figcaption>Stop propagation when this click should belong only to the button.</figcaption>
+          <pre><code>&lt;<span class="token-tag">button</span>
+  onClick={(event) =&gt; {
+    event.stopPropagation();
+    console.log(<span class="token-string">"Only the button handles this click"</span>);
+  }}
+&gt;
+  Save
+&lt;/<span class="token-tag">button</span>&gt;</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong><code>stopPropagation()</code> controls React propagation.</strong><p>It stops the event from reaching handlers higher in the React tree.</p></li>
+          <li><strong><code>preventDefault()</code> controls browser behavior.</strong><p>It stops a default action such as submitting a form or following a link. It does not stop bubbling.</p></li>
+          <li><strong>Capture handlers run first.</strong><p>Use a name such as <code>onClickCapture</code> on an ancestor to observe the event while it travels down toward the target, even if a child later stops bubbling.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="controlled-heading">
+        <h2 id="controlled-heading"><span class="controlled">Controlled inputs</span> read from React state</h2>
+        <p>A controlled input receives its current <code>value</code> or <code>checked</code> prop from React state. Its change handler updates that state. React state is therefore the source of truth for what appears in the input.</p>
+
+        <figure class="example">
+          <figcaption>Each edit triggers <code>onChange</code>, updates state, and renders the new value.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">NameField</span>() {
+  <span class="token-keyword">const</span> [name, setName] = useState(<span class="token-string">""</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">label</span>&gt;
+      Name
+      &lt;<span class="token-tag">input</span>
+        value={name}
+        onChange={(event) =&gt; setName(event.target.value)}
+      /&gt;
+      &lt;<span class="token-tag">span</span>&gt; {name.length} characters&lt;/<span class="token-tag">span</span>&gt;
+    &lt;/<span class="token-tag">label</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>Controlled inputs are a good fit when the interface must validate, format, calculate from, synchronize, or reset a value while the person edits it.</p>
+
+        <p class="note">A controlled input needs an <code>onChange</code> handler that updates its backing value. Without one, a fixed <code>value</code> makes the input effectively read-only. Initialize text state with <code>""</code> so the input stays controlled for its whole lifetime.</p>
+      </section>
+
+      <section aria-labelledby="uncontrolled-heading">
+        <h2 id="uncontrolled-heading"><span class="uncontrolled">Uncontrolled inputs</span> keep their value in the DOM</h2>
+        <p>An uncontrolled input manages its current value itself. React may provide an initial value with <code>defaultValue</code> or <code>defaultChecked</code>, but it does not send a new value on every render. Read the current data when it is needed.</p>
+
+        <figure class="example">
+          <figcaption><code>FormData</code> reads named uncontrolled fields when the form is submitted.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">ContactForm</span>() {
+  <span class="token-keyword">function</span> <span class="token-function">handleSubmit</span>(event) {
+    event.preventDefault();
+
+    <span class="token-keyword">const</span> data = <span class="token-keyword">new</span> FormData(event.currentTarget);
+    console.log(data.get(<span class="token-string">"email"</span>));
+    event.currentTarget.reset();
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">form</span> onSubmit={handleSubmit}&gt;
+      &lt;<span class="token-tag">label</span>&gt;
+        Email
+        &lt;<span class="token-tag">input</span>
+          name=<span class="token-string">"email"</span>
+          type=<span class="token-string">"email"</span>
+          defaultValue=<span class="token-string">"reader@example.com"</span>
+        /&gt;
+      &lt;/<span class="token-tag">label</span>&gt;
+      &lt;<span class="token-tag">button</span> type=<span class="token-string">"submit"</span>&gt;Send&lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">form</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <div class="concepts">
+          <article class="concept">
+            <h3 class="controlled">Choose controlled</h3>
+            <p>Use state when other UI needs the value during editing, or React must transform and validate it immediately.</p>
+          </article>
+          <article class="concept">
+            <h3 class="uncontrolled">Choose uncontrolled</h3>
+            <p>Let the DOM keep simple form values when the application only needs them at submission time.</p>
+          </article>
+        </div>
+
+        <p class="note">Do not switch one input between controlled and uncontrolled. Choose <code>value</code> with <code>onChange</code>, or choose <code>defaultValue</code> and let the DOM manage later edits. File inputs are always uncontrolled because scripts cannot set their value.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Why is <code>onClick={() =&gt; save(id)}</code> different from <code>onClick={save(id)}</code>?
+            <details><summary>Show answer</summary><p>The arrow function waits for the click before calling <code>save</code>. The second expression calls <code>save</code> immediately during rendering and gives React its return value.</p></details>
+          </li>
+          <li>
+            Does <code>preventDefault()</code> stop a click from reaching a parent handler?
+            <details><summary>Show answer</summary><p>No. It stops the browser's default action. Use <code>stopPropagation()</code> when the event should not bubble to React handlers above it.</p></details>
+          </li>
+          <li>
+            Which prop provides only the initial text for an uncontrolled input?
+            <details><summary>Show answer</summary><p>Use <code>defaultValue</code>. The DOM owns subsequent edits, while a controlled input instead receives its current <code>value</code> from React state.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on render and commit, reconciliation, batching, and component identity.">
+  <title>Render, Commit, and Reconciliation in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ol, ul, dl, dt, dd { margin: 0; }
+    h1, h2, h3, strong, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .render { color: var(--blue); }
+    .commit { color: var(--green); }
+    .reconcile { color: var(--violet); }
+    .batch { color: var(--amber); }
+    .identity { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+      list-style: none;
+      counter-reset: pipeline;
+    }
+
+    .pipeline li {
+      padding-top: 0.75rem;
+      border-top: 2px solid var(--line);
+      counter-increment: pipeline;
+    }
+
+    .pipeline li:nth-child(1) { border-color: var(--amber); }
+    .pipeline li:nth-child(2) { border-color: var(--blue); }
+    .pipeline li:nth-child(3) { border-color: var(--violet); }
+    .pipeline li:nth-child(4) { border-color: var(--green); }
+
+    .pipeline li::before {
+      content: "0" counter(pipeline);
+      display: block;
+      padding-bottom: 0.35rem;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .pipeline strong {
+      display: block;
+      padding-bottom: 0.35rem;
+    }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+      border-radius: 0.2rem;
+    }
+
+    .comparison article:first-child { border-color: var(--green); }
+    .comparison article:last-child { border-color: var(--pink); }
+
+    .match-rules {
+      display: grid;
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .match-rules div {
+      display: grid;
+      grid-template-columns: minmax(8rem, 0.45fr) minmax(0, 1fr);
+      column-gap: 1.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--line);
+    }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--violet);
+      border-radius: 0.5rem;
+      background: var(--surface);
+    }
+
+    .example + .note, .note + .example, .comparison + .note { margin-top: 1.75rem; }
+
+    .takeaways {
+      display: grid;
+      gap: 1rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .pipeline, .comparison { grid-template-columns: 1fr; }
+      .match-rules div { grid-template-columns: 1fr; }
+      .match-rules dd { padding-top: 0.35rem; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Render, Commit, and Reconciliation in React</h1>
+      <p>React turns state changes into screen changes in stages: it calculates a new UI tree, matches that tree with the previous one, and then updates the DOM.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="pipeline-heading">
+        <h2 id="pipeline-heading">One update, four useful questions</h2>
+        <p>The words <span class="render">render</span> and <span class="commit">commit</span> describe different work. Keeping them separate explains why a component can run without every DOM node being rebuilt.</p>
+
+        <ol class="pipeline" aria-label="React update pipeline">
+          <li><strong class="batch">Trigger</strong>A first mount or a state update asks React for work.</li>
+          <li><strong class="render">Render</strong>React calls components to calculate the next UI tree.</li>
+          <li><strong class="reconcile">Reconcile</strong>React matches the new tree with the previous tree.</li>
+          <li><strong class="commit">Commit</strong>React applies the required DOM changes.</li>
+        </ol>
+
+        <p>After React commits, the browser can paint the result. Painting is browser work, not another React phase. On the first render there is no previous tree to match, so React creates the needed DOM. On later renders it can reuse matching parts.</p>
+      </section>
+
+      <section aria-labelledby="render-heading">
+        <h2 id="render-heading"><span class="render">Render</span> calculates the next description</h2>
+        <p>During rendering, React calls the component whose update was triggered and, when needed, the components below it. Each component reads its current props, state, and context, then returns JSX. JSX describes the desired result; it does not directly edit the page.</p>
+
+        <figure class="example">
+          <figcaption>Changing <code>name</code> asks React to call <code>Greeting</code> again. The returned JSX describes the next heading.</figcaption>
+          <pre><code><span class="token-keyword">import</span> { useState } <span class="token-keyword">from</span> <span class="token-string">"react"</span>;
+
+<span class="token-keyword">function</span> <span class="token-name">Greeting</span>() {
+  <span class="token-keyword">const</span> [name, setName] = <span class="token-function">useState</span>(<span class="token-string">"Mira"</span>);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">section</span>&gt;
+      &lt;<span class="token-tag">h2</span>&gt;Hello, {name}!&lt;/<span class="token-tag">h2</span>&gt;
+      &lt;<span class="token-tag">button</span> onClick={() =&gt; setName(<span class="token-string">"Noah"</span>)}&gt;
+        Greet Noah
+      &lt;/<span class="token-tag">button</span>&gt;
+    &lt;/<span class="token-tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><strong>Rendering must be pure.</strong> For the same inputs, a component should return the same JSX. Do not change the DOM, start a network request, or mutate an outside value while the component function runs. Event handlers and Effects provide places for those interactions.</p>
+      </section>
+
+      <section aria-labelledby="commit-heading">
+        <h2 id="commit-heading"><span class="commit">Commit</span> changes what exists</h2>
+        <p>Once React has a completed result, it commits only the DOM operations needed to make the page match it. In the greeting example, React can keep the existing <code>&lt;section&gt;</code>, <code>&lt;h2&gt;</code>, and <code>&lt;button&gt;</code>, then replace only the heading's text.</p>
+
+        <div class="comparison">
+          <article>
+            <h3 class="commit">React can reuse it</h3>
+            <p>The element has a matching type and identity. React updates changed properties, attributes, event handlers, or text while leaving the rest in place.</p>
+          </article>
+          <article>
+            <h3 class="identity">React replaces it</h3>
+            <p>The element's type or identity no longer matches. React removes the old DOM or component subtree and creates the new one.</p>
+          </article>
+        </div>
+
+        <p class="note">A render does not guarantee a visible DOM change. If the calculated output is equivalent to what is already committed, React has nothing to mutate for that part of the page.</p>
+      </section>
+
+      <section aria-labelledby="reconciliation-heading">
+        <h2 id="reconciliation-heading"><span class="reconcile">Reconciliation</span> finds the difference</h2>
+        <p>Reconciliation is React's matching process during rendering. React compares the new element tree with the previous one and decides which component instances and host elements can continue.</p>
+
+        <dl class="match-rules">
+          <div>
+            <dt>Same type</dt>
+            <dd>A <code>&lt;p&gt;</code> can continue as the same paragraph, and a <code>&lt;Profile&gt;</code> can continue as the same component instance. Changed props and children are processed.</dd>
+          </div>
+          <div>
+            <dt>Different type</dt>
+            <dd>Changing <code>&lt;p&gt;</code> to <code>&lt;div&gt;</code>, or <code>&lt;Profile&gt;</code> to <code>&lt;Settings&gt;</code>, replaces that part of the tree and resets state below it.</dd>
+          </div>
+          <div>
+            <dt>Stable key</dt>
+            <dd>Among siblings, a stable key helps React match an item even if its order changes. A changed key deliberately creates a different identity.</dd>
+          </div>
+        </dl>
+
+        <figure class="example">
+          <figcaption>The outer <code>&lt;p&gt;</code> keeps the same type, so React reuses it and updates its class and text.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">SaveStatus</span>({ isSaving }) {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">p</span> className={isSaving ? <span class="token-string">"saving"</span> : <span class="token-string">"saved"</span>}&gt;
+      {isSaving ? <span class="token-string">"Saving changes…"</span> : <span class="token-string">"All changes saved"</span>}
+    &lt;/<span class="token-tag">p</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>Reconciliation is why “render again” does not mean “rebuild the whole DOM.” Component output is recalculated first; DOM work follows from the differences React finds.</p>
+      </section>
+
+      <section aria-labelledby="batching-heading">
+        <h2 id="batching-heading"><span class="batch">Batching</span> groups triggers into one update</h2>
+        <p>State setters queue updates. Batching lets React wait until the current interaction has finished, process related queued updates together, and usually produce one render and one commit for the batch. This avoids showing an intermediate screen such as a new selection with an old details panel.</p>
+
+        <figure class="example">
+          <figcaption>Both state changes come from one click. React can calculate and commit the completed selection together.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">ContactPicker</span>() {
+  <span class="token-keyword">const</span> [contactId, setContactId] = <span class="token-function">useState</span>(<span class="token-number">1</span>);
+  <span class="token-keyword">const</span> [isEditing, setIsEditing] = <span class="token-function">useState</span>(<span class="token-keyword">true</span>);
+
+  <span class="token-keyword">function</span> <span class="token-function">selectContact</span>(nextId) {
+    setContactId(nextId);
+    setIsEditing(<span class="token-keyword">false</span>);
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">button</span> onClick={() =&gt; selectContact(<span class="token-number">2</span>)}&gt;
+      Open contact 2
+    &lt;/<span class="token-tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><strong>Connection to state queues:</strong> batching changes when React processes related requests, not what each setter means. If several updates depend on pending state, functional updates are still required. React may also restart or repeat rendering before a commit, so component code must stay pure.</p>
+      </section>
+
+      <section aria-labelledby="identity-heading">
+        <h2 id="identity-heading"><span class="identity">Component identity</span> controls reuse</h2>
+        <p>A component instance keeps its state when React can match the same component type in the same place under its parent, with the same key when one is present. This page focuses on identity as an input to reconciliation; the preserving-state notes use the same rule to explain what happens to state.</p>
+
+        <figure class="example">
+          <figcaption>Stable keys let React match each <code>TaskRow</code> to the same task after sorting.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">TaskList</span>({ tasks }) {
+  <span class="token-keyword">const</span> sortedTasks = [...tasks].sort((a, b) =&gt;
+    a.title.localeCompare(b.title)
+  );
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">ul</span>&gt;
+      {sortedTasks.map(task =&gt; (
+        &lt;<span class="token-name">TaskRow</span> key={task.id} task={task} /&gt;
+      ))}
+    &lt;/<span class="token-tag">ul</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ul class="takeaways">
+          <li><strong>Keep component types stable.</strong> Define component functions at module scope, not inside another component's render.</li>
+          <li><strong>Give changing lists stable keys.</strong> Use IDs from the data, not array positions or fresh random values.</li>
+          <li><strong>Change a key intentionally.</strong> A new key tells reconciliation to replace that instance and reset its subtree.</li>
+          <li><strong>Do not chase render counts.</strong> Write pure rendering logic and let React decide how to schedule safe work.</li>
+        </ul>
+      </section>
+
+      <section aria-label="Summary">
+        <p class="note"><strong>Keep this model:</strong> updates trigger work; rendering calculates; reconciliation matches identities; committing mutates the DOM. Batching lets related updates travel through that pipeline together.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            If React renders a component, must it change the DOM?
+            <details><summary>Show answer</summary><p>No. Rendering calculates the desired UI. If reconciliation finds that the committed DOM already matches, no DOM mutation is needed for that part.</p></details>
+          </li>
+          <li>
+            Why can two setter calls in one click lead to one completed screen update?
+            <details><summary>Show answer</summary><p>React batches related updates from the interaction, processes their queues together, and can render and commit the completed result instead of committing each intermediate state.</p></details>
+          </li>
+          <li>
+            What lets a stateful list item keep its identity when the list is reordered?
+            <details><summary>Show answer</summary><p>A stable key tied to the item's data lets reconciliation match that item with its previous component instance, even at a different sibling position.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on useState, props versus state, and how state behaves as a snapshot during each render.">
+  <title>React useState, Props vs State, and State Snapshots</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol, dl, dt, dd { margin: 0; }
+    h1, h2, h3, strong, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .state { color: var(--blue); }
+    .props { color: var(--green); }
+    .snapshot { color: var(--violet); }
+    .caution { color: var(--amber); }
+    .error { color: var(--pink); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .kw { color: var(--pink); }
+    .fn, .tag { color: var(--blue); }
+    .str { color: var(--green); }
+    .name { color: var(--violet); }
+    .num { color: var(--amber); }
+    .comment { color: var(--muted); }
+
+    .concepts {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .concept {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .concept:nth-child(1) { border-color: var(--blue); }
+    .concept:nth-child(2) { border-color: var(--green); }
+    .concept:nth-child(3) { border-color: var(--violet); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .steps,
+    .rules,
+    .quiz {
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .steps,
+    .rules { display: grid; gap: 1.75rem; }
+    .steps p,
+    .rules p { padding-top: 0.35rem; }
+
+    .comparison {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .comparison article {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .comparison .props-side { border-color: var(--green); }
+    .comparison .state-side { border-color: var(--blue); }
+    .comparison dd + dt { padding-top: 1rem; }
+    .comparison dd { padding-top: 0.25rem; }
+
+    .timeline {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+      counter-reset: snapshot-step;
+    }
+
+    .timeline div {
+      padding-left: 1rem;
+      border-left: 2px solid var(--violet);
+      counter-increment: snapshot-step;
+    }
+
+    .timeline strong {
+      display: block;
+      padding-bottom: 0.35rem;
+    }
+
+    .timeline strong::before {
+      content: counter(snapshot-step) ". ";
+      color: var(--amber);
+    }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.4rem;
+      background: var(--surface);
+    }
+
+    .example + .note,
+    .timeline + .note { margin-top: 1.75rem; }
+
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .concepts,
+      .comparison,
+      .timeline { grid-template-columns: 1fr; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>useState, Props vs State, and State Snapshots</h1>
+      <p>State gives a component memory. Props bring data from a parent, while each render receives a fixed snapshot of both props and state.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="mental-model">
+        <h2 id="mental-model">The mental model</h2>
+        <p>React calls a component to calculate its interface. Props are inputs to that call, and state is React-managed memory associated with the component's position in the UI tree.</p>
+
+        <div class="concepts">
+          <article class="concept">
+            <h3 class="state">Remember</h3>
+            <p><code>useState</code> stores information between renders.</p>
+          </article>
+          <article class="concept">
+            <h3 class="props">Receive</h3>
+            <p>Props let a parent configure a child.</p>
+          </article>
+          <article class="concept">
+            <h3 class="snapshot">Render</h3>
+            <p>Each render sees fixed values for that moment.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="usestate-heading">
+        <h2 id="usestate-heading"><span class="state">useState</span> adds component memory</h2>
+        <p>Call <code>useState</code> at the top level of a component. It returns an array containing the current state value and a setter function. Calling the setter requests a new render with the updated value.</p>
+
+        <figure class="example">
+          <figcaption>A counter remembers its count between renders and updates after a click.</figcaption>
+          <pre><code><span class="kw">import</span> { useState } <span class="kw">from</span> <span class="str">"react"</span>;
+
+<span class="kw">export default function</span> <span class="name">Counter</span>() {
+  <span class="kw">const</span> [count, setCount] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+  <span class="kw">function</span> <span class="fn">handleClick</span>() {
+    <span class="fn">setCount</span>(count + <span class="num">1</span>);
+  }
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">button</span> onClick={handleClick}&gt;
+      Clicked {count} times
+    &lt;/<span class="tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <ol class="steps">
+          <li><strong><code>useState(0)</code> sets the initial value.</strong><p>React uses <code>0</code> on the first render. The initial value is ignored on later renders.</p></li>
+          <li><strong><code>count</code> is the value for this render.</strong><p>Read it when calculating JSX or handling an interaction.</p></li>
+          <li><strong><code>setCount</code> requests an update.</strong><p>Do not assign to <code>count</code> directly. A setter tells React to render again and keeps the interface in sync.</p></li>
+        </ol>
+
+        <figure class="example">
+          <figcaption>State can hold strings, booleans, arrays, objects, or any other JavaScript value.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="name">SearchBox</span>() {
+  <span class="kw">const</span> [query, setQuery] = <span class="fn">useState</span>(<span class="str">""</span>);
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">label</span>&gt;
+      Search
+      &lt;<span class="tag">input</span>
+        value={query}
+        onChange={event =&gt; <span class="fn">setQuery</span>(event.target.value)}
+      /&gt;
+      &lt;<span class="tag">span</span>&gt;Looking for: {query || <span class="str">"nothing yet"</span>}&lt;/<span class="tag">span</span>&gt;
+    &lt;/<span class="tag">label</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Hook rule:</span> call <code>useState</code> only at the top level of a component or custom Hook, not inside conditions, loops, or nested functions. A stable call order lets React match each state value to the correct Hook.</p>
+      </section>
+
+      <section aria-labelledby="props-state-heading">
+        <h2 id="props-state-heading"><span class="props">Props</span> vs <span class="state">state</span></h2>
+        <p>Both affect what a component renders, but ownership is different. A parent owns the props it passes. The component owns its local state.</p>
+
+        <div class="comparison">
+          <article class="props-side">
+            <h3 class="props">Props</h3>
+            <dl>
+              <dt>Source</dt>
+              <dd>Passed in by a parent component.</dd>
+              <dt>Updates</dt>
+              <dd>The parent renders with new prop values.</dd>
+              <dt>Rule</dt>
+              <dd>Read-only inside the receiving component.</dd>
+            </dl>
+          </article>
+          <article class="state-side">
+            <h3 class="state">State</h3>
+            <dl>
+              <dt>Source</dt>
+              <dd>Declared by the component with a Hook.</dd>
+              <dt>Updates</dt>
+              <dd>The component calls its state setter.</dd>
+              <dt>Rule</dt>
+              <dd>Replace it through the setter, never mutate it directly.</dd>
+            </dl>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>The parent supplies a prop, while the child remembers interaction state.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="name">ExpandableNote</span>({ title }) {
+  <span class="comment">// title is a prop; the parent owns it.</span>
+  <span class="kw">const</span> [isOpen, setIsOpen] = <span class="fn">useState</span>(<span class="kw">false</span>);
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">section</span>&gt;
+      &lt;<span class="tag">button</span> onClick={() =&gt; <span class="fn">setIsOpen</span>(!isOpen)}&gt;
+        {isOpen ? <span class="str">"Hide"</span> : <span class="str">"Show"</span>} {title}
+      &lt;/<span class="tag">button</span>&gt;
+      {isOpen &amp;&amp; &lt;<span class="tag">p</span>&gt;State belongs to this component instance.&lt;/<span class="tag">p</span>&gt;}
+    &lt;/<span class="tag">section</span>&gt;
+  );
+}
+
+<span class="kw">export default function</span> <span class="name">App</span>() {
+  <span class="kw">return</span> &lt;<span class="name">ExpandableNote</span> title=<span class="str">"React state"</span> /&gt;;
+}</code></pre>
+        </figure>
+
+        <ul class="rules">
+          <li><strong>Use props for configuration from a parent.</strong><p>Examples include a label, product data, or an event handler.</p></li>
+          <li><strong>Use state for information that changes through interaction.</strong><p>Examples include selected tabs, typed text, or whether a panel is open.</p></li>
+          <li><strong>Do not copy a prop into state without a reason.</strong><p>The two values can drift apart. Read the prop directly when it already represents the value you need.</p></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="snapshots-heading">
+        <h2 id="snapshots-heading">State behaves like a <span class="snapshot">snapshot</span></h2>
+        <p>Calling a setter does not change the state variable in code that is already running. It asks React for another render. React then calls the component again and gives that render a new state value.</p>
+
+        <div class="timeline" role="img" aria-label="How a state update produces a new snapshot">
+          <div><strong>Current render</strong><span>The event handler closes over the current <code>score</code> value.</span></div>
+          <div><strong>Update requested</strong><span><code>setScore</code> asks React to render with a new value.</span></div>
+          <div><strong>Next render</strong><span>React returns fresh JSX and a new handler using the updated <code>score</code>.</span></div>
+        </div>
+
+        <figure class="example">
+          <figcaption>The alert reads the same snapshot that rendered the button, even after requesting an update.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="name">ScoreButton</span>() {
+  <span class="kw">const</span> [score, setScore] = <span class="fn">useState</span>(<span class="num">0</span>);
+
+  <span class="kw">function</span> <span class="fn">handleClick</span>() {
+    <span class="fn">setScore</span>(score + <span class="num">1</span>);
+    alert(score); <span class="comment">// Shows the value from this render.</span>
+  }
+
+  <span class="kw">return</span> (
+    &lt;<span class="tag">button</span> onClick={handleClick}&gt;Score: {score}&lt;/<span class="tag">button</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p>On the first click, <code>score</code> is <code>0</code> throughout that handler, so the alert shows <code>0</code>. After the handler finishes, React renders again with <code>score</code> equal to <code>1</code>. The old handler cannot see forward into the next render.</p>
+
+        <figure class="example">
+          <figcaption>Several updates calculated from one snapshot all read the same <code>count</code>.</figcaption>
+          <pre><code><span class="kw">function</span> <span class="fn">addThree</span>() {
+  <span class="fn">setCount</span>(count + <span class="num">1</span>);
+  <span class="fn">setCount</span>(count + <span class="num">1</span>);
+  <span class="fn">setCount</span>(count + <span class="num">1</span>);
+  <span class="comment">// If count is 0, each line requests 1, not 1, then 2, then 3.</span>
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Boundary for the next topic:</span> when a new value depends on the previous queued value, React provides functional updates such as <code>setCount(current =&gt; current + 1)</code>. Update queues and batching explain why that form can apply repeated changes correctly.</p>
+      </section>
+
+      <section aria-label="Summary">
+        <p class="note"><strong>Keep this model:</strong> props are read-only inputs from a parent, state is local memory managed through a setter, and every render works with its own fixed snapshot.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Why does assigning <code>count = count + 1</code> not correctly update the interface?
+            <details><summary>Show answer</summary><p>Changing the local variable does not ask React to render again or update React's stored state. Call <code>setCount(count + 1)</code> instead.</p></details>
+          </li>
+          <li>
+            A parent passes <code>theme="dark"</code> to a child. Is <code>theme</code> a prop or state in the child?
+            <details><summary>Show answer</summary><p>It is a prop because the parent supplies and owns it. The child reads it but does not change it directly.</p></details>
+          </li>
+          <li>
+            After <code>setScore(score + 1)</code>, why does the next line still see the old <code>score</code>?
+            <details><summary>Show answer</summary><p>The running event handler belongs to the current render and keeps that render's snapshot. The setter requests a new render; it does not rewrite the value inside code already running.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

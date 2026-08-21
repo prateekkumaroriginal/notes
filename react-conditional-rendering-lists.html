@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Beginner-friendly React notes on conditional rendering, rendering lists, and choosing stable keys.">
+  <title>Conditional Rendering, Lists, and Keys in React</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    h1, h2, h3, p, pre, figure, ul, ol { margin: 0; }
+    h1, h2, h3, strong { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.4rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p { padding-top: 1rem; }
+
+    .conditional { color: var(--blue); }
+    .lists { color: var(--green); }
+    .keys { color: var(--violet); }
+    .caution { color: var(--amber); }
+
+    code {
+      padding: 0.12em 0.35em;
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+    }
+
+    :is(h1, h2, h3) code {
+      padding: 0;
+      background: transparent;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--text);
+      line-height: 1.5;
+      tab-size: 2;
+    }
+
+    pre code { padding: 0; background: transparent; }
+    .token-keyword { color: var(--pink); }
+    .token-function, .token-tag { color: var(--blue); }
+    .token-string { color: var(--green); }
+    .token-name { color: var(--violet); }
+    .token-number { color: var(--amber); }
+    .token-comment { color: var(--muted); }
+
+    .at-a-glance {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .glance-item {
+      padding-top: 0.9rem;
+      border-top: 2px solid var(--line);
+    }
+
+    .glance-item:nth-child(1) { border-color: var(--blue); }
+    .glance-item:nth-child(2) { border-color: var(--green); }
+    .glance-item:nth-child(3) { border-color: var(--violet); }
+
+    .example { padding-top: 1.75rem; }
+    .example figcaption { padding-bottom: 0.75rem; }
+
+    .methods {
+      display: grid;
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .method {
+      padding-left: 1rem;
+      border-left: 3px solid var(--blue);
+      border-radius: 0.25rem;
+    }
+
+    .method p { padding-top: 0.35rem; }
+
+    .note {
+      padding: 1rem 1.1rem;
+      border-left: 3px solid var(--amber);
+      border-radius: 0.35rem;
+      background: var(--surface);
+    }
+
+    .example + .note, .note + .example, .methods + .note { margin-top: 1.75rem; }
+
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1.75rem;
+      padding-top: 1.75rem;
+    }
+
+    .pipeline > div {
+      padding-left: 0.9rem;
+      border-left: 2px solid var(--line);
+    }
+
+    .pipeline strong { display: block; padding-bottom: 0.35rem; }
+
+    .key-rules {
+      display: grid;
+      gap: 1.75rem;
+      padding: 1.75rem 0 0 1.25rem;
+    }
+
+    .key-rules p { padding-top: 0.35rem; }
+
+    .comparison {
+      overflow-x: auto;
+      padding-top: 1.75rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      color: var(--muted);
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { color: var(--text); }
+    th:first-child { border-top-left-radius: 0.5rem; }
+    th:last-child { border-top-right-radius: 0.5rem; }
+
+    .quiz { padding: 1.75rem 0 0 1.25rem; }
+    .quiz > li + li { padding-top: 2rem; }
+    details { padding-top: 0.75rem; }
+    summary { color: var(--blue); cursor: pointer; }
+    details p { padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .at-a-glance, .pipeline { grid-template-columns: 1fr; }
+      th, td { padding-inline: 0.7rem; }
+    }
+  </style>
+  <link rel="stylesheet" href="code-blocks.css">
+  <script src="copy-code.js" defer></script>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Conditional Rendering, Lists, and Stable Keys</h1>
+      <p>React uses ordinary JavaScript to decide which elements appear and to turn collections of data into repeated UI. Stable keys help React track each item as the collection changes.</p>
+    </header>
+
+    <main>
+      <section aria-labelledby="overview-heading">
+        <h2 id="overview-heading">The three ideas at a glance</h2>
+        <p>These ideas often work together: choose the data, transform it into elements, and give each repeated element a durable identity.</p>
+
+        <div class="at-a-glance">
+          <article class="glance-item">
+            <h3 class="conditional">Choose</h3>
+            <p>Render different JSX when conditions change.</p>
+          </article>
+          <article class="glance-item">
+            <h3 class="lists">Repeat</h3>
+            <p>Use array methods to create one element per item.</p>
+          </article>
+          <article class="glance-item">
+            <h3 class="keys">Identify</h3>
+            <p>Give siblings keys that remain tied to their data.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="conditional-heading">
+        <h2 id="conditional-heading"><span class="conditional">Conditional rendering</span></h2>
+        <p>A component can return different JSX for different data. React does not add a special conditional syntax. Use JavaScript before the return, or use expressions inside JSX.</p>
+
+        <div class="methods">
+          <article class="method">
+            <h3><code>if</code> and an early return</h3>
+            <p>Use this when an entire branch of the component changes. It is often the clearest choice for loading, error, and empty states.</p>
+          </article>
+          <article class="method">
+            <h3>Conditional operator</h3>
+            <p>Use <code>condition ? a : b</code> when exactly one of two values should appear in the same location.</p>
+          </article>
+          <article class="method">
+            <h3>Logical AND</h3>
+            <p>Use <code>condition &amp;&amp; element</code> when something should either appear or render nothing.</p>
+          </article>
+        </div>
+
+        <figure class="example">
+          <figcaption>Early returns keep the main success path from becoming deeply nested.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">UserPanel</span>({ user, isLoading, error }) {
+  <span class="token-keyword">if</span> (isLoading) {
+    <span class="token-keyword">return</span> &lt;<span class="token-tag">p</span>&gt;Loading profile…&lt;/<span class="token-tag">p</span>&gt;;
+  }
+
+  <span class="token-keyword">if</span> (error) {
+    <span class="token-keyword">return</span> &lt;<span class="token-tag">p</span>&gt;Could not load the profile.&lt;/<span class="token-tag">p</span>&gt;;
+  }
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">section</span>&gt;
+      &lt;<span class="token-tag">h2</span>&gt;{user.name}&lt;/<span class="token-tag">h2</span>&gt;
+      {user.isAdmin ? &lt;<span class="token-name">AdminTools</span> /&gt; : &lt;<span class="token-name">MemberTools</span> /&gt;}
+      {user.hasAlerts &amp;&amp; &lt;<span class="token-name">AlertBadge</span> /&gt;}
+    &lt;/<span class="token-tag">section</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution">Watch for zero with <code>&amp;&amp;</code>.</span> React renders numbers, so <code>{items.length &amp;&amp; &lt;List /&gt;}</code> renders <code>0</code> when the array is empty. Write <code>{items.length &gt; 0 &amp;&amp; &lt;List /&gt;}</code> to make the condition a boolean.</p>
+
+        <figure class="example">
+          <figcaption>Return <code>null</code> when a component should render nothing.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">Warning</span>({ message }) {
+  <span class="token-keyword">if</span> (!message) {
+    <span class="token-keyword">return</span> <span class="token-keyword">null</span>;
+  }
+
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">p</span> role=<span class="token-string">"alert"</span>&gt;{message}&lt;/<span class="token-tag">p</span>&gt;;
+}</code></pre>
+        </figure>
+      </section>
+
+      <section aria-labelledby="lists-heading">
+        <h2 id="lists-heading"><span class="lists">Rendering lists</span></h2>
+        <p>Data usually arrives as an array. Use <code>map()</code> to transform each item into JSX. If only some items should appear, use <code>filter()</code> first or conditionally return <code>null</code> from the mapping callback.</p>
+
+        <div class="pipeline" role="img" aria-label="A list rendering pipeline">
+          <div><strong>Start with data</strong><span>An array contains the source objects.</span></div>
+          <div><strong>Select items</strong><span><code>filter()</code> keeps the objects you need.</span></div>
+          <div><strong>Create elements</strong><span><code>map()</code> returns JSX for each object.</span></div>
+        </div>
+
+        <figure class="example">
+          <figcaption>This component filters completed tasks, then maps each task to one list item.</figcaption>
+          <pre><code><span class="token-keyword">const</span> tasks = [
+  { id: <span class="token-number">101</span>, title: <span class="token-string">"Sketch the layout"</span>, done: <span class="token-keyword">true</span> },
+  { id: <span class="token-number">102</span>, title: <span class="token-string">"Build the header"</span>, done: <span class="token-keyword">false</span> },
+  { id: <span class="token-number">103</span>, title: <span class="token-string">"Check keyboard access"</span>, done: <span class="token-keyword">true</span> },
+];
+
+<span class="token-keyword">function</span> <span class="token-name">CompletedTasks</span>() {
+  <span class="token-keyword">const</span> completed = tasks.filter(task =&gt; task.done);
+
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">ul</span>&gt;
+      {completed.map(task =&gt; (
+        &lt;<span class="token-tag">li</span> key={task.id}&gt;{task.title}&lt;/<span class="token-tag">li</span>&gt;
+      ))}
+    &lt;/<span class="token-tag">ul</span>&gt;
+  );
+}</code></pre>
+        </figure>
+
+        <p class="note">An arrow callback that returns multi-line JSX needs parentheses after <code>=&gt;</code>. If you add braces instead, write an explicit <code>return</code>.</p>
+      </section>
+
+      <section aria-labelledby="keys-heading">
+        <h2 id="keys-heading"><span class="keys">Stable keys</span></h2>
+        <p>A key is a string or number that identifies one element among its siblings. During the next render, React uses keys to match old items with new items, even if items move, arrive, or disappear.</p>
+
+        <ol class="key-rules">
+          <li><strong>Unique among siblings.</strong><p>The same key may be reused in a different array, but two items in one rendered list must not share it.</p></li>
+          <li><strong>Stable across renders.</strong><p>Use an ID from the data. Do not create a key during rendering with <code>Math.random()</code> or a changing timestamp.</p></li>
+          <li><strong>Tied to the item.</strong><p>The key should describe the data object's identity, not its current position in the array.</p></li>
+        </ol>
+
+        <div class="comparison">
+          <table>
+            <thead>
+              <tr><th>Key choice</th><th>When it works</th><th>Risk</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>key={task.id}</code></td><td>Best default for data with durable IDs</td><td>Low</td></tr>
+              <tr><td><code>key={index}</code></td><td>Only for a truly fixed list that never reorders, inserts, or deletes</td><td>State can follow the wrong item after changes</td></tr>
+              <tr><td><code>key={Math.random()}</code></td><td>Never for normal list rendering</td><td>Items are recreated on every render</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <figure class="example">
+          <figcaption>Put the key on the element returned directly by <code>map()</code>, not on a nested child.</figcaption>
+          <pre><code><span class="token-keyword">function</span> <span class="token-name">TaskList</span>({ tasks }) {
+  <span class="token-keyword">return</span> (
+    &lt;<span class="token-tag">ul</span>&gt;
+      {tasks.map(task =&gt; (
+        &lt;<span class="token-name">TaskRow</span> key={task.id} task={task} /&gt;
+      ))}
+    &lt;/<span class="token-tag">ul</span>&gt;
+  );
+}
+
+<span class="token-keyword">function</span> <span class="token-name">TaskRow</span>({ task }) {
+  <span class="token-keyword">return</span> &lt;<span class="token-tag">li</span>&gt;{task.title}&lt;/<span class="token-tag">li</span>&gt;;
+}</code></pre>
+        </figure>
+
+        <p class="note"><span class="caution"><code>key</code> is not a prop.</span> React consumes it as identity metadata, so <code>TaskRow</code> cannot read <code>props.key</code>. Pass the value separately, such as <code>&lt;TaskRow key={task.id} taskId={task.id} /&gt;</code>, when the child also needs it.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Check your understanding</h2>
+        <ol class="quiz">
+          <li>
+            Which conditional form fits a loading state that replaces the whole component?
+            <details><summary>Show answer</summary><p>An <code>if</code> with an early return is usually clearest. It handles the loading branch before the component reaches its main return.</p></details>
+          </li>
+          <li>
+            Why is an array index a fragile key when items can be reordered?
+            <details><summary>Show answer</summary><p>The index describes a position, not an item. After a reorder, the same index may point to different data, so React can preserve local state or DOM state on the wrong row.</p></details>
+          </li>
+          <li>
+            Where should a key go when <code>map()</code> returns <code>&lt;TaskRow /&gt;</code>?
+            <details><summary>Show answer</summary><p>Place it on <code>&lt;TaskRow /&gt;</code>, the element returned directly from the callback. A key inside the component is too deep to identify that sibling in the array.</p></details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
