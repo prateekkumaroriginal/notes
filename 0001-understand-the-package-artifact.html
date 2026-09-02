@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Understand the package artifact</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 1 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Understand the package artifact</h1>
+        <p class="lede">You publish a prepared archive, not your working directory and not TypeScript source by itself.</p>
+      </header>
+
+      <section aria-labelledby="terms">
+        <h2 id="terms">Four objects that beginners often mix together</h2>
+        <dl class="definition-list">
+          <div class="definition">
+            <dt>Source</dt>
+            <dd>The TypeScript, tests, configuration, and documentation that maintainers edit in a repository.</dd>
+          </div>
+          <div class="definition">
+            <dt>Build output</dt>
+            <dd>The JavaScript, declaration files, and source maps created by TypeScript or a bundler. This course uses <code>tsc</code>, not a bundler.</dd>
+          </div>
+          <div class="definition">
+            <dt>Package tarball</dt>
+            <dd>A compressed <code>.tgz</code> archive containing the files selected for users. <code>pnpm pack</code> creates this artifact.</dd>
+          </div>
+          <div class="definition">
+            <dt>Registry release</dt>
+            <dd>A package name and immutable version stored by npm. Consumers install that release into their own projects.</dd>
+          </div>
+        </dl>
+      </section>
+
+      <section aria-labelledby="flow">
+        <h2 id="flow">The delivery path</h2>
+        <div class="package-flow" role="img" aria-label="Source to consumer flow">
+          <div class="boundary-step"><strong><code>src/index.ts</code></strong><span>maintainer source</span></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="boundary-step"><strong><code>dist/index.js</code></strong><span>runtime output</span></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="boundary-step"><strong><code>quiz-sdk.tgz</code></strong><span>selected files</span></div>
+          <span class="arrow" aria-hidden="true">→</span>
+          <div class="boundary-step"><strong><code>node_modules</code></strong><span>consumer install</span></div>
+        </div>
+        <p>A failure at any arrow can produce a package that works in the repository but fails after installation. Production checks must exercise the whole path.</p>
+      </section>
+
+      <section aria-labelledby="sdk">
+        <h2 id="sdk">Package and SDK are related, not identical</h2>
+        <p>An npm <span class="focus-blue">package</span> is the distribution unit. An <span class="focus-violet">SDK</span> is a library designed around a service or platform. An SDK package usually handles request construction, authentication, response validation, typed errors, and stable domain types.</p>
+        <p>A five-line utility can be a package. A quiz client that translates JavaScript options into HTTP requests is an SDK. npm distributes both in the same tarball format.</p>
+      </section>
+
+      <section aria-labelledby="runtime-types">
+        <h2 id="runtime-types">Users receive runtime code and type information</h2>
+        <div class="reference-grid">
+          <article class="reference-card">
+            <h3>JavaScript</h3>
+            <p><code>dist/index.js</code> runs. It creates URLs, calls <code>fetch</code>, validates data, and throws errors.</p>
+          </article>
+          <article class="reference-card">
+            <h3>Declarations</h3>
+            <p><code>dist/index.d.ts</code> tells TypeScript what users may pass and what each call returns. It does not run.</p>
+          </article>
+        </div>
+        <div class="callout caution">
+          <p class="label">A type is not a runtime check</p>
+          <p>TypeScript removes types when it creates JavaScript. JSON from a server remains untrusted until runtime code validates it.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="consumer">
+        <h2 id="consumer">Design backward from the consumer</h2>
+        <p>This is the experience the package must support:</p>
+        <pre><code>pnpm add @your-scope/quiz-sdk</code></pre>
+        <pre><code>import { getQuestions } from "@your-scope/quiz-sdk";
+
+const result = await getQuestions(
+  { category: "science", count: 5 },
+  { baseUrl: "https://quiz.example", fetch },
+);
+
+console.log(result.questions);</code></pre>
+        <p>Every later decision exists to make this import predictable. The folder layout, compiler options, exports map, dependencies, tests, and release process all support this consumer call.</p>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://nodejs.org/api/packages.html">Node.js package and entry-point documentation</a></li>
+          <li><a href="https://docs.npmjs.com/packages-and-modules/">npm packages and modules</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li>
+            <p>If <code>src/index.ts</code> changed but <code>dist/index.js</code> did not, which version can a consumer receive?</p>
+            <details><summary>Show answer</summary><p>The consumer can receive the old behavior from <code>dist/index.js</code>. Packaging does not guarantee that build output matches source. A later lesson adds <code>prepack</code> to rebuild before every tarball.</p></details>
+          </li>
+          <li>
+            <p>Can <code>index.d.ts</code> reject malformed JSON at runtime?</p>
+            <details><summary>Show answer</summary><p>No. Declaration files help TypeScript check consumer source. Runtime JavaScript must validate external data.</p></details>
+          </li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="index.html">← Course contents</a>
+        <a href="0002-create-the-workspace-and-package.html">Create the workspace →</a>
+      </footer>
+    </main>
+  </body>
+</html>

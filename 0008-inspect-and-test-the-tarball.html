@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inspect and test the tarball</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 8 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Inspect and test the tarball</h1>
+        <p class="lede">Repository tests cannot prove that the packed manifest, selected files, and transitive dependencies work after installation.</p>
+      </header>
+
+      <section aria-labelledby="dry-pack">
+        <h2 id="dry-pack">List the package without publishing</h2>
+        <pre><code>cd packages/sdk
+pnpm pack --dry-run</code></pre>
+        <p>Look for the build output, <code>README.md</code>, <code>LICENSE</code>, and <code>package.json</code>. Look for accidental secrets, tests, fixtures, environment files, and large unrelated assets too.</p>
+        <div class="command-output">dist/index.d.ts
+dist/index.d.ts.map
+dist/index.js
+dist/index.js.map
+LICENSE
+package.json
+README.md
+src/index.ts</div>
+      </section>
+
+      <section aria-labelledby="real-pack">
+        <h2 id="real-pack">Inspect the rewritten manifest</h2>
+        <pre><code>sdk_pack_dir=$(mktemp -d)
+pnpm pack --pack-destination "$sdk_pack_dir"
+
+tar -xOf \
+  "$sdk_pack_dir/your-scope-quiz-sdk-0.1.0.tgz" \
+  package/package.json</code></pre>
+        <p>The packed manifest should point <code>exports</code> and <code>types</code> to <code>dist</code>. A workspace dependency should become a registry version:</p>
+        <pre><code>"dependencies": {
+  "@your-scope/quiz-contracts": "0.1.0",
+  "arktype": "^2.2.3"
+}</code></pre>
+        <p>This check catches a package that runs locally through source links but ships references that no consumer can resolve.</p>
+      </section>
+
+      <section aria-labelledby="clean-consumer">
+        <h2 id="clean-consumer">Install into a clean consumer</h2>
+        <pre><code>consumer_dir=$(mktemp -d)
+cd "$consumer_dir"
+pnpm init</code></pre>
+        <p>Open the generated <code>package.json</code> and inspect it. Tool defaults are not trusted input. If your environment rejects a generated package-manager range, pin an exact version or remove that optional development-engine field.</p>
+        <pre><code>pnpm add \
+  "$sdk_pack_dir/your-scope-quiz-sdk-0.1.0.tgz"
+
+pnpm list --depth 1</code></pre>
+        <p>The dependency tree must show the SDK, contracts, and runtime schema library. The consumer explicitly installs only the SDK.</p>
+      </section>
+
+      <section aria-labelledby="runtime-smoke">
+        <h2 id="runtime-smoke">Run a consumer-level smoke test</h2>
+        <pre><code>node --input-type=module &lt;&lt;'JS'
+import { getQuestions } from "@your-scope/quiz-sdk";
+
+const fakeFetch = async (request) =&gt; {
+  console.log(request.toString());
+  return Response.json({
+    questions: [{
+      id: "science-1",
+      category: "science",
+      difficulty: "easy",
+      prompt: "Which planet is known as the Red Planet?",
+      choices: ["Earth", "Mars"],
+    }],
+  });
+};
+
+const output = await getQuestions(
+  { category: "science", count: 1 },
+  { baseUrl: "https://quiz.example", fetch: fakeFetch },
+);
+
+console.log(output.questions);
+JS</code></pre>
+        <p>This proves Node.js can resolve the packed <code>exports</code>, load transitive dependencies, construct the request, and validate a response.</p>
+      </section>
+
+      <section aria-labelledby="type-smoke">
+        <h2 id="type-smoke">Compile a clean TypeScript consumer</h2>
+        <p>Add TypeScript in the temporary project, create a small <code>index.ts</code> that imports documented values and types, then run:</p>
+        <pre><code>pnpm add -D typescript
+pnpm exec tsc --noEmit \
+  --strict \
+  --module NodeNext \
+  --moduleResolution NodeNext \
+  --target ES2022 \
+  index.ts</code></pre>
+        <p>This catches missing declaration files, broken declaration imports, and exports that work in JavaScript but not in TypeScript.</p>
+      </section>
+
+      <section aria-labelledby="publish-dry">
+        <h2 id="publish-dry">Exercise the publication path</h2>
+        <pre><code>cd /absolute/path/to/quiz-sdk/packages/sdk
+pnpm publish --dry-run</code></pre>
+        <p>The absolute <code>cd</code> is deliberate. Temporary consumers also contain <code>package.json</code>. Publishing from the wrong directory can target the temporary project instead of the SDK.</p>
+        <div class="callout error">
+          <p class="label">Check identity before every real publish</p>
+          <pre><code>pwd
+pnpm pkg get name version</code></pre>
+          <p>The printed directory, package name, and version must match the intended release.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why can workspace tests pass when the tarball is broken?</p><details><summary>Show answer</summary><p>Workspace links can load source files and nearby dependencies that are absent or misconfigured in the packed artifact. A clean install removes those hidden advantages.</p></details></li>
+          <li><p>What must you check before running a real publish command?</p><details><summary>Show answer</summary><p>Check the absolute working directory and print the current package name and version. This prevents publishing a temporary consumer or the wrong workspace package.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0007-write-the-publish-manifest.html">← Publish manifest</a>
+        <a href="0009-prepare-npm-access.html">Prepare npm access →</a>
+      </footer>
+    </main>
+  </body>
+</html>

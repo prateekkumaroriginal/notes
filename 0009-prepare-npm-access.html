@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Prepare npm access</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 9 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Prepare npm access</h1>
+        <p class="lede">Publication requires a registry identity, permission for the package scope, and strong authentication.</p>
+      </header>
+
+      <section aria-labelledby="scope">
+        <h2 id="scope">Match the package scope to an owner</h2>
+        <pre><code>"name": "@your-scope/quiz-sdk"</code></pre>
+        <p><code>your-scope</code> must be your exact npm username or an npm organization where your account has publish permission. Similar-looking names are different. For example, <code>person.name</code> and <code>personname</code> are separate scopes.</p>
+        <p>Use an organization when several maintainers need controlled access or when you want package ownership separate from one personal account.</p>
+      </section>
+
+      <section aria-labelledby="login">
+        <h2 id="login">Log in and verify the active account</h2>
+        <pre><code>pnpm login
+pnpm whoami</code></pre>
+        <p>Complete browser authentication and two-factor prompts privately. Never paste passwords, one-time codes, recovery codes, or npm tokens into source files, issues, CI logs, or chat.</p>
+      </section>
+
+      <section aria-labelledby="two-factor">
+        <h2 id="two-factor">Enable two-factor authentication before publishing</h2>
+        <p>npm requires either account two-factor authentication or a granular access token with bypass permission when creating or publishing packages. For an interactive release, enable account 2FA from npm account settings.</p>
+        <ol>
+          <li>Sign in on npmjs.com.</li>
+          <li>Open your profile menu and select <strong>Account</strong>.</li>
+          <li>Under <strong>Two-Factor Authentication</strong>, select <strong>Enable 2FA</strong>.</li>
+          <li>Configure a supported security key.</li>
+          <li>Store recovery codes in a password manager or another location separate from the second-factor device.</li>
+        </ol>
+        <div class="callout caution">
+          <p class="label">Do not solve local publishing with a long-lived automation token</p>
+          <p>Use interactive 2FA for manual releases. Use trusted publishing with short-lived OIDC credentials for CI when the package is established.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="availability">
+        <h2 id="availability">Check the package name and version</h2>
+        <pre><code>pnpm view @your-scope/quiz-sdk version</code></pre>
+        <p>A 404 is expected for a new package if you have permission to the scope. If npm prints a version, the name exists. Never assume that a desired name is available.</p>
+        <p>Before later releases, query the exact current version and compare it with the local manifest. npm never permits overwriting an existing name and version pair.</p>
+      </section>
+
+      <section aria-labelledby="dry-run">
+        <h2 id="dry-run">Run npm's publication process without uploading</h2>
+        <pre><code>cd /absolute/path/to/packages/quiz-sdk
+pnpm publish --dry-run</code></pre>
+        <p>A successful dry run proves the package can build and pack. It does not prove that the active account owns the scope. Confirm organization membership separately.</p>
+      </section>
+
+      <section aria-labelledby="common-errors">
+        <h2 id="common-errors">Read authentication errors literally</h2>
+        <dl class="definition-list">
+          <div class="definition"><dt><code>ENEEDAUTH</code></dt><dd>No usable npm login or token is available for the registry.</dd></div>
+          <div class="definition"><dt><code>E403</code> mentioning 2FA</dt><dd>The registry accepted your identity but requires stronger authentication for publishing.</dd></div>
+          <div class="definition"><dt><code>E403</code> mentioning permission</dt><dd>The active account cannot publish under the requested scope or package.</dd></div>
+          <div class="definition"><dt><code>E400</code> invalid package name</dt><dd>You may be in the wrong directory, or the manifest name violates npm naming rules. Print <code>pwd</code> and the current package identity first.</dd></div>
+        </dl>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://docs.npmjs.com/configuring-two-factor-authentication/">Configure npm two-factor authentication</a></li>
+          <li><a href="https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/">npm publishing authentication requirements</a></li>
+          <li><a href="https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/">Create and publish scoped public packages</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Your username is <code>person.name</code>, but the package is <code>@personname/sdk</code>. What must be true?</p><details><summary>Show answer</summary><p>An organization named <code>personname</code> must exist, and the active account must have permission to publish in it. The two strings are different npm scopes.</p></details></li>
+          <li><p>Does a successful dry run prove registry permission?</p><details><summary>Show answer</summary><p>No. It proves local build and package preparation. The real registry permission check happens during publication or through account and organization settings.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0008-inspect-and-test-the-tarball.html">← Inspect the tarball</a>
+        <a href="0010-publish-in-dependency-order.html">Publish packages →</a>
+      </footer>
+    </main>
+  </body>
+</html>

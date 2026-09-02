@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Release and maintain safely</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 11 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Release and maintain safely</h1>
+        <p class="lede">Production quality is a repeatable release process, not a one-time successful publish command.</p>
+      </header>
+
+      <section aria-labelledby="semver">
+        <h2 id="semver">Communicate change with semantic versions</h2>
+        <dl class="definition-list">
+          <div class="definition"><dt>Patch, <code>1.0.0 → 1.0.1</code></dt><dd>A backward-compatible bug fix. Existing documented calls keep working.</dd></div>
+          <div class="definition"><dt>Minor, <code>1.0.0 → 1.1.0</code></dt><dd>A backward-compatible feature, such as a new optional input or export.</dd></div>
+          <div class="definition"><dt>Major, <code>1.0.0 → 2.0.0</code></dt><dd>A breaking change, such as removing a field, renaming an export, changing an error type, or dropping a supported runtime.</dd></div>
+        </dl>
+        <p>npm recommends <code>1.0.0</code> for a first stable product. Versions below <code>1.0.0</code> communicate that the API is still settling. Even during <code>0.x</code>, document breaking changes and avoid surprising users.</p>
+      </section>
+
+      <section aria-labelledby="contract-changes">
+        <h2 id="contract-changes">Treat types and schemas as versioned behavior</h2>
+        <ul>
+          <li>Adding a required input field is breaking.</li>
+          <li>Removing an output field is breaking.</li>
+          <li>Narrowing a union can break compiling consumers.</li>
+          <li>Rejecting data that the previous runtime schema accepted can break deployed callers.</li>
+          <li>Changing a typed error code can break recovery logic.</li>
+        </ul>
+        <p>If contracts changes, run API, SDK, integration, type, tarball, and clean-consumer checks together. Shared contracts increase consistency, but they also make coordinated releases necessary.</p>
+      </section>
+
+      <section aria-labelledby="release-checklist">
+        <h2 id="release-checklist">Use the same release checklist every time</h2>
+        <ol class="check-list">
+          <li>Choose the next version from consumer-visible change.</li>
+          <li>Update package versions and internal dependency ranges.</li>
+          <li>Update README examples and changelog.</li>
+          <li>Install with the frozen lockfile in CI.</li>
+          <li>Run typecheck, unit tests, integration tests, and builds.</li>
+          <li>Run pack dry runs and inspect packed manifests.</li>
+          <li>Install tarballs in a clean consumer.</li>
+          <li>Commit and tag the exact release source.</li>
+          <li>Publish dependencies before dependents.</li>
+          <li>Verify registry metadata and install from npm.</li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="ci">
+        <h2 id="ci">Automate verification before automating publication</h2>
+        <p>Every pull request should run:</p>
+        <pre><code>pnpm install --frozen-lockfile
+pnpm typecheck
+pnpm test
+pnpm --filter @your-scope/quiz-contracts build
+pnpm --filter @your-scope/quiz-sdk build
+pnpm --filter @your-scope/quiz-contracts pack --dry-run
+pnpm --filter @your-scope/quiz-sdk pack --dry-run</code></pre>
+        <p>Only automate publishing after this pipeline is dependable. A fast automatic release of an unchecked tarball is still a bad release.</p>
+      </section>
+
+      <section aria-labelledby="trusted">
+        <h2 id="trusted">Prefer trusted publishing for CI</h2>
+        <p>npm trusted publishing uses OpenID Connect to issue short-lived credentials to one approved cloud workflow. It avoids storing a long-lived write token in repository secrets. npm also generates provenance automatically for eligible public packages published this way.</p>
+        <p>Configure the exact repository and workflow filename in each npm package's <strong>Trusted Publisher</strong> settings. The workflow needs <code>id-token: write</code>:</p>
+        <pre><code>name: Publish packages
+
+on:
+  push:
+    tags:
+      - "sdk-v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
+          package-manager-cache: false
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm --filter @your-scope/quiz-contracts build
+      - run: pnpm --filter @your-scope/quiz-sdk build
+      - run: npm --version
+      - run: npm publish --access public
+        working-directory: packages/contracts
+      - run: npm publish --access public
+        working-directory: packages/sdk</code></pre>
+        <div class="callout caution">
+          <p class="label">Why the workflow publishes with npm CLI</p>
+          <p>As of September 2026, npm's trusted publishing documentation requires npm CLI 11.5.1 or later and Node.js 22.14.0 or later. Continue using pnpm for installation, workspace commands, tests, and builds. Use the supported npm CLI for the OIDC publish exchange, and verify its version in the job.</p>
+        </div>
+        <p>After trusted publishing works, set package publishing access to require 2FA and disallow traditional tokens. Revoke unused automation tokens.</p>
+      </section>
+
+      <section aria-labelledby="provenance">
+        <h2 id="provenance">Make releases traceable</h2>
+        <p>Provenance links a package to its public source repository and build workflow. Configure an exact public <code>repository</code> URL in <code>package.json</code>. Trusted publishing from supported hosted CI generates the provenance attestation automatically for eligible public packages.</p>
+        <p>Provenance does not prove that code is good. It proves where and how the artifact was produced, which gives consumers evidence they can audit.</p>
+      </section>
+
+      <section aria-labelledby="bad-release">
+        <h2 id="bad-release">Recover without pretending a version can be replaced</h2>
+        <p>Once npm accepts a name and version, publish a new version for the fix. Do not try to rebuild and overwrite the old number.</p>
+        <pre><code>pnpm deprecate \
+  @your-scope/quiz-sdk@1.2.0 \
+  "Broken response validation. Upgrade to 1.2.1."</code></pre>
+        <p>Deprecation leaves the version available but warns installers. npm permits unpublishing only under policy limits, including a broader window during the first 72 hours. Prefer a corrective release and deprecation because removal can break existing dependency graphs.</p>
+      </section>
+
+      <section aria-labelledby="done">
+        <h2 id="done">Production readiness test</h2>
+        <p class="takeaway">A stranger should be able to install one documented package in an empty project, import its declared public API, receive validated runtime behavior, understand its errors, and trace the installed version back to tested source.</p>
+        <p>If any part of that sentence is false, the release process still has work to do.</p>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://docs.npmjs.com/about-semantic-versioning/">npm semantic versioning</a></li>
+          <li><a href="https://docs.npmjs.com/trusted-publishers/">npm trusted publishing</a></li>
+          <li><a href="https://docs.npmjs.com/generating-provenance-statements/">npm provenance</a></li>
+          <li><a href="https://docs.npmjs.com/unpublishing-packages-from-the-registry/">npm unpublish and deprecation guidance</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>A release removes an exported field. Is that patch, minor, or major?</p><details><summary>Show answer</summary><p>Major after <code>1.0.0</code>. Existing consumers may compile or run against that field, so removal breaks compatibility.</p></details></li>
+          <li><p>Why is trusted publishing safer than a long-lived npm write token?</p><details><summary>Show answer</summary><p>It issues short-lived credentials only to one approved workflow. There is no reusable write token to leak, copy, or forget to rotate.</p></details></li>
+          <li><p>What should you do after publishing a broken immutable version?</p><details><summary>Show answer</summary><p>Publish a corrected new version and deprecate the broken version with a useful upgrade message. Use unpublish only when npm policy permits it and removal is the least harmful option.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0010-publish-in-dependency-order.html">← Publish packages</a>
+        <a href="index.html">Return to course contents →</a>
+      </footer>
+    </main>
+  </body>
+</html>

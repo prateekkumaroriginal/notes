@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Test through public boundaries</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 6 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Test through public boundaries</h1>
+        <p class="lede">Tests should prove what consumers observe and survive internal refactors.</p>
+      </header>
+
+      <section aria-labelledby="seams">
+        <h2 id="seams">Agree on the seams before writing tests</h2>
+        <p>A <span class="focus-blue">seam</span> is a public boundary where a test supplies input and observes output. This SDK has four useful seams:</p>
+        <ol>
+          <li>Runtime contract functions accept or reject unknown values.</li>
+          <li><code>getQuestions</code> turns options into an HTTP request and a validated result.</li>
+          <li>The SDK and API communicate through real <code>Request</code> and <code>Response</code> objects.</li>
+          <li>A TypeScript consumer can import the documented types and gets the promised inference.</li>
+        </ol>
+        <p>Do not test private URL helpers or assert that one internal module called another. Those tests break when structure changes even if users see identical behavior.</p>
+      </section>
+
+      <section aria-labelledby="loop">
+        <h2 id="loop">Work in small red and green slices</h2>
+        <ol>
+          <li>Write one test that describes missing behavior.</li>
+          <li>Run it and confirm it fails for the expected reason.</li>
+          <li>Write the smallest implementation that passes.</li>
+          <li>Run the focused test, then the full suite.</li>
+          <li>Review names and duplication after behavior is green.</li>
+        </ol>
+        <p>A failing test is evidence only when you saw the failure. A test added after implementation may pass without proving it could catch the bug.</p>
+      </section>
+
+      <section aria-labelledby="contract-test">
+        <h2 id="contract-test">Specify runtime contract behavior</h2>
+        <pre><code>import { type } from "arktype";
+import { describe, expect, it } from "vitest";
+import { GetQuestionsInput } from "./index.js";
+
+describe("GetQuestionsInput", () =&gt; {
+  it("rejects a fractional count", () =&gt; {
+    const result = GetQuestionsInput({
+      category: "science",
+      count: 1.5,
+    });
+
+    expect(result).toBeInstanceOf(type.errors);
+  });
+});</code></pre>
+        <p>The literal <code>1.5</code> comes from the rule that count must be an integer. The test does not reproduce the schema algorithm.</p>
+      </section>
+
+      <section aria-labelledby="sdk-test">
+        <h2 id="sdk-test">Mock the network boundary, not your own modules</h2>
+        <pre><code>it("rejects a malformed API response", async () =&gt; {
+  const fetchMock = vi.fn&lt;typeof fetch&gt;(async () =&gt;
+    Response.json({ questions: "not-an-array" }),
+  );
+
+  const result = getQuestions(
+    { category: "science", count: 2 },
+    { baseUrl: "https://quiz.example", fetch: fetchMock },
+  );
+
+  await expect(result).rejects.toThrow(
+    "Invalid quiz API response",
+  );
+});</code></pre>
+        <p><code>fetch</code> is an external boundary, so replacing it is appropriate. The test calls the real SDK function and the real runtime schema.</p>
+      </section>
+
+      <section aria-labelledby="integration">
+        <h2 id="integration">Connect SDK and API in memory</h2>
+        <pre><code>it("gets questions through the HTTP contract", async () =&gt; {
+  const apiFetch: typeof fetch = async (input, init) =&gt;
+    handleRequest(new Request(input, init));
+
+  const output = await getQuestions(
+    {
+      category: "science",
+      count: 1,
+      includeAnswer: true,
+    },
+    { baseUrl: "https://quiz.example", fetch: apiFetch },
+  );
+
+  expect(output.questions[0]?.correctChoiceIndex).toBe(1);
+});</code></pre>
+        <p>No network port is needed. Real web-platform objects preserve URL parsing, status codes, headers, and JSON behavior while keeping the test fast.</p>
+      </section>
+
+      <section aria-labelledby="type-test">
+        <h2 id="type-test">Compile consumer promises</h2>
+        <pre><code>declare const config: QuizSdkConfig;
+
+const output = await getQuestions(
+  {
+    category: "science",
+    count: 1,
+    includeAnswer: true,
+  },
+  config,
+);
+
+output.questions[0]?.correctChoiceIndex;</code></pre>
+        <p>Include this file in <code>pnpm typecheck</code>. If an overload or re-export breaks, TypeScript fails before publication. Runtime tests cannot prove editor inference.</p>
+      </section>
+
+      <section aria-labelledby="minimum-suite">
+        <h2 id="minimum-suite">A useful minimum release suite</h2>
+        <ul class="check-list">
+          <li>Valid and invalid values for every closed union and numeric boundary.</li>
+          <li>Answer-free responses reject answer fields.</li>
+          <li>Answer-bearing calls return answer-bearing types and values.</li>
+          <li>Malformed success JSON is rejected.</li>
+          <li>Typed API errors remain inspectable.</li>
+          <li>Network failures preserve their cause.</li>
+          <li>SDK and API agree in an integration test.</li>
+          <li>Documented imports compile from the package entry point.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why is replacing <code>fetch</code> acceptable while mocking an internal URL builder is not?</p><details><summary>Show answer</summary><p><code>fetch</code> is the external network seam. A URL builder is an implementation detail. The public test should observe the request passed to <code>fetch</code>, not how internal code constructed it.</p></details></li>
+          <li><p>What does a type test catch that a runtime test cannot?</p><details><summary>Show answer</summary><p>It catches broken exports, declarations, overload selection, and inference seen by TypeScript consumers.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0005-make-network-data-safe.html">← Make network data safe</a>
+        <a href="0007-write-the-publish-manifest.html">Write the publish manifest →</a>
+      </footer>
+    </main>
+  </body>
+</html>

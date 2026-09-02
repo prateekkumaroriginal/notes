@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Create the workspace and packages</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 2 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Create the workspace and packages</h1>
+        <p class="lede">Use one repository for related packages, but give each publishable unit its own manifest and boundary.</p>
+      </header>
+
+      <section aria-labelledby="single-or-workspace">
+        <h2 id="single-or-workspace">Start with the smallest structure that matches ownership</h2>
+        <p>A single library needs one <code>package.json</code>. This quiz system has an SDK, shared runtime contracts, and a private API used by integration tests. A pnpm workspace lets those packages develop together without pretending they are one publishable unit.</p>
+        <div class="file-tree">quiz-sdk/
+├── package.json
+├── pnpm-workspace.yaml
+├── tsconfig.json
+├── packages/
+│   ├── contracts/
+│   │   ├── package.json
+│   │   └── src/index.ts
+│   ├── sdk/
+│   │   ├── package.json
+│   │   └── src/index.ts
+│   └── api/
+│       ├── package.json
+│       └── src/index.ts
+└── pnpm-lock.yaml</div>
+      </section>
+
+      <section aria-labelledby="create">
+        <h2 id="create">Create the repository</h2>
+        <pre><code>mkdir quiz-sdk
+cd quiz-sdk
+pnpm init
+pnpm add -D typescript vitest</code></pre>
+        <p><code>pnpm init</code> creates the root manifest. TypeScript and Vitest belong in root <code>devDependencies</code> because maintainers need them to build and test. SDK consumers do not.</p>
+        <div class="callout caution">
+          <p class="label">Inspect generated files</p>
+          <p>Initialization tools choose defaults. They do not know your supported runtimes or release policy. Read every generated field. If a tool rejects a package-manager range, use an exact version such as <code>11.20.0</code>.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="root-manifest">
+        <h2 id="root-manifest">Protect the workspace root</h2>
+        <pre><code>{
+  "name": "quiz-sdk-workspace",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.0",
+    "vitest": "^4.0.0"
+  }
+}</code></pre>
+        <p><code>private: true</code> prevents accidental publication of the repository root. The root coordinates work. It is not a package for consumers.</p>
+      </section>
+
+      <section aria-labelledby="workspace-file">
+        <h2 id="workspace-file">Tell pnpm where packages live</h2>
+        <p>Create <code>pnpm-workspace.yaml</code>:</p>
+        <pre><code>packages:
+  - "packages/*"</code></pre>
+        <p>This pattern makes every direct child of <code>packages</code> a workspace project. pnpm can then link local dependencies and run commands across the repository.</p>
+      </section>
+
+      <section aria-labelledby="manifests">
+        <h2 id="manifests">Give every package an identity</h2>
+        <p>Start public packages with <code>private: true</code> as a temporary safety lock. Remove that field only after packing and consumer tests pass.</p>
+        <pre><code>{
+  "name": "@your-scope/quiz-sdk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts"
+}</code></pre>
+        <p>Use a real npm username or organization in place of <code>your-scope</code>. A scope prevents global name collisions and groups related packages.</p>
+        <p>Keep the API private permanently:</p>
+        <pre><code>{
+  "name": "@your-scope/quiz-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts"
+}</code></pre>
+      </section>
+
+      <section aria-labelledby="workspace-dependency">
+        <h2 id="workspace-dependency">Link packages with <code>workspace:</code></h2>
+        <pre><code>{
+  "dependencies": {
+    "@your-scope/quiz-contracts": "workspace:*"
+  }
+}</code></pre>
+        <p>During development, <code>workspace:*</code> requires pnpm to use the local contracts package. During packing, pnpm replaces it with the contracts package version, such as <code>0.1.0</code>. Consumers never see the workspace protocol.</p>
+        <div class="callout">
+          <p class="label">Why each workspace package needs a version</p>
+          <p>pnpm cannot replace <code>workspace:*</code> if the target package has no version. Even a private API used as a development dependency needs a version when it appears in a package manifest that pnpm packs.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="install">
+        <h2 id="install">Create the lockfile and links</h2>
+        <pre><code>pnpm install
+pnpm typecheck
+pnpm test</code></pre>
+        <p><code>pnpm install</code> resolves dependencies, writes <code>pnpm-lock.yaml</code>, and creates workspace links. Commit the lockfile so local development and CI resolve the same dependency graph.</p>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://pnpm.io/workspaces">pnpm workspace and <code>workspace:</code> protocol</a></li>
+          <li><a href="https://pnpm.io/package_json">pnpm package manifest fields</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why is the root package private?</p><details><summary>Show answer</summary><p>The root coordinates packages and development tools. Consumers should never install it, so <code>private: true</code> blocks accidental publication.</p></details></li>
+          <li><p>What does <code>workspace:*</code> become when pnpm packs the SDK?</p><details><summary>Show answer</summary><p>It becomes the linked package's concrete version, such as <code>0.1.0</code>. That is a normal registry dependency that any package manager can install.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0001-understand-the-package-artifact.html">← Package artifact</a>
+        <a href="0003-design-the-public-api.html">Design the public API →</a>
+      </footer>
+    </main>
+  </body>
+</html>

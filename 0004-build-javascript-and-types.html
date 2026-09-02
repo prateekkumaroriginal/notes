@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Build JavaScript and declarations</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 4 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Build JavaScript and declarations</h1>
+        <p class="lede">Use one TypeScript configuration to check the repository and another to emit the files consumers need.</p>
+      </header>
+
+      <section aria-labelledby="two-jobs">
+        <h2 id="two-jobs">Type checking and building are different jobs</h2>
+        <div class="reference-grid">
+          <article class="reference-card"><h3>Typecheck</h3><p>Checks source and tests. It should create no files.</p></article>
+          <article class="reference-card"><h3>Build</h3><p>Checks package source and writes JavaScript, declarations, and maps to <code>dist</code>.</p></article>
+        </div>
+        <p>One large emitting configuration often compiles tests and unrelated workspace packages. Separate configurations make the publication boundary visible.</p>
+      </section>
+
+      <section aria-labelledby="root-tsconfig">
+        <h2 id="root-tsconfig">Create the root typecheck configuration</h2>
+        <pre><code>{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noUncheckedIndexedAccess": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noUncheckedSideEffectImports": true,
+    "skipLibCheck": true,
+    "noEmit": true
+  },
+  "include": ["packages/**/*.ts"]
+}</code></pre>
+        <p><code>strict</code> is the baseline for a library whose types become someone else's editor experience. <code>NodeNext</code> makes TypeScript follow Node.js module rules, including explicit <code>.js</code> extensions in relative ESM imports.</p>
+        <p><code>ES2022</code> is a compatibility target, not the current year. Pick the oldest JavaScript level supported by every runtime you promise to support, then test those runtimes in CI.</p>
+      </section>
+
+      <section aria-labelledby="build-tsconfig">
+        <h2 id="build-tsconfig">Create a package build configuration</h2>
+        <p>Place this file at <code>packages/sdk/tsconfig.build.json</code>:</p>
+        <pre><code>{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "noEmit": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "include": ["src/index.ts"]
+}</code></pre>
+        <dl class="definition-list">
+          <div class="definition"><dt><code>extends</code></dt><dd>Reuses strict rules instead of duplicating them.</dd></div>
+          <div class="definition"><dt><code>rootDir</code> and <code>outDir</code></dt><dd>Map package source into a clean distribution directory.</dd></div>
+          <div class="definition"><dt><code>noEmit: false</code></dt><dd>Overrides the root check-only setting and permits file generation.</dd></div>
+          <div class="definition"><dt><code>declaration</code></dt><dd>Creates <code>.d.ts</code> files so TypeScript consumers receive the public API.</dd></div>
+          <div class="definition"><dt><code>declarationMap</code></dt><dd>Lets editor navigation trace declarations back to TypeScript source.</dd></div>
+          <div class="definition"><dt><code>sourceMap</code></dt><dd>Lets debuggers map running JavaScript back to source.</dd></div>
+          <div class="definition"><dt><code>include</code></dt><dd>Starts the build at the package entry point. Tests are not emitted because the entry point does not import them.</dd></div>
+        </dl>
+      </section>
+
+      <section aria-labelledby="script">
+        <h2 id="script">Add and run the build script</h2>
+        <pre><code>{
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}</code></pre>
+        <pre><code>cd packages/sdk
+pnpm build</code></pre>
+        <div class="file-tree">dist/
+├── index.js
+├── index.js.map
+├── index.d.ts
+└── index.d.ts.map</div>
+      </section>
+
+      <section aria-labelledby="bundler">
+        <h2 id="bundler">Know when you do not need a bundler</h2>
+        <p><code>tsc</code> preserves imports. If the SDK imports ArkType or a contracts package, those remain dependencies in the emitted JavaScript. The package manager installs them for consumers.</p>
+        <p>Add a bundler only for a measured requirement such as browser bundles, multiple module formats, code splitting, or reducing many internal files. A bundler adds configuration, declaration handling, and another compatibility layer.</p>
+      </section>
+
+      <section aria-labelledby="inspect">
+        <h2 id="inspect">Inspect output instead of trusting the command</h2>
+        <pre><code>sed -n '1,120p' dist/index.js
+sed -n '1,160p' dist/index.d.ts</code></pre>
+        <p>Confirm that JavaScript imports use resolvable package names and that declarations expose only intended public types. A successful compiler exit proves type correctness, not package correctness.</p>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://www.typescriptlang.org/tsconfig/">TypeScript TSConfig reference</a></li>
+          <li><a href="https://www.typescriptlang.org/tsconfig/declarationMap.html">TypeScript declaration maps</a></li>
+          <li><a href="https://nodejs.org/api/packages.html">Node.js ESM package rules</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why does the root configuration use <code>noEmit: true</code>?</p><details><summary>Show answer</summary><p>The root command checks all source and tests without scattering build output through the workspace. Each publishable package controls its own emitted files.</p></details></li>
+          <li><p>Does <code>pnpm pack</code> automatically run a script named <code>build</code>?</p><details><summary>Show answer</summary><p>No. A later lesson adds the special <code>prepack</code> lifecycle script, which pnpm runs before packing.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0003-design-the-public-api.html">← Design the public API</a>
+        <a href="0005-make-network-data-safe.html">Make network data safe →</a>
+      </footer>
+    </main>
+  </body>
+</html>

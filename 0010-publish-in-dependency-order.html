@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Publish in dependency order</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 10 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Publish in dependency order</h1>
+        <p class="lede">Release every public runtime dependency before the package that imports it.</p>
+      </header>
+
+      <section aria-labelledby="graph">
+        <h2 id="graph">Read the dependency graph first</h2>
+        <div class="file-tree">@your-scope/quiz-sdk@0.1.0
+├── @your-scope/quiz-contracts@0.1.0
+└── arktype@2.2.3</div>
+        <p>ArkType already exists on npm. Your contracts package does not. If you publish the SDK first, a consumer can download the SDK but installation fails when npm cannot find contracts.</p>
+        <p>Contracts is publicly downloadable but not the normal user-facing package. Consumers explicitly install the SDK, and their package manager installs contracts transitively.</p>
+      </section>
+
+      <section aria-labelledby="release-gate">
+        <h2 id="release-gate">Open the publication gate deliberately</h2>
+        <p>Remove <code>private: true</code> only from contracts and SDK. Keep it in the API and workspace root.</p>
+        <pre><code>git diff --check
+pnpm test
+pnpm typecheck
+pnpm --filter @your-scope/quiz-contracts build
+pnpm --filter @your-scope/quiz-sdk build
+git status --short</code></pre>
+        <p>Commit the release configuration before publication. pnpm's Git checks expect a clean state, and the commit records exactly what produced the release.</p>
+      </section>
+
+      <section aria-labelledby="contracts">
+        <h2 id="contracts">Publish contracts first</h2>
+        <pre><code>cd /absolute/path/to/quiz-sdk/packages/contracts
+
+pwd
+pnpm pkg get name version
+pnpm publish --dry-run
+pnpm publish --access public</code></pre>
+        <p>Complete 2FA privately. A successful publish creates an immutable registry version. Verify it from the registry:</p>
+        <pre><code>pnpm view \
+  @your-scope/quiz-contracts \
+  version dist-tags.latest dist.tarball</code></pre>
+        <div class="callout error">
+          <p class="label">Stop after any error</p>
+          <p>Do not publish the SDK if contracts failed. Read the status code, correct authentication or package metadata, rebuild, and repeat the dry run.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="consumer-before-sdk">
+        <h2 id="consumer-before-sdk">Test the SDK tarball against published contracts</h2>
+        <p>Pack the SDK again after contracts is live. Install that tarball in a clean temporary consumer. This proves the rewritten <code>0.1.0</code> dependency resolves from npm.</p>
+        <pre><code>cd /absolute/path/to/quiz-sdk/packages/sdk
+
+sdk_pack_dir=$(mktemp -d)
+pnpm pack --pack-destination "$sdk_pack_dir"
+
+consumer_dir=$(mktemp -d)
+cd "$consumer_dir"
+pnpm init
+pnpm add "$sdk_pack_dir/your-scope-quiz-sdk-0.1.0.tgz"
+pnpm list --depth 1</code></pre>
+        <p>Run the runtime and type smoke tests from lesson eight before continuing.</p>
+      </section>
+
+      <section aria-labelledby="sdk">
+        <h2 id="sdk">Publish the SDK from its package directory</h2>
+        <pre><code>cd /absolute/path/to/quiz-sdk/packages/sdk
+
+pwd
+pnpm pkg get name version
+pnpm publish --dry-run
+pnpm publish --access public</code></pre>
+        <p>The identity check matters because the previous step ended in a temporary consumer directory. Never rely on terminal memory before an irreversible command.</p>
+        <pre><code>pnpm view \
+  @your-scope/quiz-sdk \
+  version dist-tags.latest dependencies</code></pre>
+      </section>
+
+      <section aria-labelledby="registry-consumer">
+        <h2 id="registry-consumer">Install from the registry as a real user</h2>
+        <pre><code>final_consumer_dir=$(mktemp -d)
+cd "$final_consumer_dir"
+pnpm init
+pnpm add @your-scope/quiz-sdk@0.1.0
+pnpm list --depth 1</code></pre>
+        <p>Repeat the runtime and TypeScript smoke tests. A registry install validates the exact artifact users receive, including registry metadata and transitive version resolution.</p>
+      </section>
+
+      <section aria-labelledby="record">
+        <h2 id="record">Record the release</h2>
+        <pre><code>git tag sdk-v0.1.0
+git push origin main --tags</code></pre>
+        <p>A tag connects the immutable npm version to a source commit. Use a tag pattern that distinguishes packages in a multi-package repository.</p>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://pnpm.io/workspaces#publishing-workspace-packages">pnpm workspace dependency rewriting</a></li>
+          <li><a href="https://pnpm.io/cli/publish">pnpm publish</a></li>
+          <li><a href="https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/">npm scoped public package publishing</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why must contracts be published before the SDK?</p><details><summary>Show answer</summary><p>The packed SDK depends on a registry version of contracts. Consumers cannot complete installation until that version exists.</p></details></li>
+          <li><p>Why print the package name immediately before publication?</p><details><summary>Show answer</summary><p>Many package and temporary directories contain valid manifests. Printing identity prevents publishing the wrong directory under an unintended name.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0009-prepare-npm-access.html">← Prepare npm access</a>
+        <a href="0011-release-and-maintain-safely.html">Maintain releases safely →</a>
+      </footer>
+    </main>
+  </body>
+</html>

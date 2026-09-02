@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Design the public API</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 3 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Design the public API</h1>
+        <p class="lede">A package contract is the set of imports, values, types, errors, and behavior that consumers can rely on.</p>
+      </header>
+
+      <section aria-labelledby="consumer-first">
+        <h2 id="consumer-first">Write the desired consumer call first</h2>
+        <pre><code>import {
+  getQuestions,
+  QuizApiError,
+  type Question,
+} from "@your-scope/quiz-sdk";</code></pre>
+        <p>This one import defines a useful goal. Consumers should not need to know your folder names, contract package, schema library, HTTP handler, or test helpers.</p>
+      </section>
+
+      <section aria-labelledby="entry">
+        <h2 id="entry">Use one deliberate entry point</h2>
+        <p>Export the supported API from <code>src/index.ts</code>:</p>
+        <pre><code>export { getQuestions, QuizApiError } from "./get-questions.js";
+export type {
+  GetQuestionsInput,
+  GetQuestionsOutput,
+  Question,
+} from "@your-scope/quiz-contracts";</code></pre>
+        <p>The entry point is a gate. A file that is not exported can change without becoming a documented promise. Avoid imports such as <code>@your-scope/quiz-sdk/src/url-builder</code>. They couple users to your folders.</p>
+      </section>
+
+      <section aria-labelledby="input-output">
+        <h2 id="input-output">Name input, output, and errors</h2>
+        <pre><code>export type GetQuestionsInput = {
+  category: "science" | "history" | "geography";
+  count: number;
+  difficulty?: "easy" | "medium" | "hard";
+  includeAnswer?: boolean;
+};
+
+export type GetQuestionsOutput = {
+  questions: Question[];
+};</code></pre>
+        <p>Named types make documentation and error messages easier to read. They also give tests stable vocabulary. Avoid returning anonymous objects whose meaning must be rediscovered at every call site.</p>
+      </section>
+
+      <section aria-labelledby="conditional">
+        <h2 id="conditional">Let options affect return types when the server behaves that way</h2>
+        <p>If <code>includeAnswer: true</code> makes the API return answers, overloads can express that relationship:</p>
+        <pre><code>export function getQuestions(
+  input: GetQuestionsInput &amp; { includeAnswer: true },
+  config: QuizSdkConfig,
+): Promise&lt;GetQuestionsOutputWithAnswers&gt;;
+
+export function getQuestions(
+  input: GetQuestionsInput &amp; { includeAnswer?: false },
+  config: QuizSdkConfig,
+): Promise&lt;GetQuestionsOutput&gt;;</code></pre>
+        <p>This is valuable only because runtime behavior differs. Do not add generic types or overloads for decoration. Every type feature should prevent a real consumer mistake.</p>
+      </section>
+
+      <section aria-labelledby="config">
+        <h2 id="config">Inject environment-specific behavior</h2>
+        <pre><code>export type QuizSdkConfig = {
+  baseUrl: string;
+  fetch: typeof globalThis.fetch;
+};</code></pre>
+        <p>Accepting <code>fetch</code> makes the SDK work with the consumer's runtime and gives tests a clean replacement. The SDK does not need a global mutation or an internal network mock.</p>
+        <div class="callout">
+          <p class="label">Convenience can come later</p>
+          <p>You can add a <code>createQuizClient(config)</code> helper if users make many calls with the same configuration. Start with one plain public function until repeated usage proves the need.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="errors">
+        <h2 id="errors">Make expected failures inspectable</h2>
+        <pre><code>export class QuizApiError extends Error {
+  readonly status: number;
+  readonly code: GetQuestionsError["code"];
+
+  constructor(status: number, error: GetQuestionsError) {
+    super(error.message);
+    this.name = "QuizApiError";
+    this.status = status;
+    this.code = error.code;
+  }
+}</code></pre>
+        <p>A consumer can catch <code>QuizApiError</code> and branch on <code>status</code> or <code>code</code>. Plain message strings are useful for humans but brittle for program logic.</p>
+      </section>
+
+      <section aria-labelledby="stability">
+        <h2 id="stability">Know what becomes a compatibility promise</h2>
+        <ul>
+          <li>Exported function names and parameter types.</li>
+          <li>Return values and rejected error classes.</li>
+          <li>Whether fields are required, optional, or forbidden.</li>
+          <li>Documented side effects and network behavior.</li>
+          <li>Export paths such as the package root or a named subpath.</li>
+        </ul>
+        <p>Renaming a private helper is internal. Removing an exported field is a breaking release even if all repository tests still compile after you update them.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why re-export contract types from the SDK?</p><details><summary>Show answer</summary><p>Consumers can install and import from one package. The contracts package remains a transitive runtime dependency instead of becoming a second package users must understand.</p></details></li>
+          <li><p>When is an overload justified?</p><details><summary>Show answer</summary><p>When a concrete input choice changes the runtime output and the compiler can represent that relationship. An overload that does not mirror behavior adds complexity without safety.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0002-create-the-workspace-and-package.html">← Create the workspace</a>
+        <a href="0004-build-javascript-and-types.html">Build JavaScript and types →</a>
+      </footer>
+    </main>
+  </body>
+</html>

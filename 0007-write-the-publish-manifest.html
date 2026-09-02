@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Write the publish manifest</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 7 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Write the publish manifest</h1>
+        <p class="lede"><code>package.json</code> tells Node.js what users may import and tells pnpm what to install, pack, and publish.</p>
+      </header>
+
+      <section aria-labelledby="complete-manifest">
+        <h2 id="complete-manifest">A publishable SDK manifest</h2>
+        <pre><code>{
+  "name": "@your-scope/quiz-sdk",
+  "version": "0.1.0",
+  "description": "A typed SDK for fetching validated quiz questions.",
+  "license": "Apache-2.0",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "pnpm build"
+  },
+  "files": [
+    "dist",
+    "src/index.ts"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
+  "dependencies": {
+    "@your-scope/quiz-contracts": "workspace:*",
+    "arktype": "^2.2.3"
+  },
+  "devDependencies": {
+    "@your-scope/quiz-api": "workspace:*"
+  }
+}</code></pre>
+        <p>Keep <code>private: true</code> during development. Remove it after every release check passes. The rest of this lesson explains why each field exists.</p>
+      </section>
+
+      <section aria-labelledby="identity">
+        <h2 id="identity">Identity and legal metadata</h2>
+        <dl class="definition-list">
+          <div class="definition"><dt><code>name</code></dt><dd>The permanent registry identity. A scoped name belongs to an npm user or organization.</dd></div>
+          <div class="definition"><dt><code>version</code></dt><dd>The immutable release identifier. npm will not let you replace the same name and version later.</dd></div>
+          <div class="definition"><dt><code>description</code></dt><dd>Helps users understand search results and the package page.</dd></div>
+          <div class="definition"><dt><code>license</code></dt><dd>Names the license using an SPDX identifier. Include the full matching text in <code>LICENSE</code>.</dd></div>
+          <div class="definition"><dt><code>repository</code>, <code>homepage</code>, and <code>bugs</code></dt><dd>Add real URLs after the repository exists. In a monorepo, include the package directory in the repository object.</dd></div>
+        </dl>
+        <pre><code>"repository": {
+  "type": "git",
+  "url": "git+https://github.com/your-name/quiz-sdk.git",
+  "directory": "packages/sdk"
+},
+"homepage": "https://github.com/your-name/quiz-sdk#readme",
+"bugs": {
+  "url": "https://github.com/your-name/quiz-sdk/issues"
+}</code></pre>
+        <p>Do not invent repository URLs. Incorrect metadata breaks provenance and sends users to the wrong project.</p>
+      </section>
+
+      <section aria-labelledby="module-entry">
+        <h2 id="module-entry">Module format and public entry point</h2>
+        <p><code>type: "module"</code> tells Node.js to treat <code>.js</code> files as ES modules. The <code>exports</code> map defines which files consumers can import.</p>
+        <p>This workspace uses source during local development:</p>
+        <pre><code>"exports": "./src/index.ts"</code></pre>
+        <p>pnpm applies the publish-only override before packing:</p>
+        <pre><code>"publishConfig": {
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  }
+}</code></pre>
+        <p>Users receive JavaScript and declarations from <code>dist</code>. They do not execute raw TypeScript. The <code>exports</code> map also blocks unsupported deep imports.</p>
+        <div class="callout caution">
+          <p class="label">ESM-only is a compatibility choice</p>
+          <p>The <code>import</code> condition does not promise CommonJS <code>require</code> support. Add a tested <code>require</code> build only when consumers need it. Claiming both formats without testing both is worse than publishing ESM-only clearly.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="files">
+        <h2 id="files">Allow only intended files</h2>
+        <pre><code>"files": [
+  "dist",
+  "src/index.ts"
+]</code></pre>
+        <p>The <code>files</code> array is an allowlist. Tests, local configuration, and unrelated source stay out. npm always includes <code>package.json</code>, <code>README</code>, and <code>LICENSE</code> when present.</p>
+        <p>Keeping source alongside source maps improves debugging and editor navigation. For a small SDK, the size cost is minor. Large packages should measure before deciding.</p>
+      </section>
+
+      <section aria-labelledby="dependencies">
+        <h2 id="dependencies">Classify dependencies by who needs them</h2>
+        <dl class="definition-list">
+          <div class="definition"><dt><code>dependencies</code></dt><dd>Packages imported by published runtime JavaScript. Consumers install them automatically.</dd></div>
+          <div class="definition"><dt><code>devDependencies</code></dt><dd>Tools and private packages needed only to develop, test, or build. Consumers do not install them as part of your package.</dd></div>
+          <div class="definition"><dt><code>peerDependencies</code></dt><dd>Host libraries that the consumer must provide so your package shares the same instance, often frameworks or plugins. Do not use peers merely to reduce install size.</dd></div>
+          <div class="definition"><dt><code>optionalDependencies</code></dt><dd>Runtime features that can be absent without making the package unusable. Code must handle their absence.</dd></div>
+        </dl>
+        <p>If emitted JavaScript contains <code>import "arktype"</code>, ArkType belongs in <code>dependencies</code>. A successful local workspace build can hide a wrong classification because root dependencies are nearby.</p>
+      </section>
+
+      <section aria-labelledby="prepack">
+        <h2 id="prepack">Prevent stale build output</h2>
+        <pre><code>"scripts": {
+  "build": "tsc -p tsconfig.build.json",
+  "prepack": "pnpm build"
+}</code></pre>
+        <p><code>pnpm pack</code> does not run an ordinary script named <code>build</code>. It does run the special <code>prepack</code> lifecycle. This guarantees that every tarball contains output generated from current source.</p>
+      </section>
+
+      <section aria-labelledby="documentation">
+        <h2 id="documentation">Write the files humans need</h2>
+        <p>The package-root <code>README.md</code> should show installation, the smallest working call, configuration, important return types, and expected errors. npm renders it on the package page.</p>
+        <p>Choose a license intentionally. MIT is short and permissive. Apache-2.0 is also permissive and includes an explicit patent grant. License selection can have legal consequences, so organizations should follow their legal policy.</p>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">Official references</h2>
+        <ul class="source-list">
+          <li><a href="https://pnpm.io/package_json#publishconfig">pnpm <code>publishConfig</code></a></li>
+          <li><a href="https://docs.npmjs.com/files/package.json/">npm <code>package.json</code> fields and file inclusion</a></li>
+          <li><a href="https://nodejs.org/api/packages.html#package-entry-points">Node.js package entry points</a></li>
+          <li><a href="https://docs.npmjs.com/about-package-readme-files/">npm package README guidance</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why is ArkType a dependency while Vitest is a development dependency?</p><details><summary>Show answer</summary><p>Published JavaScript runs ArkType in consumer projects. Vitest runs only while maintainers test the package.</p></details></li>
+          <li><p>Why keep <code>private: true</code> until release checks finish?</p><details><summary>Show answer</summary><p>It turns an accidental publish command into a local error. Remove it only from packages you have deliberately prepared for publication.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0006-test-through-public-boundaries.html">← Test public boundaries</a>
+        <a href="0008-inspect-and-test-the-tarball.html">Inspect the tarball →</a>
+      </footer>
+    </main>
+  </body>
+</html>

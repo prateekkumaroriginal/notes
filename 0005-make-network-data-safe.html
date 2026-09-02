@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Make network data safe</title>
+    <link rel="stylesheet" href="course.css">
+    <script src="copy-code.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <nav class="course-nav" aria-label="Course navigation">
+        <a href="index.html">Course contents</a>
+        <span class="course-progress">Lesson 5 of 11</span>
+      </nav>
+
+      <header>
+        <h1>Make network data safe</h1>
+        <p class="lede">Static types protect authored TypeScript. Runtime schemas protect values that arrive after compilation.</p>
+      </header>
+
+      <section aria-labelledby="boundary">
+        <h2 id="boundary">Treat external data as <code>unknown</code></h2>
+        <p><code>response.json()</code> can return any JSON value. A server bug, proxy, stale deployment, or unexpected HTML error body can violate your TypeScript type. Assigning the result directly to <code>Question[]</code> only silences the compiler.</p>
+        <pre><code>const body: unknown = await response.json();</code></pre>
+        <p>The <code>unknown</code> type forces code to prove the value before accessing fields.</p>
+      </section>
+
+      <section aria-labelledby="contract">
+        <h2 id="contract">Define one executable contract</h2>
+        <p>ArkType schemas are JavaScript values that validate at runtime. Their inferred types keep the TypeScript definition synchronized.</p>
+        <pre><code>import { type } from "arktype";
+
+export const Category = type(
+  "'science' | 'history' | 'geography'",
+);
+export type Category = typeof Category.infer;
+
+export const GetQuestionsInput = type({
+  category: Category,
+  count: "1 &lt;= number.integer &lt;= 50",
+  "difficulty?": "'easy' | 'medium' | 'hard'",
+  "includeAnswer?": "boolean",
+});
+export type GetQuestionsInput = typeof GetQuestionsInput.infer;</code></pre>
+        <p>The schema and type use the same name because TypeScript keeps value names and type names in separate namespaces. <code>GetQuestionsInput(data)</code> runs; <code>GetQuestionsInput</code> in a type position exists only for the compiler.</p>
+      </section>
+
+      <section aria-labelledby="shared">
+        <h2 id="shared">Share contracts only when code must agree at runtime</h2>
+        <p>The API validates incoming requests. The SDK validates API responses. A contracts package gives both sides the same runtime schemas instead of copying static interfaces.</p>
+        <div class="boundary-flow" role="img" aria-label="Shared contracts flow">
+          <div class="boundary-step"><strong>API</strong><span>validates request</span></div>
+          <span class="arrow" aria-hidden="true">↔</span>
+          <div class="boundary-step"><strong>Contracts</strong><span>schemas and types</span></div>
+          <span class="arrow" aria-hidden="true">↔</span>
+          <div class="boundary-step"><strong>SDK</strong><span>validates response</span></div>
+        </div>
+        <p>The package name <code>contracts</code> has no special behavior. It communicates responsibility. <code>shared-types</code> is less accurate because this package contains runtime JavaScript too.</p>
+      </section>
+
+      <section aria-labelledby="validate">
+        <h2 id="validate">Validate before returning data</h2>
+        <pre><code>import { ArkErrors } from "arktype";
+import { GetQuestionsOutput } from "@your-scope/quiz-contracts";
+
+const body: unknown = await response.json();
+const output = GetQuestionsOutput(body);
+
+if (output instanceof ArkErrors) {
+  throw new Error("Invalid quiz API response");
+}
+
+return output;</code></pre>
+        <p>After the error check, ArkType narrows <code>output</code> to the validated output type. The SDK returns data that passed the runtime contract.</p>
+      </section>
+
+      <section aria-labelledby="error-paths">
+        <h2 id="error-paths">Separate failure categories</h2>
+        <dl class="definition-list">
+          <div class="definition"><dt>Network failure</dt><dd><code>fetch</code> rejects before an HTTP response exists. Preserve the original error as <code>cause</code>.</dd></div>
+          <div class="definition"><dt>HTTP error</dt><dd>The server responds with a non-success status. Validate its documented error body before constructing <code>QuizApiError</code>.</dd></div>
+          <div class="definition"><dt>Invalid success response</dt><dd>The server reports success, but the JSON violates the output schema. Reject it instead of returning a lie.</dd></div>
+          <div class="definition"><dt>Malformed JSON</dt><dd><code>response.json()</code> rejects. Decide whether to expose one stable SDK error or preserve the parser error as a cause.</dd></div>
+        </dl>
+        <p>A broad <code>try...catch</code> can translate unexpected transport and parsing failures. It should not hide expected <code>response.ok</code> handling or discard useful causes.</p>
+      </section>
+
+      <section aria-labelledby="one-install">
+        <h2 id="one-install">Keep one explicit install for consumers</h2>
+        <pre><code>{
+  "dependencies": {
+    "@your-scope/quiz-contracts": "workspace:*",
+    "arktype": "^2.2.3"
+  }
+}</code></pre>
+        <p>The SDK's compiled JavaScript imports both packages, so both are runtime dependencies. pnpm installs them transitively. Consumers still run one command:</p>
+        <pre><code>pnpm add @your-scope/quiz-sdk</code></pre>
+        <p>Re-export useful contract types from the SDK. Users should not install contracts directly unless they are building a compatible API or tooling.</p>
+      </section>
+
+      <section aria-labelledby="reference">
+        <h2 id="reference">Related references</h2>
+        <ul class="source-list">
+          <li><a href="../reference/type-safety-boundaries.html">Static types and runtime schemas</a></li>
+          <li><a href="../reference/arktype-contract-pattern.html">ArkType contract pattern</a></li>
+          <li><a href="../reference/sdk-boundary.html">SDK boundary flow</a></li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">Check your understanding</h2>
+        <ol class="qa-list">
+          <li><p>Why is checking only that a response is JSON insufficient?</p><details><summary>Show answer</summary><p>Valid JSON says nothing about required fields, allowed values, array lengths, or forbidden answer fields. A runtime schema checks the domain shape.</p></details></li>
+          <li><p>Why is ArkType a runtime dependency instead of a development dependency?</p><details><summary>Show answer</summary><p>The published JavaScript imports and executes ArkType when users call the SDK. Consumers need it at runtime.</p></details></li>
+        </ol>
+      </section>
+
+      <footer class="lesson-nav">
+        <a href="0004-build-javascript-and-types.html">← Build JavaScript and types</a>
+        <a href="0006-test-through-public-boundaries.html">Test public boundaries →</a>
+      </footer>
+    </main>
+  </body>
+</html>
