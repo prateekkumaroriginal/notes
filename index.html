@@ -3,598 +3,190 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Detailed comparison of TopFans pull requests 10823 and 10824 for Angular 21 router, hydration, and functional guard migration.">
-  <title>PR 10823 vs 10824: detailed review</title>
+  <meta name="description" content="A collection of practical JavaScript and React notes.">
+  <title>JavaScript and React notes</title>
   <style>
     :root {
       color-scheme: dark;
-      --paper: #131a24;
-      --panel: #1a2331;
-      --ink: #e8edf4;
-      --muted: #8593a6;
-      --dim: #4e5b6e;
-      --rule: #2a3546;
-      --minus: #f0776f;
-      --minus-bg: rgba(240, 119, 111, 0.13);
-      --plus: #5fcf8f;
-      --plus-bg: rgba(95, 207, 143, 0.13);
-      --focus: #8fb4ff;
-      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+      --bg: #0c1015;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --js-yellow: #f7df1e;
+      --react-blue: #58c4dc;
     }
 
     * { box-sizing: border-box; }
 
-    html {
-      background: var(--paper);
-      color: var(--ink);
-      font-family: var(--sans);
-      font-size: 16px;
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    body { margin: 0; }
-
-    h1, h2, h3, p, ul, ol, dl, dd, figure, table { margin: 0; }
-
-    h1, h2, h3, th { color: var(--ink); }
-
-    h1 {
-      max-width: 14ch;
-      font-size: clamp(2.6rem, 7vw, 5.4rem);
-      line-height: 0.96;
-      letter-spacing: -0.055em;
-    }
-
-    h2 {
-      font-size: clamp(1.45rem, 3vw, 2.15rem);
-      line-height: 1.15;
-      letter-spacing: -0.025em;
-    }
-
-    h3 {
-      font-size: 1.05rem;
-      line-height: 1.35;
-    }
-
-    p, li, dd, td {
-      color: var(--muted);
-      line-height: 1.62;
-    }
-
-    a {
-      color: var(--focus);
-      text-underline-offset: 0.18em;
-    }
-
-    a:focus-visible {
-      outline: 2px solid var(--focus);
-      outline-offset: 3px;
-      border-radius: 3px;
-    }
-
-    code {
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.07);
-      color: var(--ink);
-      font-family: var(--mono);
-      font-size: 0.87em;
-      padding: 0.12em 0.38em;
-    }
+    h1, ul { margin: 0; }
 
     .page {
-      width: min(1120px, calc(100% - 2rem));
+      width: min(900px, calc(100% - 2rem));
       margin-inline: auto;
       padding-block: 5rem;
     }
 
-    header {
-      display: grid;
-      gap: 1.55rem;
-      padding-bottom: 3rem;
-      border-bottom: 1px solid var(--rule);
-    }
-
-    .lede {
-      max-width: 68ch;
-      color: var(--muted);
-      font-size: 1.17rem;
-    }
-
-    .decision {
-      display: grid;
-      grid-template-columns: auto minmax(0, 1fr);
-      gap: 1rem;
-      align-items: start;
-      padding: 1.25rem;
-      border: 1px solid var(--plus);
-      border-radius: 8px;
-      background: var(--plus-bg);
-    }
-
-    .decision .mark {
-      display: grid;
-      width: 2rem;
-      height: 2rem;
-      place-items: center;
-      border-radius: 50%;
-      background: var(--plus);
-      color: var(--paper);
-      font-weight: 800;
-    }
-
-    .decision p { color: var(--ink); }
-
-    .meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.55rem 1.4rem;
-      color: var(--dim);
-      font-family: var(--mono);
-      font-size: 0.78rem;
-    }
-
     main { padding-top: 3rem; }
-    section + section { padding-top: 3.25rem; }
-    section > h2 { padding-bottom: 1rem; }
-    section > .intro { max-width: 72ch; padding-bottom: 1.1rem; }
 
-    .scoreline {
+    .folders {
       display: grid;
-      grid-template-columns: 11rem 1fr 1fr;
-      gap: 1px;
-      overflow: hidden;
-      border: 1px solid var(--rule);
-      border-radius: 8px;
-      background: var(--rule);
+      gap: 1.75rem;
     }
 
-    .scoreline > div {
-      padding: 1rem;
-      background: var(--panel);
-    }
+    .folder:nth-child(1) { --folder-color: var(--js-yellow); }
+    .folder:nth-child(2) { --folder-color: var(--react-blue); }
+    .folder:nth-child(3) { --folder-color: var(--violet); }
 
-    .scoreline .label {
-      color: var(--muted);
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .scoreline .value {
+    summary {
       display: grid;
-      gap: 0.25rem;
-    }
-
-    .scoreline strong { color: var(--ink); }
-    .scoreline .winner strong { color: var(--plus); }
-
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--rule);
-      border-radius: 8px;
-    }
-
-    table {
-      width: 100%;
-      min-width: 820px;
-      border-collapse: collapse;
-    }
-
-    th, td {
-      padding: 0.86rem 1rem;
-      border-bottom: 1px solid var(--rule);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    tr:last-child td { border-bottom: 0; }
-
-    th {
-      background: var(--panel);
-      font-size: 0.76rem;
-      letter-spacing: 0.045em;
-      text-transform: uppercase;
-    }
-
-    td:first-child { color: var(--ink); }
-
-    .win { color: var(--plus); font-weight: 700; }
-    .trade { color: var(--focus); font-weight: 700; }
-    .risk { color: var(--minus); font-weight: 700; }
-    .tie { color: var(--muted); font-weight: 700; }
-
-    .two-col {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 2rem;
-    }
-
-    .column {
-      padding-top: 1rem;
-      border-top: 3px solid var(--dim);
-    }
-
-    .column.preferred { border-top-color: var(--plus); }
-
-    .column h3 { font-size: 1.2rem; }
-
-    .column ul {
-      display: grid;
-      gap: 0.65rem;
-      padding: 1rem 0 0 1.2rem;
-    }
-
-    .column li::marker { color: var(--dim); }
-    .column.preferred li::marker { color: var(--plus); }
-
-    .review-list {
-      border-top: 1px solid var(--rule);
-    }
-
-    .review-row {
-      display: grid;
-      grid-template-columns: 11rem minmax(0, 1fr) 8rem;
-      gap: 1.25rem;
-      padding-block: 1rem;
-      border-bottom: 1px solid var(--rule);
-    }
-
-    .review-row h3 { font-family: var(--mono); font-size: 0.88rem; }
-
-    .badge {
+      grid-template-columns: 1.35rem 1fr;
+      align-items: center;
+      gap: 0.4rem;
       width: fit-content;
-      height: fit-content;
-      border-radius: 999px;
-      padding: 0.28rem 0.62rem;
-      background: var(--plus-bg);
-      color: var(--plus);
-      font-family: var(--mono);
-      font-size: 0.7rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-
-    .badge.caution {
-      background: var(--minus-bg);
-      color: var(--minus);
-    }
-
-    .callout {
-      display: grid;
-      gap: 0.55rem;
-      padding: 1.2rem;
-      border: 1px solid var(--rule);
-      border-left: 4px solid var(--focus);
-      border-radius: 8px;
-      background: var(--panel);
-    }
-
-    .callout.warning { border-left-color: var(--minus); }
-    .callout p { max-width: 76ch; }
-
-    .flow {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 1rem;
-      padding: 0;
+      cursor: pointer;
+      border-radius: 0.4rem;
+      color: var(--folder-color);
+      font-weight: 750;
       list-style: none;
-      counter-reset: step;
+      -webkit-tap-highlight-color: transparent;
     }
 
-    .flow li {
+    summary::-webkit-details-marker { display: none; }
+
+    .disclosure-icon {
+      position: relative;
+      width: 1.1rem;
+      height: 1.1rem;
+      transform: rotate(0deg);
+      transform-origin: 50% 50%;
+      transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      backface-visibility: hidden;
+      will-change: transform;
+    }
+
+    .disclosure-icon::before {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0.55rem;
+      height: 0.68rem;
+      transform: translate(-33.333%, -50%);
+      border-radius: 0.08rem;
+      background: currentColor;
+      clip-path: polygon(0 0, 100% 50%, 0 100%);
+      content: "";
+    }
+
+    details[open] > summary .disclosure-icon { transform: rotate(90deg); }
+
+    summary:focus-visible {
+      outline: 0.15rem solid var(--folder-color);
+      outline-offset: 0.3rem;
+    }
+
+    .notes {
       display: grid;
-      align-content: start;
       gap: 0.65rem;
-      min-height: 10rem;
-      padding: 1rem;
-      border: 1px solid var(--rule);
-      border-radius: 8px;
-      background: var(--panel);
-      counter-increment: step;
+      padding: 0.85rem 0 0 1.75rem;
+      list-style: none;
     }
 
-    .flow li::before {
-      content: counter(step);
-      display: grid;
-      width: 1.7rem;
-      height: 1.7rem;
-      place-items: center;
-      border: 1px solid var(--focus);
-      border-radius: 50%;
-      color: var(--focus);
-      font-family: var(--mono);
-      font-size: 0.76rem;
+    .notes a {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 0.3rem;
+      color: var(--muted);
+      text-decoration-color: transparent;
+      text-underline-offset: 0.2em;
     }
 
-    .flow strong { color: var(--ink); }
-
-    .footnote {
-      padding-top: 1rem;
-      color: var(--dim);
-      font-size: 0.84rem;
+    .notes a:hover {
+      color: var(--folder-color);
+      text-decoration-color: currentColor;
     }
 
-    @media (max-width: 840px) {
-      .scoreline { grid-template-columns: 1fr 1fr; }
-      .scoreline .label { grid-column: 1 / -1; }
-      .two-col { grid-template-columns: 1fr; }
-      .review-row { grid-template-columns: 1fr; gap: 0.55rem; }
-      .flow { grid-template-columns: 1fr 1fr; }
+    .notes a:focus-visible {
+      outline: 0.13rem solid var(--folder-color);
+      outline-offset: 0.25rem;
     }
 
-    @media (max-width: 560px) {
+    @media (max-width: 720px) {
       .page { padding-block: 3rem; }
-      .decision { grid-template-columns: 1fr; }
-      .scoreline { grid-template-columns: 1fr; }
-      .scoreline .label { grid-column: auto; }
-      .flow { grid-template-columns: 1fr; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .disclosure-icon { transition-duration: 0.001ms; }
     }
   </style>
 </head>
 <body>
   <div class="page">
     <header>
-      <h1>PR 10823 vs 10824</h1>
-      <p class="lede">The final heads solve the same Angular 21 migration and both run correctly. The interesting differences are underneath: commit safety, guard typing, state lifetime, dependency direction, and how much of the old class architecture each branch carries forward.</p>
-
-      <div class="decision">
-        <span class="mark" aria-hidden="true">✓</span>
-        <p><strong>Use <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10824">PR 10824</a> as the merge base.</strong> Before merging, copy two strengths from <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10823">PR 10823</a>: explicit Angular guard function types and DI-scoped state for the two deferred-check flags. Then close PR 10823 as superseded.</p>
-      </div>
-
-      <div class="meta">
-        <span>reviewed 2026-09-22</span>
-        <span>common base 0accd16451</span>
-        <span>10823 head 8d4761ac72</span>
-        <span>10824 head 7c66c9e741</span>
-        <span>23 files each</span>
-      </div>
+      <h1>JavaScript and React notes</h1>
     </header>
 
     <main>
-      <section aria-labelledby="verdict-heading">
-        <h2 id="verdict-heading">Verdict at a glance</h2>
-        <div class="scoreline">
-          <div class="label">Final behavior</div>
-          <div class="value"><strong>10823: pass</strong><span>Build, SSR, hydration, and route smoke tests pass.</span></div>
-          <div class="value"><strong>10824: pass</strong><span>Same final behavior in the tested paths.</span></div>
+      <section class="folders" aria-label="Note folders">
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>JavaScript</span></summary>
+          <ul class="notes">
+            <li><a href="let-vs-var-vs-const.html">let vs. var vs. const</a></li>
+            <li><a href="closures-in-js.html">Closures</a></li>
+            <li><a href="currying-in-js.html">Currying</a></li>
+            <li><a href="bind-call-apply.html">bind, call, and apply</a></li>
+            <li><a href="map-filter-reduce.html">map, filter, and reduce</a></li>
+            <li><a href="callbacks-promises-async-await.html">Callbacks, Promises, and async/await</a></li>
+            <li><a href="event-loop-in-js.html">The event loop</a></li>
+          </ul>
+        </details>
 
-          <div class="label">Implementation</div>
-          <div class="value"><strong>10823: conservative</strong><span>Preserves class-service lifetime through helper services.</span></div>
-          <div class="value winner"><strong>10824: leaner</strong><span>Removes 94 more net lines and one feature dependency.</span></div>
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>React</span></summary>
+          <ul class="notes">
+            <li><a href="react.html">React Overview</a></li>
+            <li><a href="react-jsx-components.html">JSX and components</a></li>
+            <li><a href="react-props-composition.html">Props and composition</a></li>
+            <li><a href="react-conditional-rendering-lists.html">Conditional rendering and lists</a></li>
+            <li><a href="react-events-and-inputs.html">Events and inputs</a></li>
+            <li><a href="react-usestate.html">useState and state snapshots</a></li>
+            <li><a href="react-render-commit-reconciliation.html">Render, commit, and reconciliation</a></li>
+            <li><a href="react-state-updates.html">State update queues and immutability</a></li>
+            <li><a href="react-state-design.html">Designing state and data flow</a></li>
+            <li><a href="react-preserving-resetting-state.html">Preserving and resetting state</a></li>
+            <li><a href="react-reducer-context.html">Reducers and context</a></li>
+            <li><a href="react-refs.html">Refs</a></li>
+            <li><a href="react-effects.html">Effects</a></li>
+            <li><a href="react-custom-hooks.html">Custom hooks</a></li>
+          </ul>
+        </details>
 
-          <div class="label">Merge choice</div>
-          <div class="value"><strong>10823: supersede</strong><span>Useful ideas, but too much support code for the same result.</span></div>
-          <div class="value winner"><strong>10824: prefer</strong><span>Best base after two small hardening edits.</span></div>
-        </div>
-      </section>
-
-      <section aria-labelledby="matrix-heading">
-        <h2 id="matrix-heading">Detailed comparison</h2>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Dimension</th>
-                <th scope="col">PR 10823</th>
-                <th scope="col">PR 10824</th>
-                <th scope="col">Assessment</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>Final runtime behavior</td>
-                <td>Hydration, routing, SSR, scroll restoration, and guards work in smoke tests.</td>
-                <td>Matches 10823 on the tested public routes.</td>
-                <td class="tie">Tie</td>
-              </tr>
-              <tr>
-                <td>Hydration commit</td>
-                <td>Adds hydration first, then removes <code>enabledBlocking</code> in the next commit.</td>
-                <td>Adds hydration and removes the conflicting router option in one commit.</td>
-                <td class="win">10824</td>
-              </tr>
-              <tr>
-                <td>Guard contracts</td>
-                <td>Declares <code>CanActivateFn</code> and <code>CanDeactivateFn</code> on migrated guards.</td>
-                <td>Relies on inference and parameter annotations.</td>
-                <td class="win">10823</td>
-              </tr>
-              <tr>
-                <td>Permission profile stream</td>
-                <td>Adds <code>PermissionGuardState</code>, a root service with a second <code>BehaviorSubject</code>.</td>
-                <td>Reads the NgRx selector directly for each navigation.</td>
-                <td class="win">10824</td>
-              </tr>
-              <tr>
-                <td>Deferred-check flags</td>
-                <td>Keeps flags in root-injected state services, scoped to the Angular injector.</td>
-                <td>Keeps flags in module-level variables shared by every app instance in the JavaScript realm.</td>
-                <td class="win">10823</td>
-              </tr>
-              <tr>
-                <td>Environment initializer</td>
-                <td>Uses the public helper <code>provideEnvironmentInitializer</code>.</td>
-                <td>Registers the lower-level <code>ENVIRONMENT_INITIALIZER</code> token manually.</td>
-                <td class="trade">10823 is clearer</td>
-              </tr>
-              <tr>
-                <td>Router ownership</td>
-                <td>Exports routes and assembles providers in <code>AppModule</code>.</td>
-                <td>Exports <code>appRouterProviders</code> from the routing file.</td>
-                <td class="trade">Preference</td>
-              </tr>
-              <tr>
-                <td>Confirmation constant</td>
-                <td>Leaves the generic unsaved-changes prompt in the Messages feature constant.</td>
-                <td>Moves it to shared confirmation constants.</td>
-                <td class="win">10824</td>
-              </tr>
-              <tr>
-                <td>Diff size</td>
-                <td>614 additions, 615 deletions. Net minus one line.</td>
-                <td>531 additions, 626 deletions. Net minus 95 lines.</td>
-                <td class="win">10824</td>
-              </tr>
-              <tr>
-                <td>Focused tests</td>
-                <td>No new guard or router regression specs.</td>
-                <td>No new guard or router regression specs.</td>
-                <td class="risk">Gap in both</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section aria-labelledby="strengths-heading">
-        <h2 id="strengths-heading">What each PR gets right</h2>
-        <div class="two-col">
-          <article class="column">
-            <h3>PR 10823</h3>
-            <ul>
-              <li>The explicit Angular function types make invalid return values fail close to the guard declaration.</li>
-              <li>Injector-scoped flags preserve the lifetime model of the original root guard services.</li>
-              <li>The public initializer helper reads like Angular configuration, not token plumbing.</li>
-              <li>The permission guard migration stays close to the old implementation, which lowers semantic drift.</li>
-            </ul>
-          </article>
-
-          <article class="column preferred">
-            <h3>PR 10824</h3>
-            <ul>
-              <li>The NgRx selector already replays current store state, so the extra guard-owned <code>BehaviorSubject</code> is unnecessary.</li>
-              <li>The common can-deactivate guard no longer imports a constant from the Messages feature.</li>
-              <li>The hydration commit removes the incompatible router option at the same time it enables hydration.</li>
-              <li>The final implementation is shorter without changing the route table or public guard decisions.</li>
-            </ul>
-          </article>
-        </div>
-      </section>
-
-      <section aria-labelledby="behavior-heading">
-        <h2 id="behavior-heading">Behavioral parity by guard</h2>
-        <p class="intro">Both PRs update every route reference from class guards to functions. Most differences are construction and lifetime choices, not authorization rules.</p>
-
-        <div class="review-list">
-          <article class="review-row">
-            <h3>authGuard</h3>
-            <p>Both preserve prerender bypass, social callback handling, creator signup state, search access, authenticated redirects, and login fallback. PR 10823 has the stronger function contract.</p>
-            <span class="badge">Equivalent</span>
-          </article>
-
-          <article class="review-row">
-            <h3>permissionGuard</h3>
-            <p>Both call the same permission service with the same route data and redirect target. PR 10824 removes a duplicate subject and subscribes to the NgRx selector per navigation. The router unsubscribes after the guard resolves.</p>
-            <span class="badge">Equivalent</span>
-          </article>
-
-          <article class="review-row">
-            <h3>creatorApprovalGuard</h3>
-            <p>The status matrix and redirect helper are the same. PR 10823 stores the in-flight flag in DI. PR 10824 stores it at module scope, which is fine for one browser app but weaker for isolated tests or multiple Angular roots.</p>
-            <span class="badge caution">Scope differs</span>
-          </article>
-
-          <article class="review-row">
-            <h3>wlsOwnerGuard</h3>
-            <p>Owner detection, prerender handling, and redirects match. The same DI versus module-scope flag difference applies.</p>
-            <span class="badge caution">Scope differs</span>
-          </article>
-
-          <article class="review-row">
-            <h3>white-label guards</h3>
-            <p><code>whitelabelGuard</code>, <code>whitelabelV2Guard</code>, and <code>whitelabelSiteOnlyGuard</code> keep the original allow and redirect branches in both PRs.</p>
-            <span class="badge">Equivalent</span>
-          </article>
-
-          <article class="review-row">
-            <h3>redirect guards</h3>
-            <p><code>routeGuard</code> and <code>optOutRedirectGuard</code> keep the same conditions, navigation targets, and false returns.</p>
-            <span class="badge">Equivalent</span>
-          </article>
-
-          <article class="review-row">
-            <h3>canDeactivateGuard</h3>
-            <p>The prompt behavior is unchanged. PR 10824 places its text in a shared constant, which fits the guard's location and removes an inward feature dependency.</p>
-            <span class="badge">10824 cleaner</span>
-          </article>
-        </div>
-      </section>
-
-      <section aria-labelledby="history-heading">
-        <h2 id="history-heading">Commit history matters</h2>
-        <div class="callout warning">
-          <h3>PR 10823 has a contradictory intermediate commit</h3>
-          <p>Commit <code>02aa694c2b</code> enables client hydration while <code>RouterModule.forRoot</code> still uses <code>initialNavigation: 'enabledBlocking'</code>. Angular 21 includes an explicit development-mode warning for this combination. The next commit fixes it, so the final head is sound. A squash merge avoids retaining that midpoint. PR 10824 keeps its first commit internally consistent.</p>
-        </div>
-        <p class="footnote">Production-optimized builds remove Angular's development assertion, which is why QA SSR can still return HTTP 200 for the intermediate commit. Development-mode validation is the relevant check here.</p>
-      </section>
-
-      <section aria-labelledby="validation-heading">
-        <h2 id="validation-heading">Validation evidence</h2>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th scope="col">Check</th>
-                <th scope="col">PR 10823</th>
-                <th scope="col">PR 10824</th>
-                <th scope="col">Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><code>git diff --check</code></td>
-                <td>Clean</td>
-                <td>Clean</td>
-                <td class="win">Pass</td>
-              </tr>
-              <tr>
-                <td>QA application build</td>
-                <td>Browser and server bundles built.</td>
-                <td>Browser and server bundles built.</td>
-                <td class="win">Pass</td>
-              </tr>
-              <tr>
-                <td>SSR requests</td>
-                <td><code>/</code> and <code>/privacy-policy</code> returned 200.</td>
-                <td><code>/</code> and <code>/privacy-policy</code> returned 200.</td>
-                <td class="win">Pass</td>
-              </tr>
-              <tr>
-                <td>Final-head browser hydration</td>
-                <td>No Angular router, injector, or hydration errors.</td>
-                <td>No Angular router, injector, or hydration errors.</td>
-                <td class="win">Pass</td>
-              </tr>
-              <tr>
-                <td>Migration completeness</td>
-                <td>No old class-guard references or root <code>forRoot</code>.</td>
-                <td>No old class-guard references or root <code>forRoot</code>.</td>
-                <td class="win">Pass</td>
-              </tr>
-              <tr>
-                <td>Generated white-label project</td>
-                <td>Unavailable in this checkout.</td>
-                <td>Unavailable in this checkout.</td>
-                <td class="risk">Not run</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="footnote">Both final builds report the existing 12.30 MB initial-bundle warning and existing CommonJS warnings. Neither PR adds a compilation failure.</p>
-      </section>
-
-      <section aria-labelledby="merge-heading">
-        <h2 id="merge-heading">Recommended merge shape</h2>
-        <ol class="flow">
-          <li><strong>Start with 10824</strong><span>Keep its atomic hydration commit, direct NgRx stream, and shared confirmation constant.</span></li>
-          <li><strong>Add function types</strong><span>Declare the router guards as <code>CanActivateFn</code> and the exit guard as <code>CanDeactivateFn</code>.</span></li>
-          <li><strong>Scope deferred state</strong><span>Move the two in-flight flags back under DI, or replace the side subscriptions with guards that return the profile observable.</span></li>
-          <li><strong>Test and merge</strong><span>Add focused guard specs, run one generated white-label build, merge 10824, then close 10823.</span></li>
-        </ol>
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Build and publish a TypeScript SDK</span></summary>
+          <ul class="notes">
+            <li><a href="0001-understand-the-package-artifact.html">Understand the package artifact</a></li>
+            <li><a href="0002-create-the-workspace-and-package.html">Create the workspace and packages</a></li>
+            <li><a href="0003-design-the-public-api.html">Design the public API</a></li>
+            <li><a href="0004-build-javascript-and-types.html">Build JavaScript and declarations</a></li>
+            <li><a href="0005-make-network-data-safe.html">Make network data safe</a></li>
+            <li><a href="0006-test-through-public-boundaries.html">Test through public boundaries</a></li>
+            <li><a href="0007-write-the-publish-manifest.html">Write the publish manifest</a></li>
+            <li><a href="0008-inspect-and-test-the-tarball.html">Inspect and test the tarball</a></li>
+            <li><a href="0009-prepare-npm-access.html">Prepare npm access</a></li>
+            <li><a href="0010-publish-in-dependency-order.html">Publish in dependency order</a></li>
+            <li><a href="0011-release-and-maintain-safely.html">Release and maintain safely</a></li>
+          </ul>
+        </details>
       </section>
     </main>
   </div>
