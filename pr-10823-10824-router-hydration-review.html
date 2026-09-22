@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Code review of TopFans pull requests 10823 and 10824 for Angular 21 router, hydration, and functional guard changes.">
+  <title>PR 10823 and 10824 review</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131a24;
+      --panel: #1a2331;
+      --ink: #e8edf4;
+      --muted: #8593a6;
+      --dim: #4e5b6e;
+      --rule: #2a3546;
+      --minus: #f0776f;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5fcf8f;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8fb4ff;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 16px;
+    }
+
+    body { margin: 0; }
+
+    a {
+      color: var(--focus);
+      text-underline-offset: 0.18em;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+      border-radius: 3px;
+    }
+
+    h1, h2, h3, p, ul, ol, dl, dd, figure, table { margin: 0; }
+
+    h1, h2, h3 { color: var(--ink); }
+
+    h1 {
+      font-size: clamp(2.25rem, 6vw, 4.6rem);
+      line-height: 0.98;
+      letter-spacing: -0.045em;
+      max-width: 13ch;
+    }
+
+    h2 {
+      font-size: clamp(1.45rem, 3vw, 2rem);
+      line-height: 1.15;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      font-size: 1rem;
+      line-height: 1.3;
+    }
+
+    p, li, dd, td {
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    code {
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.88em;
+      padding: 0.12em 0.38em;
+    }
+
+    .page {
+      width: min(1040px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header {
+      display: grid;
+      gap: 1.5rem;
+      padding-bottom: 3rem;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    .lede {
+      max-width: 66ch;
+      font-size: 1.15rem;
+      color: var(--muted);
+    }
+
+    .recommendation {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 1rem;
+      align-items: start;
+      padding: 1.25rem;
+      border: 1px solid var(--plus);
+      border-radius: 8px;
+      background: var(--plus-bg);
+    }
+
+    .recommendation .mark {
+      display: grid;
+      width: 2rem;
+      height: 2rem;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--plus);
+      color: var(--paper);
+      font-weight: 800;
+    }
+
+    .recommendation p { color: var(--ink); }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem 1.5rem;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 3rem; }
+
+    section > h2 { padding-bottom: 1rem; }
+
+    .finding {
+      display: grid;
+      grid-template-columns: 7rem minmax(0, 1fr);
+      gap: 1.25rem;
+      padding-block: 1.1rem;
+      border-top: 1px solid var(--rule);
+    }
+
+    .finding:last-child { border-bottom: 1px solid var(--rule); }
+
+    .severity {
+      width: fit-content;
+      height: fit-content;
+      border-radius: 999px;
+      padding: 0.28rem 0.6rem;
+      background: var(--plus-bg);
+      color: var(--plus);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .severity.caution {
+      background: var(--minus-bg);
+      color: var(--minus);
+    }
+
+    .finding-copy {
+      display: grid;
+      gap: 0.45rem;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 2rem;
+    }
+
+    .pr {
+      padding-top: 1rem;
+      border-top: 3px solid var(--dim);
+    }
+
+    .pr.preferred { border-top-color: var(--plus); }
+
+    .pr h3 { font-size: 1.2rem; }
+
+    .verdict {
+      padding-top: 0.45rem;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .pr ul {
+      display: grid;
+      gap: 0.55rem;
+      padding: 1rem 0 0 1.2rem;
+    }
+
+    .pr li::marker { color: var(--plus); }
+
+    .pr:not(.preferred) li::marker { color: var(--dim); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 680px;
+    }
+
+    th, td {
+      padding: 0.85rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    th {
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .pass { color: var(--plus); font-weight: 700; }
+    .gap { color: var(--minus); font-weight: 700; }
+
+    .sequence {
+      display: grid;
+      gap: 0;
+      padding: 0;
+      list-style: none;
+      counter-reset: step;
+    }
+
+    .sequence li {
+      display: grid;
+      grid-template-columns: 2rem minmax(0, 1fr);
+      gap: 0.9rem;
+      padding-block: 0.75rem;
+      counter-increment: step;
+    }
+
+    .sequence li::before {
+      content: counter(step);
+      display: grid;
+      width: 1.65rem;
+      height: 1.65rem;
+      place-items: center;
+      border: 1px solid var(--rule);
+      border-radius: 50%;
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.78rem;
+    }
+
+    .footnote {
+      padding-top: 1rem;
+      color: var(--dim);
+      font-size: 0.85rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .compare { grid-template-columns: 1fr; }
+      .finding { grid-template-columns: 1fr; gap: 0.65rem; }
+      .recommendation { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10823 and 10824 review</h1>
+      <p class="lede">Both pull requests implement the same Angular 21 router and hydration migration from the same base commit. Both build and run. PR 10824 reaches the same result with less code and cleaner dependency boundaries.</p>
+
+      <div class="recommendation">
+        <span class="mark" aria-hidden="true">✓</span>
+        <p><strong>Recommendation:</strong> approve and merge <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10824">PR 10824</a>. Close <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10823">PR 10823</a> as superseded. Do not merge both.</p>
+      </div>
+
+      <div class="meta">
+        <span>reviewed 2026-09-22</span>
+        <span>base 0accd16451</span>
+        <span>10823 head 8d4761ac72</span>
+        <span>10824 head 7c66c9e741</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="findings-heading">
+        <h2 id="findings-heading">Findings</h2>
+
+        <article class="finding">
+          <span class="severity">clear</span>
+          <div class="finding-copy">
+            <h3>No merge-blocking defect found</h3>
+            <p>The router provider, hydration provider, scroll behavior, custom URL serializer, and eleven migrated guards compile and start correctly in both PRs. Browser hydration completed without an Angular console error.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <span class="severity caution">decision</span>
+          <div class="finding-copy">
+            <h3>The PRs are alternatives</h3>
+            <p>Both branches start at <code>0accd16451</code>, touch the same 23 files, and solve the same task. Merging both would add conflict resolution with no product benefit.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <span class="severity">preferred</span>
+          <div class="finding-copy">
+            <h3>PR 10824 is the smaller implementation</h3>
+            <p>PR 10824 removes 95 net lines. PR 10823 removes one net line. PR 10824 avoids three private guard-state services and moves the unsaved-changes prompt to a shared confirmation constant, so the common guard no longer imports a messages feature constant.</p>
+          </div>
+        </article>
+
+        <article class="finding">
+          <span class="severity caution">test gap</span>
+          <div class="finding-copy">
+            <h3>Guard behavior has no focused regression suite</h3>
+            <p>The repository has no specs for the migrated authentication, permission, creator-approval, white-label owner, or can-deactivate guards. The migration preserves their branches by inspection, but authenticated role combinations still need a short QA pass. No generated white-label project exists in this checkout, so a tenant build was not available.</p>
+          </div>
+        </article>
+      </section>
+
+      <section aria-labelledby="comparison-heading">
+        <h2 id="comparison-heading">PR comparison</h2>
+        <div class="compare">
+          <article class="pr">
+            <h3><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10823">PR 10823</a></h3>
+            <p class="verdict">Valid, but superseded</p>
+            <ul>
+              <li>Uses explicit <code>CanActivateFn</code> and <code>CanDeactivateFn</code> types.</li>
+              <li>Keeps mutable guard state in root-injected helper services.</li>
+              <li>Adds 614 lines and removes 615.</li>
+              <li>Passes the same build and runtime checks as PR 10824.</li>
+            </ul>
+          </article>
+
+          <article class="pr preferred">
+            <h3><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10824">PR 10824</a></h3>
+            <p class="verdict">Preferred for merge</p>
+            <ul>
+              <li>Uses direct functional guards with less supporting code.</li>
+              <li>Keeps router features together in <code>appRouterProviders</code>.</li>
+              <li>Adds 531 lines and removes 626.</li>
+              <li>Moves the confirmation text to <code>shared/constants</code>.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="validation-heading">
+        <h2 id="validation-heading">Validation evidence</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Check</th>
+                <th scope="col">PR 10823</th>
+                <th scope="col">PR 10824</th>
+                <th scope="col">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>git diff --check</code></td>
+                <td class="pass">Pass</td>
+                <td class="pass">Pass</td>
+                <td>No whitespace errors.</td>
+              </tr>
+              <tr>
+                <td>QA browser and SSR build</td>
+                <td class="pass">Pass</td>
+                <td class="pass">Pass</td>
+                <td>Angular 21 application build completed in about 78 seconds per PR.</td>
+              </tr>
+              <tr>
+                <td>SSR smoke test</td>
+                <td class="pass">Pass</td>
+                <td class="pass">Pass</td>
+                <td><code>/</code> and <code>/privacy-policy</code> returned HTTP 200 with hydration markers.</td>
+              </tr>
+              <tr>
+                <td>Browser hydration</td>
+                <td class="pass">Pass</td>
+                <td class="pass">Pass</td>
+                <td>No Angular router, injector, or hydration errors.</td>
+              </tr>
+              <tr>
+                <td>Migration completeness</td>
+                <td class="pass">Pass</td>
+                <td class="pass">Pass</td>
+                <td>No old class-guard references or root <code>RouterModule.forRoot</code> calls remain.</td>
+              </tr>
+              <tr>
+                <td>Generated white-label build</td>
+                <td class="gap">Not run</td>
+                <td class="gap">Not run</td>
+                <td><code>angular.json</code> contains only the <code>TopFans</code> project in this checkout.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="footnote">The QA build still reports the existing 12.30 MB initial-bundle warning and existing CommonJS warnings. Neither PR introduces a new build failure.</p>
+      </section>
+
+      <section aria-labelledby="qa-heading">
+        <h2 id="qa-heading">Post-merge QA</h2>
+        <ol class="sequence">
+          <li>Open a public SSR route and confirm the browser hydrates without replacing the server-rendered page.</li>
+          <li>Check unauthenticated login, authenticated login redirect, social callback, and saved return URL flows.</li>
+          <li>Check fan, pending creator, approved creator, delegated user, white-label owner, and white-label non-owner routes.</li>
+          <li>Leave Messages with unsaved changes and verify both choices in the native confirmation prompt.</li>
+          <li>Build one generated white-label project before release.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
