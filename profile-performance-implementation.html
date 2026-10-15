@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>What shipped for profile performance after service cleanup</title>
+  <meta name="description" content="Code diffs and a human QA checklist for the six remaining profile performance items scored above 6, implemented on release-0.0.25 after PR 10994.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@88,400;88,600;88,700;92,600;92,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+      --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      --bg: var(--paper);
+      --surface: var(--panel);
+      --text: var(--ink);
+      --line: var(--rule);
+      --blue: var(--focus);
+      --green: var(--plus);
+      --pink: var(--minus);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--paper); }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--focus);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+    strong { color: var(--ink); font-weight: 650; }
+    .focus { color: var(--focus); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--panel);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 0.75rem; }
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol {
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .lede { color: var(--ink); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--rule);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--rule); }
+    td:first-child { color: var(--ink); }
+
+    .diff {
+      display: grid;
+      gap: 0.15rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .diff .add,
+    .diff .del,
+    .diff .ctx {
+      display: block;
+      padding: 0.12rem 0.55rem;
+      border-radius: 0.25rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .diff .add { background: var(--plus-bg); color: var(--plus); }
+    .diff .del { background: var(--minus-bg); color: var(--minus); }
+    .diff .ctx { color: var(--muted); }
+
+    .file {
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    .checks {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      gap: 0.5rem;
+    }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--focus);
+    }
+
+    .group + .group { padding-top: 1.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <nav aria-label="Breadcrumb"><a href="/">Development notes</a></nav>
+      <h1>What shipped for profile performance after service cleanup</h1>
+      <p class="meta">
+        <span>15 October 2026</span>
+        <span>Baseline <code>7a7f894767</code>, release-0.0.25 including PR 10994</span>
+        <span>Branch <code>feature/release-0.0.25/profile-performance</code></span>
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What I actually did</h2>
+        <p class="lede">I implemented the remaining items scored higher than 6 from the <a href="/profile-performance-after-service-cleanup">combined review</a>. Score 6 and below stayed out. I did not restore PR 10977's posts-and-ads <code>forkJoin</code>, and I left the idle modal defer block alone.</p>
+        <p>Service cleanup was already on <code>origin/release-0.0.25</code>, so there was nothing to cherry-pick. The worktree started at merge <code>7a7f894767</code>.</p>
+      </section>
+
+      <section>
+        <h2>Score cut</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Remaining</th>
+                <th>This change</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>Profile banner priority</td><td>9</td><td>Shipped</td></tr>
+              <tr><td>S3 cache headers</td><td>9</td><td>Shipped. HTML is re-uploaded so old immutable metadata is replaced</td></tr>
+              <tr><td>Visible profile SSR</td><td>8</td><td>Shipped. Server and client both read TransferState, then a logged-in browser refreshes</td></tr>
+              <tr><td>Bootstrap CSS reduction</td><td>7</td><td>Shipped. Compiled. Gzip went from 34.3 KB to 30.6 KB for Bootstrap alone</td></tr>
+              <tr><td>Defer sidebar and welcome video</td><td>7</td><td>Shipped. Component imports stay. Modal defer stays. Placeholders are sized</td></tr>
+              <tr><td>Size the header logo</td><td>7</td><td>Shipped with max width and <code>contain</code>, not a 290×32 crop</td></tr>
+              <tr><td>Delay secondary profile work</td><td>6</td><td>Skipped. Higher than 6 was the cutoff</td></tr>
+              <tr><td>Optional-request resilience, ad skeleton wrappers, skip 2×, font-display swap, translation cookie</td><td>3 or below</td><td>Skipped</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Banner priority</h2>
+        <p>The optimization directive already knew how to set <code>fetchpriority="high"</code> and eager loading. The profile banner never asked for it, and it shipped <code>loading="lazy"</code>, which blocked the directive from flipping loading. I turned priority on and dropped the lazy attribute. The subscription-modal copy of the banner is still lazy. That image is not LCP.</p>
+        <p class="file">src/app/modules/shared/components/profile/profile.component.html</p>
+        <div class="diff" aria-label="Banner priority diff">
+          <span class="ctx">              appMobileOptimization</span>
+          <span class="add">              [priority]="true"</span>
+          <span class="ctx">              [originalUrl]="userProfile?.banner_image_url"</span>
+          <span class="ctx">              [width]="800"</span>
+          <span class="ctx">              [height]="400"</span>
+          <span class="del">              loading="lazy"</span>
+          <span class="ctx">              decoding="async"</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Header logo sizing</h2>
+        <p>PR 10977 asked for a 290×32 WebP. That is a 9:1 box. Tenant logos are not all 9:1, and the CSS already does <code>object-fit: contain</code> at 32px tall with a 290px max. Forcing both width and height on the image handler would squash the file before CSS could save it.</p>
+        <p>I request width only, 290 or 240 for the pro header, with <code>fit="contain"</code>. WebP is already the default. I also set <code>[priority]="true"</code> because this logo was already <code>loading="eager"</code> and it is LCP on marketing chrome.</p>
+        <p class="file">header-layout.component.html</p>
+        <div class="diff" aria-label="Logo sizing diff">
+          <span class="ctx">            [originalUrl]="logoUrl"</span>
+          <span class="add">            [width]="isProPageLogo() ? CONST.LOGO.REQUEST_PRO_WIDTH : CONST.LOGO.REQUEST_WIDTH"</span>
+          <span class="add">            [fit]="CONST.LOGO.FIT"</span>
+          <span class="add">            [priority]="true"</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>S3 cache headers</h2>
+        <p>Every rclone copy used <code>Cache-Control: public,max-age=31536000,immutable</code>, including <code>index.html</code> and prerendered HTML. Express never sees those objects. A checksum skip also leaves old metadata on unchanged HTML, so a deploy can look like it did nothing.</p>
+        <p><code>deployment_script/rclone-upload-dist.sh</code> now does three passes:</p>
+        <ol>
+          <li>Non-HTML, non-manifest files: immutable, checksum skip as before.</li>
+          <li>HTML: <code>max-age=0,must-revalidate</code>, <code>--ignore-times</code> so existing objects get new headers.</li>
+          <li><code>ngsw.json</code>, worker scripts, and <code>manifest.webmanifest</code>: same revalidate treatment.</li>
+        </ol>
+        <p>TopFans still only excludes <code>explore/**</code>. Tenant scripts set <code>RCLONE_TENANT_EXCLUDES=1</code> so splash, favicon, and sitemap stay off this path the way they already were. I did not hand-edit generated white-label projects.</p>
+        <p>After the first deploy, open an existing <code>index.html</code> in the bucket and read <code>Cache-Control</code>. If it still says immutable, the helper did not run, or CloudFront is holding the old object.</p>
+      </section>
+
+      <section>
+        <h2>Bootstrap CSS</h2>
+        <p><code>styles.scss</code> used to <code>@use</code> the full Bootstrap barrel. It now <code>@use</code>s <code>_bootstrap-partials.scss</code>. Bootstrap 5.2 is still an <code>@import</code> library, so the partials file uses <code>@import</code>. The app boundary stays <code>@use</code>.</p>
+        <p>I dropped navbar, list-group, offcanvas, and placeholders after searching the templates. I kept spinners because a few SCSS files still style <code>.spinner-border</code>. I compiled both stacks against the main checkout's <code>node_modules</code>:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Sheet</th><th>Uncompressed</th><th>Gzip</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Full <code>bootstrap/scss/bootstrap</code></td><td>276,971 bytes</td><td>34,340 bytes</td></tr>
+              <tr><td>Partials</td><td>237,254 bytes</td><td>30,602 bytes</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>About 4 KB gzip. Not a miracle. Enough to be worth the compile check, not enough to pretend we deleted Bootstrap.</p>
+      </section>
+
+      <section>
+        <h2>Defer sidebar and welcome video</h2>
+        <p>Modals already defer on idle. Sidebar and welcome video did not. Both now defer on viewport and prefetch on idle.</p>
+        <p>Angular still needs the components in the parent <code>imports</code> array. Removing them is how you get a build failure with a selector still in the template. I left <code>ProfileSidebarComponent</code> and <code>WelcomeVideoPostComponent</code> declared.</p>
+        <p>The welcome-video placeholder is a 16:9 block in <code>--configSecondaryBgColor</code>, so the feed does not collapse while the chunk loads. The sidebar placeholder reuses <code>app-right-sidebar-skeleton</code>, the same skeleton the loading path already shows.</p>
+        <p class="file">profile.component.html, abbreviated</p>
+        <div class="diff" aria-label="Defer welcome video and sidebar">
+          <span class="add">@defer (on viewport; prefetch on idle) {</span>
+          <span class="ctx">  &lt;app-welcome-video-post ...&gt;&lt;/app-welcome-video-post&gt;</span>
+          <span class="add">} @placeholder {</span>
+          <span class="add">  &lt;div class="welcome-video-defer-placeholder" aria-hidden="true"&gt;&lt;/div&gt;</span>
+          <span class="add">}</span>
+          <span class="ctx"></span>
+          <span class="add">@defer (on viewport; prefetch on idle) {</span>
+          <span class="ctx">  &lt;app-profile-sidebar ...&gt;&lt;/app-profile-sidebar&gt;</span>
+          <span class="add">} @placeholder {</span>
+          <span class="add">  &lt;app-right-sidebar-skeleton ...&gt;&lt;/app-right-sidebar-skeleton&gt;</span>
+          <span class="add">}</span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Visible profile SSR</h2>
+        <p>The whole profile shell sat behind <code>cs.isBrowser &amp;&amp; isBasicProfileLoaded</code>. The server rendered a skeleton and a hidden name/bio. First paint in the document was empty chrome.</p>
+        <p>Two things had to move together. Un-gating the template without consuming TransferState would refetch on the client and mismatch hydration. Using <code>PRERENDERED</code> on the server and <code>REFRESH_EVERY_N</code> in the browser, which is what PR 10977 did, never reads the TransferState entry. Only <code>PRERENDERED</code> does.</p>
+        <p>The first request is now always <code>CacheTypes.PRERENDERED</code>. If TransferState has the payload, <code>of(data)</code> emits in the same turn as <code>subscribe</code>, so <code>isBasicProfileLoaded</code> is true before the first client render. If the visitor is logged in and we just consumed transferred anonymous data, a second <code>REFRESH_EVERY_N</code> call updates follow and privacy. That second call does not wipe the feed unless privacy actually flipped. Feed loading, ads, and <code>fetchPostsWithSkyscraperAds</code> stay as service cleanup left them.</p>
+        <p class="file">profile.component.ts, abbreviated</p>
+        <div class="diff" aria-label="Profile TransferState consumption">
+          <span class="del">this.apiCacheService.get(APIENDPOINT.user(userId), CacheTypes.REFRESH_EVERY_N)</span>
+          <span class="add">const hadTransferredProfile = this.transferState.hasKey(stateKey);</span>
+          <span class="add">this.apiCacheService.get(endpoint, CacheTypes.PRERENDERED)</span>
+          <span class="add">// ... handleUserProfileResponse(res)</span>
+          <span class="add">// if hadTransferredProfile && browser && authenticated</span>
+          <span class="add">//   get(REFRESH_EVERY_N) then handleUserProfileResponse(fresh, false)</span>
+        </div>
+        <p>The hidden prerender name/bio block only renders when the profile has not loaded yet. Once first-paint content is in the document, duplicating it is noise.</p>
+      </section>
+
+      <section>
+        <h2>What I refused from PR 10977</h2>
+        <ul>
+          <li>Posts waiting on ads through <code>forkJoin</code>.</li>
+          <li>Eight-second timeouts on tags, merchandise, and welcome video.</li>
+          <li><code>afterNextRender</code> plus a timer as a stand-in for LCP.</li>
+          <li>Removing sidebar and welcome video from <code>imports</code>.</li>
+          <li>Moving the six modals out of <code>@defer (on idle)</code>.</li>
+          <li>Skipping 2× srcset globally.</li>
+          <li><code>isPlatformBrowser()</code> inside the image directive. That path already uses <code>CommonService.isBrowser</code>.</li>
+          <li>The generator <code>inlineCritical</code> assignment. Prod and QA already enable it.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Checks I ran</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>npx tsc -p tsconfig.app.json --noEmit</code></td><td>Pass. 8.62s, 2581 files</td></tr>
+              <tr><td><code>ng lint</code> on touched profile and header files</td><td>8 template errors and 1 warning, all on pre-existing lines, none in the new hunks</td></tr>
+              <tr><td>Sass compile of partials vs full Bootstrap</td><td>Both compiled. Gzip 30,602 vs 34,340</td></tr>
+              <tr><td><code>bash -n</code> on the four upload scripts</td><td>Pass</td></tr>
+              <tr><td>Unit tests</td><td>Not run. No specs, TDD not in the matrix</td></tr>
+              <tr><td><code>prerender-qa</code> / live SSR HTML</td><td>Not run. No local 4200/4000 server, and a QA prerender is a 10 GB build</td></tr>
+              <tr><td>In-browser LCP, CLS, hydration console</td><td>Not run. T3 browser is blocked by AppArmor on this host</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Route generation was not touched. <code>/${username}</code> already comes from <code>generate-static-routes.mjs</code>. White-label prerender lists still come from <code>POST rest/prerender-routes</code>. No backend change.</p>
+      </section>
+
+      <section>
+        <h2>Human QA checklist</h2>
+        <p>I could not load a profile in a browser from this session. This list is the part a person has to do. Check a box when you have seen it, not when it sounds right.</p>
+
+        <div class="group">
+          <h3>First paint and LCP</h3>
+          <ul class="checks">
+            <li><label><input type="checkbox"> Anonymous TopFans profile, view-source or disable JS: banner, name, and bio are in the HTML, not an empty <code>app-root</code>.</label></li>
+            <li><label><input type="checkbox"> The LCP image is the profile banner. It has <code>fetchpriority="high"</code> and is not <code>loading="lazy"</code>.</label></li>
+            <li><label><input type="checkbox"> DevTools: no NG05xx hydration errors on that profile.</label></li>
+            <li><label><input type="checkbox"> Logged-in visit of a private creator: public first paint, then follow/subscribe state updates without wiping the feed unless privacy actually changed.</label></li>
+            <li><label><input type="checkbox"> Logged-out visit does not fire a second user-by-username request after TransferState is consumed.</label></li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h3>Logo and tenant chrome</h3>
+          <ul class="checks">
+            <li><label><input type="checkbox"> TopFans header logo is sharp on a 2× screen and not letterboxed into a 290×32 strip.</label></li>
+            <li><label><input type="checkbox"> One white-label site with a tall logo and one with a wide logo. Both stay inside the 32px header, no crop.</label></li>
+            <li><label><input type="checkbox"> The logo request uses a width near 290 or 240, not a 2× banner-sized asset.</label></li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h3>Deferral</h3>
+          <ul class="checks">
+            <li><label><input type="checkbox"> A 16:9 gap appears before the welcome video player, then the player fills it. The rest of the feed does not jump.</label></li>
+            <li><label><input type="checkbox"> The sidebar shows the existing loading skeleton, then merchandise and ads, at the same height.</label></li>
+            <li><label><input type="checkbox"> After idle, giveaway, fund, groups, badge, and unlock modals still open. They must not be in the initial JS for the profile.</label></li>
+            <li><label><input type="checkbox"> Filters, pagination, delayed ads, and scroll/unlock restore still insert ads the way service cleanup does. Posts must not wait on ads for a normal load.</label></li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h3>CSS and cache</h3>
+          <ul class="checks">
+            <li><label><input type="checkbox"> Dropdowns, modals, nav tabs, cards, and a <code>.spinner-border</code> screen still look like Bootstrap. Navbar, list-group, offcanvas, and placeholder utilities were the ones removed.</label></li>
+            <li><label><input type="checkbox"> After deploy, S3 metadata on <code>index.html</code> is <code>public,max-age=0,must-revalidate</code>. Repeat on a prerendered <code>/{username}/index.html</code> that existed before the change.</label></li>
+            <li><label><input type="checkbox"> A hashed JS or CSS file still has <code>max-age=31536000,immutable</code>.</label></li>
+            <li><label><input type="checkbox"> <code>ngsw.json</code> is must-revalidate, not immutable.</label></li>
+            <li><label><input type="checkbox"> Hard-refresh after a new deploy shows the new HTML without waiting for a CloudFront TTL.</label></li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>
