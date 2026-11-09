@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TopFans frontend audit</title>
+  <style>
+    :root {
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      --sans: "Helvetica Neue", Arial, sans-serif;
+      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    body {
+      margin: 0;
+      font: 16px/1.45 var(--sans);
+      background: var(--paper);
+      color: var(--ink);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 48px 28px 80px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 28px;
+      margin-bottom: 36px;
+    }
+
+    .kicker {
+      color: var(--dim);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 620;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px;
+      line-height: 1.2;
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      max-width: 62ch;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 620;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin: 40px 0 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 22px 0 8px;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul, ol {
+      margin: 0 0 14px;
+      padding-left: 1.2em;
+    }
+
+    li { margin: 0 0 7px; }
+
+    li::marker { color: var(--dim); }
+
+    a { color: var(--focus); text-decoration: none; }
+
+    code, .pill {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 18px;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--dim);
+      font-weight: 550;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    td.num {
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 0 0 12px;
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    .sev {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      padding: 2px 6px;
+      margin-right: 8px;
+      vertical-align: 1px;
+    }
+
+    .sev-crit { color: var(--minus); background: var(--minus-bg); }
+    .sev-warn { color: var(--focus); background: var(--focus-bg); }
+    .sev-ok { color: var(--plus); background: var(--plus-bg); }
+    .sev-info { color: var(--muted); background: rgba(133, 147, 166, 0.13); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+      margin-bottom: 2px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 18px;
+      border-top: 1px solid var(--rule);
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    @media (max-width: 640px) {
+      .wrap { padding: 28px 18px 56px; }
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <article class="wrap">
+    <header>
+      <p class="kicker">Source audit · 22 Sep 2026</p>
+      <h1>TopFans frontend audit</h1>
+      <p class="lede">Angular 21 NgModule app that still works. The security story does not. Do not commit the current <code>environment.ts</code> dump.</p>
+    </header>
+
+    <h2>Snapshot</h2>
+    <div class="grid">
+      <div class="stat"><b>~1,360</b><span>TypeScript files under <code>src/app</code></span></div>
+      <div class="stat"><b>0</b><span>Unit or e2e tests in the repo</span></div>
+      <div class="stat"><b>~90</b><span>Components on OnPush, mostly marketing layouts</span></div>
+      <div class="stat"><b>5,356</b><span>Lines in <code>profile.component.ts</code></span></div>
+    </div>
+    <p class="note">Read from source. No production build, no live exploit attempt.</p>
+
+    <h2>Fix this week</h2>
+
+    <div class="card">
+      <h3><span class="sev sev-crit">Critical</span> Revert the environment dump</h3>
+      <p>The working copy of <code>src/environments/environment.ts</code> is <code>production: true</code> pointed at QA, plus a baked-in <code>whiteLabelConfig</code> that is a real creator record. Email, home address, birth date, phone, IPs, FCM tokens, OTP values, and live Google Calendar access plus refresh tokens.</p>
+      <p>The file is already tracked. If this lands in git, the leak is permanent. Set <code>whiteLabelConfig</code> back to <code>null</code>. Revoke the calendar tokens. Treat the OTP and FCM values as burned.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-crit">Critical</span> AWS keys ship in the browser</h3>
+      <p><code>sKey</code> in every environment file is an access key and secret. <code>topFanD</code> in <code>src/app/utils/common.utils.ts</code> is a 9-letter Caesar shift. That is not encryption.</p>
+      <p><code>UploadService</code>, the fan-import modal, and the form file uploader all build an <code>aws-sdk</code> v2 S3 client on the client. Anyone with DevTools can write to <code>topfanlite-prod-s3-backend</code>.</p>
+      <p>Rotate the keys. Uploads should go through a backend that issues short-lived, prefix-scoped credentials.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-crit">Critical</span> Shared livestream secret</h3>
+      <p><code>SECRET_KEY_IVS</code> is the same string in QA, staging, and prod. Livestream code reads it from <code>environment</code>. Rotate it and stop sending it to the client.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-crit">Critical</span> <code>encKey</code> is a keyboard walk</h3>
+      <p>The value is <code>qwertyuiopasdfghjklzxcvbnm</code>. Whatever it wraps, assume it is public.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> Admin impersonation puts the JWT in the URL</h3>
+      <p><code>/access-user</code> reads <code>token</code> and <code>admin_name</code> from query params, then logs in. Browser history, proxies, and <code>Referer</code> all see it. Trade that token for a one-time server exchange.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> User HTML skips the sanitizer</h3>
+      <p>Article posts call <code>bypassSecurityTrustHtml</code> on the API description. Same pattern in SEO landing, text editors, embed URLs, and ticket views.</p>
+      <p>DOMPurify is imported, then used only in <code>app.component</code> to strip tags from some inputs. The <code>isURL</code> pipe calls <code>bypassSecurityTrustHtml</code>, throws away the return value, and hands a raw string to <code>[innerHTML]</code> in messages, comments, posts, and profile.</p>
+      <p>Quill 1.3.7 is on the page. That line has known XSS bugs. Sanitize with DOMPurify before any <code>innerHTML</code>. Upgrade or drop Quill.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> Tokens in storage, headers shared across requests</h3>
+      <p>Auth tokens live in <code>localStorage</code> and IndexedDB. XSS on this origin becomes account takeover.</p>
+      <p><code>HttpService.setHeader</code> mutates module-level <code>httpOptions</code>. Two overlapping requests can attach the wrong <code>Authorization</code> value.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> Helmet with CSP off</h3>
+      <p><code>server.ts</code> disables <code>contentSecurityPolicy</code>, <code>crossOriginEmbedderPolicy</code>, and <code>crossOriginResourcePolicy</code>. The Express <code>/api/client-ip</code> helper trusts <code>x-forwarded-for</code> as written.</p>
+    </div>
+
+    <h2>What the app is</h2>
+    <p>NgModules, <code>HttpClientModule</code>, and a 650-line <code>SharedModule</code> imported by <code>AppModule</code>. Feature routes use <code>loadChildren</code>. The shared barrel sits in the main bundle, so the split is thinner than the routing file suggests.</p>
+    <p>NgRx is a global bag. The root store is <code>userProfile</code>, <code>otherUserProfile</code>, <code>refreshKeys</code>, plus two cache slices. Immutability checks are off. There are no effects. Components inject <code>Store</code> and treat it like a service.</p>
+    <p>Guards are uneven. Monetize, wallet, messages, and insights stack <code>AuthGuard</code>, <code>PermissionGuard</code>, <code>CreatorApprovalGuard</code>, sometimes <code>WlsOwnerGuard</code>. The dashboard parent has no <code>AuthGuard</code>. A public home feed may be intentional. <code>AuthGuard</code> returns <code>true</code> during prerender, so protected URLs can render as if someone is logged in.</p>
+    <p><code>tsconfig</code> has <code>strict: false</code> and <code>strictTemplates: false</code>. <code>noUnusedLocals</code> is on. Hundreds of <code>: any</code> annotations sit next to that. <code>profile.component.ts</code> alone has 94.</p>
+
+    <h2>Files that are too big to own</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>File</th>
+          <th>Lines</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>src/app/modules/shared/components/profile/profile.component.ts</code></td><td class="num">5,356</td></tr>
+        <tr><td><code>src/app/modules/shared/components/profile/profile.component.html</code></td><td class="num">4,422</td></tr>
+        <tr><td><code>src/app/modules/messages/components/message-container/message-container.component.ts</code></td><td class="num">3,876</td></tr>
+        <tr><td><code>src/app/modules/dashboard/components/home/home.component.ts</code></td><td class="num">3,227</td></tr>
+        <tr><td><code>src/app/modules/dashboard/components/live-stream/active-livestream/active-livestream.component.ts</code></td><td class="num">3,178</td></tr>
+        <tr><td><code>src/app/modules/shared/services/common.service.ts</code></td><td class="num">2,888</td></tr>
+        <tr><td><code>src/app/services/seo.service.ts</code></td><td class="num">2,718</td></tr>
+        <tr><td><code>src/app/utils/common.utils.ts</code></td><td class="num">2,523</td></tr>
+        <tr><td><code>src/app/core/api-url.enum.ts</code></td><td class="num">978</td></tr>
+        <tr><td><code>src/app/constants/marketing-page-data.ts</code></td><td class="num">7,429</td></tr>
+      </tbody>
+    </table>
+    <p>The marketing data file is generated. Leave it. The rest are where bugs hide.</p>
+    <p><code>document.getElementById</code> and <code>querySelector</code> show up in messages, text editors, livestream, sidebar, and header. The project rule says not to do that. The code does it anyway.</p>
+
+    <h2>Performance</h2>
+    <p>OnPush exists on about 90 files, almost all marketing layouts. Wallet, messages, dashboard home, forum, and profile stay on the default strategy. Those are the screens that hurt.</p>
+    <p>Vendor CSS is already split into lazy bundles. Keep that. The remaining weight is the shared module, <code>aws-sdk</code> v2, <code>aws-amplify</code> 4, <code>moment</code> plus <code>moment-timezone</code> plus <code>luxon</code>, three video players, and two datepickers.</p>
+    <p>UI kits overlap. PrimeNG, ng-bootstrap, ngx-bootstrap, and Angular Material all ship. Highcharts lives in <code>devDependencies</code> and is imported by insights, so production builds still pull it.</p>
+    <p><code>package.json</code> still asks for <code>--max_old_space_size=10048</code>. That is a smell, not a badge.</p>
+
+    <h2>Rules the repo wrote down, then ignored</h2>
+    <ul>
+      <li>AGENTS.md says <code>const</code>, not <code>enum</code>. <code>API_URLS</code> is a 978-line enum. <code>Application</code> is another. Copy lives in enums named <code>Messages</code>, <code>Labels</code>, <code>ValidationText</code>.</li>
+      <li>Hardcoded hex colors sit in <code>styles.scss</code>, <code>_page.scss</code>, <code>_theme.scss</code>, and a pile of component files. The color guide says six CSS variables.</li>
+      <li><code>console.log</code> is still in firebase, livestream, IVS chat, gtag, and the mobile bridge. <code>ConsoleUtil</code> exists and is set to silent.</li>
+      <li>README still describes Angular CLI 12.</li>
+      <li>The repo root has 14 HTML upgrade writeups. They are not the product.</li>
+    </ul>
+
+    <h2>Tests</h2>
+    <p>Zero <code>*.spec.ts</code> files. No e2e folder. <code>ng test</code> is wired to Karma and has nothing to run. A 5k-line profile component and a client-side S3 uploader have no automated check that they still work.</p>
+
+    <h2>Leave alone for now</h2>
+    <div class="card">
+      <p><span class="sev sev-ok">Keep</span> White-label project generation, prerender route generation, and the marketing or comparison page pipeline. Ugly, and doing a specific job.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-ok">Keep</span> The lazy vendor CSS split.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Later</span> Route-level <code>loadChildren</code>. The next move is shrinking <code>SharedModule</code>, not rewriting the router.</p>
+    </div>
+
+    <h2>Order of work</h2>
+    <ol>
+      <li>Revert the <code>environment.ts</code> user dump. Rotate S3, IVS, and the Google calendar tokens that were in it.</li>
+      <li>Move uploads off browser AWS credentials.</li>
+      <li>Sanitize user HTML with DOMPurify before any <code>innerHTML</code>. Upgrade or drop Quill 1.3.7.</li>
+      <li>Take the admin token out of the query string.</li>
+      <li>Stop importing <code>SharedModule</code> from <code>AppModule</code>. Split header, footer, and pipes from checkout, video, and IVS.</li>
+      <li>Turn on OnPush for profile, messages, home, and wallet. Those four files are the change-detection bill.</li>
+      <li>Add tests around auth, upload, and the <code>isURL</code> pipe before anyone refactors them.</li>
+    </ol>
+
+    <footer>
+      TopFansLite-WebFrontend · source-only audit · no secrets copied into this page
+    </footer>
+  </article>
+</body>
+</html>

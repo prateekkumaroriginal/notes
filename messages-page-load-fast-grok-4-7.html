@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Plan to make the TopFans messages page show the inbox and the open thread from one server response, and to download only the code that paints them.">
+  <title>Make the messages page load fast</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .fn { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+      overflow-wrap: anywhere;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 0.75rem; }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol {
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    ol { list-style: decimal; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Make the messages page load fast</h1>
+      <p>The inbox, the open thread, and the composer rules arrive in one response. The first visit downloads only the code that paints them.</p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What the page waits on</h2>
+        <p><code>/messages</code> lazy-loads <code>MessageContainerComponent</code>, then holds the thread behind <code>msgrightLoader</code> until a later call finishes. The messages are already in memory. The template hides them with <code>*ngIf="messageList?.length &amp;&amp; !msgrightLoader"</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Step</th>
+                <th scope="col">Where</th>
+                <th scope="col">What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="warn">1</span></td>
+                <td><code>userProfileData</code></td>
+                <td>Waits for the profile in the store before <code>fetchInitialData</code> runs.</td>
+              </tr>
+              <tr>
+                <td><span class="warn">2</span></td>
+                <td><code>api/get-chatGroups-and-users</code></td>
+                <td>Loads every conversation. <code>searchResults</code> sorts the bucket again on each row.</td>
+              </tr>
+              <tr>
+                <td><span class="warn">3</span></td>
+                <td><code>setInitalDisplay</code></td>
+                <td>Opens the first conversation and calls <code>api/getpreviousMessagesFromHttp</code>.</td>
+              </tr>
+              <tr>
+                <td><span class="warn">4</span></td>
+                <td><code>getUserEmail</code></td>
+                <td>Waits <span class="warn">1 second</span>, then calls <code>api/chat-user-validation</code>. The loader stays up until that returns.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>getUserChatLogs</code> also calls <code>checkNewUserValidation</code> before a conversation is selected, so validation often runs twice. Search is already debounced at <span class="warn">500 ms</span> and is fine to leave.</p>
+        <p>That order is a client choice sitting on a read API that cannot answer the first screen. <code>api/get-chatGroups-and-users</code> returns every conversation and no messages. <code>api/getpreviousMessagesFromHttp</code> returns history and no composer rules. The client learns the <code>groupId</code> only after the list returns, unless it already stored one from a previous visit.</p>
+      </section>
+
+      <section>
+        <h2>What the route downloads</h2>
+        <p>The route chunk is the whole feature. About <span class="warn">4,000</span> lines of component and about <span class="warn">2,300</span> lines of template pull in libraries the first paint never uses.</p>
+        <ul>
+          <li><span class="fn">Emoji picker</span> from <code>@ctrl/ngx-emoji-mart</code>, imported even while the picker is closed.</li>
+          <li><span class="fn">IVS player</span> from <code>@cotufa82/ng-ivs</code>, present for every video bubble.</li>
+          <li><span class="fn">Audio player and circle progress</span>, present for every audio bubble and every upload.</li>
+          <li><span class="fn">Share modals</span> for merchandise, portfolio, and event tickets, plus the automated-message modal and the image overlay. They sit in the template while closed.</li>
+          <li><span class="fn">Drag and drop</span> from <code>@angular/cdk/drag-drop</code>, used only while pricing attachments.</li>
+        </ul>
+        <p>After the page is up, <code>ngAfterViewChecked</code> calls <code>detectChanges()</code> on every cycle. The loops call <code>getTimeDiff()</code>, <code>getCurrentMessages()</code>, and <code>getProfileURL()</code> from the template. <code>getTimeDiff()</code> runs <code>moment</code> for each row. Every conversation and every loaded message stays in the DOM. Infinite scroll adds older messages and never drops them.</p>
+      </section>
+
+      <section>
+        <h2>One read for the first screen</h2>
+        <p>This is the change that shortens a cold load. Two parallel calls still wait for the list before they know which thread to open. One response can carry the list page, the open thread, and the composer rules.</p>
+        <p><code>GET api/get-chatGroups-and-users</code> already takes <code>search_key</code>. Add <code>tab</code>, <code>limit</code>, a cursor, and an optional <code>groupId</code>. <code>tab</code> is <code>featured</code>, <code>general</code>, or <code>broadcast</code>. The cursor is <code>last_message.timeStamp</code> for a 1:1 row and <code>updated_at</code> for a message list.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Field</th>
+                <th scope="col">What the page needs</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>conversations</code></td>
+                <td>One page, already sorted. A 1:1 row needs <code>groupId</code>, <code>users[0]</code> name, username, <code>gsi4pk</code>, avatar, badges, featured and subscriber flags, <code>last_message.text</code>, <code>last_message.type</code>, <code>last_message.timeStamp</code>, <code>updated_at</code>, unread count, unread tip, and pending guaranteed reply. A list row needs <code>list_name</code>, <code>list_icon</code>, <code>key</code>, recipient count, and <code>is_mailing_list</code>.</td>
+              </tr>
+              <tr>
+                <td><code>counts</code></td>
+                <td>Unread totals for Priority and General, so the tabs do not depend on downloading every row.</td>
+              </tr>
+              <tr>
+                <td><code>thread</code></td>
+                <td>The first page of <code>api/getpreviousMessagesFromHttp</code> for <code>groupId</code>, or for the top conversation when <code>groupId</code> is omitted.</td>
+              </tr>
+              <tr>
+                <td><code>dmValidations</code></td>
+                <td>The object <code>api/chat-user-validation</code> returns today for that thread. The composer reads <code>freeDms</code>, <code>price_for_dm</code>, <code>currency_info</code>, <code>isReplyGuaranteed</code>, <code>isGuaranteedReplyPending</code>, <code>minTipKeys</code>, and <code>is_creator</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>POST api/getpreviousMessagesFromHttp</code> stays for older history and for opening a different row. The body is <code>groupId</code>, optional <code>from</code> for a broadcast, and optional <code>timeStamp</code> for the next older page. There is no limit. Cap each page. Return <code>message</code> as an object. The client runs <code>JSON.parse</code> on every row today.</p>
+        <p>Keep <code>POST api/chat-user-validation</code> for a deep link that skipped this read, and for a row switch when that row did not include <code>dmValidations</code>. The page should not call it before a conversation exists, and it should not wait a second after messages arrive.</p>
+        <p>Send, upload, tip, paid lock, broadcast, and automated-message writes stay on their current APIs.</p>
+      </section>
+
+      <section>
+        <h2>Changes, in order</h2>
+        <h3>Show the thread when messages return</h3>
+        <p>Read <code>thread</code> and <code>dmValidations</code> off the list response and paint the thread immediately. Until that response exists, drop the <span class="warn">1 second</span> <code>setTimeout</code> in <code>getUserEmail</code> and turn <code>msgrightLoader</code> off when <code>api/getpreviousMessagesFromHttp</code> returns. Keep the composer disabled until <code>dmValidations</code> is present. Skip the validation call inside <code>getUserChatLogs</code> on the initial load.</p>
+        <h3>Split the chunk</h3>
+        <p>Keep the list and the open thread in the route. Load the rest when the user opens it, with <code>@defer</code> or a dynamic <code>import()</code>.</p>
+        <ul>
+          <li>Emoji picker, on the emoji control.</li>
+          <li>IVS player, when a video actually plays.</li>
+          <li>Audio player and circle progress, only on bubbles and uploads that need them.</li>
+          <li>Merchandise, portfolio, and event-ticket share modals, the automated-message modal, and the image overlay.</li>
+        </ul>
+        <h3>Stop the extra change detection</h3>
+        <p>Remove <code>detectChanges()</code> from <code>ngAfterViewChecked</code>. Format timestamps when messages arrive, and bind the string. Give both <code>*ngFor</code>s a <code>trackBy</code>. Sort each conversation bucket once after the loop in <code>searchResults</code>.</p>
+        <h3>Paint less</h3>
+        <p>Render only the active tab's page of conversations, and ask the server for the next cursor when the user scrolls the list. Keep the open thread to the latest page, and window anything older than what infinite scroll has fetched. Pass the last opened <code>groupId</code> on the list request so a return visit still opens that thread. If that id is missing, use the top conversation.</p>
+      </section>
+
+      <section>
+        <h2>How to tell it worked</h2>
+        <ol>
+          <li>A cold load of <code>/messages</code> is one read. The inbox page, the open thread, and <code>dmValidations</code> are in that response. The thread is visible when it arrives.</li>
+          <li>A large inbox does not download every conversation. Scrolling the list requests the next cursor. Switching Priority, General, and Message Lists requests that tab.</li>
+          <li>Scrolling up in a thread requests the next <code>timeStamp</code> page. The first page is capped.</li>
+          <li>The composer stays disabled until <code>dmValidations</code> is present. Send, tip, guaranteed reply, and paid DM still follow today's rules.</li>
+          <li>The messages chunk no longer includes emoji-mart, ng-ivs, or the three share modals on first load. Each of those loads on first use and still works.</li>
+          <li>Scrolling a long thread does not hitch from a <code>detectChanges()</code> loop.</li>
+          <li>A return visit passes the last <code>groupId</code>. A missing id opens the top conversation.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Leave these alone</h2>
+        <ul>
+          <li>Sending, uploads, tips, paid locks, broadcasts, and automated messages keep their current write APIs.</li>
+          <li>White-label DM rules and the under-18 composer stay as they are.</li>
+          <li>Search debounce stays at <span class="warn">500 ms</span>.</li>
+        </ul>
+        <p>Ship the combined read first. Then drop the artificial wait and split the chunk. The last two client steps keep the page fast after it is open.</p>
+      </section>
+    </main>
+
+    <footer>
+      Client behavior is from <code>src/app/modules/messages/components/message-container</code>. The server handlers for these routes are not in that repo. The contract is what this page sends and what the template reads, as of 30 Sep 2026. The feature inventory sits beside this note.
+    </footer>
+  </div>
+</body>
+</html>

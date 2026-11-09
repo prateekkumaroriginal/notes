@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review of TopFans web frontend pull requests 10826 and 10827, which convert five single-component feature modules to standalone routes loaded with loadComponent.">
+  <title>PR 10826 and 10827: standalone routes review</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131a24;
+      --panel: #1a2331;
+      --ink: #e8edf4;
+      --muted: #8593a6;
+      --dim: #4e5b6e;
+      --rule: #2a3546;
+      --minus: #f0776f;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5fcf8f;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8fb4ff;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      /* aliases for code-blocks.css */
+      --line: var(--rule);
+      --surface: var(--panel);
+      --text: var(--ink);
+      --blue: var(--focus);
+      --green: var(--plus);
+      --pink: var(--minus);
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, figure, table, dl, dd { margin: 0; }
+
+    a {
+      color: var(--focus);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    p, li, dd, td { color: var(--muted); }
+
+    strong { color: var(--ink); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--panel);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--plus); }
+    pre .del { color: var(--minus); }
+    pre .kw { color: var(--focus); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1.25rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .lede { color: var(--muted); }
+
+    .verdict {
+      display: grid;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      background: var(--plus-bg);
+    }
+
+    .verdict h2 { color: var(--plus); font-size: 1rem; padding: 0; }
+
+    .verdict p { color: var(--ink); }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    section > p + p { padding-top: 0.75rem; }
+
+    .findings { display: grid; gap: 1.75rem; }
+
+    .finding {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tag {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--focus-bg);
+      color: var(--focus);
+    }
+
+    .tag.fix { background: var(--minus-bg); color: var(--minus); }
+    .tag.ok { background: var(--plus-bg); color: var(--plus); }
+
+    .finding-body { display: grid; gap: 0.5rem; }
+
+    .finding-body h3 { color: var(--ink); font-size: 1rem; }
+
+    .finding-body ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--rule); }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 560px; }
+
+    col.aspect { width: 22%; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    td code { overflow-wrap: anywhere; }
+
+    th {
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--rule); }
+
+    td.better { color: var(--plus); }
+    td.worse { color: var(--minus); }
+    td.same { color: var(--muted); }
+
+    .better::before { content: "+ "; }
+    .worse::before { content: "- "; }
+
+    .routes { display: grid; gap: 0.35rem; }
+
+    .routes li {
+      display: grid;
+      grid-template-columns: 11rem 4rem minmax(0, 1fr);
+      gap: 1rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    .routes .ok { color: var(--plus); }
+    .routes .miss { color: var(--minus); }
+
+    .steps { display: grid; gap: 1.75rem; padding-left: 1.4rem; }
+
+    .steps li { display: grid; gap: 0.75rem; }
+
+    .steps li::marker { color: var(--ink); font-weight: 700; }
+
+    ol.qa, ul.qa { padding-left: 1.4rem; display: grid; gap: 0.5rem; }
+
+    .footnote { color: var(--dim); font-size: 0.9rem; padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .finding { grid-template-columns: 1fr; gap: 0.5rem; }
+      .routes li { grid-template-columns: 1fr; gap: 0.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10826 and 10827: standalone routes review</h1>
+      <p class="lede">Two pull requests, opened about a minute apart from the same base commit, each convert the five single-component feature modules (<code>comparison-page</code>, <code>marketing-page</code>, <code>sub-page-view</code>, <code>creators-home</code>, <code>link-in-bio-fan-preview</code>) to standalone components loaded with <code>loadComponent</code>, delete their ten module and routing files, and teach the prefetch script to write <code>loadComponent</code> routes. They touch the same 20 files and are alternatives, not a stack. This review compares them line by line and builds and serves both.</p>
+
+      <div class="verdict">
+        <h2>Verdict</h2>
+        <p>Merge <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10826">PR 10826</a> as it stands. Close <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10827">PR 10827</a> as superseded. Both compile, both produce the same 12.30 MB initial bundle, and both render all five surfaces over SSR. Fourteen of the twenty files are byte-identical. The six that differ all favour 10826: it removes <code>CUSTOM_ELEMENTS_SCHEMA</code> from every converted component, where 10827 keeps it on <code>creators-home</code> without needing it; and it keeps the link-in-bio component in the same chunk as its routes, where 10827 splits off a 319-byte routes chunk so every <code>/bio/:userName</code> visit needs two sequential loads before it can hydrate, in exchange for saving 59 KB on the not-found path. A parallel review preferred 10827 for that split; the trade is a worse common case for a better 404. 10826's description also records the behaviour change and what was tested; 10827's test plan is unchecked.</p>
+      </div>
+
+      <div class="meta">
+        <span>reviewed 2026-09-23</span>
+        <span>base 5345fee1fc</span>
+        <span>10826 head c320b59a9f (+142 / -290)</span>
+        <span>10827 head e5389aa596 (+147 / -288)</span>
+        <span>Angular 21.2.23</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="scope">
+        <h2 id="scope">What both PRs change</h2>
+        <p>Each PR is a single commit. The four leaf components (<code>ComparisonPageComponent</code>, <code>MarketingPageComponent</code>, <code>SubPageViewComponent</code>, <code>CreatorsHomeComponent</code>) lose <code>standalone: false</code> and gain an <code>imports</code> array holding what their templates use. <code>app-routing.module.ts</code> points the <code>/creator</code>, <code>/creators</code>, white-label root sub-page matcher, and <code>:id/:subPageUrl</code> routes at those components with <code>loadComponent</code>. <code>LinkInBioFanPreviewComponent</code> keeps its <code>:userName</code> and wildcard children, now in a plain <code>Routes</code> array exported from a new <code>link-in-bio-fan-preview.routes.ts</code> and loaded with <code>loadChildren</code>. The ten <code>*.module.ts</code> and <code>*-routing.module.ts</code> files are deleted.</p>
+        <p><code>scripts/prefetch-marketing-pages.mjs</code> now emits <code>loadComponent</code> for the marketing and comparison route generators, and the two generated route files (<code>marketing-page-routes.generated.ts</code>, 14 routes; <code>comparison-page-routes.generated.ts</code>, 7 routes) are regenerated to match, so the next prefetch run does not resurrect the deleted modules.</p>
+        <p>One behaviour change, shared by both: the old <code>CreatorsHomeModule</code> imported <code>AuthModule</code> and <code>SetupProfileModule</code>, which mounted their <code>RouterModule.forChild</code> routes under <code>/creators</code> and <code>/creator</code>. Both imports are gone, so <code>/creators/login</code> no longer renders the login page. See the finding below.</p>
+      </section>
+
+      <section aria-labelledby="shared">
+        <h2 id="shared">Findings that apply to both PRs</h2>
+        <div class="findings">
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>Every template dependency is covered by the new <code>imports</code> arrays</h3>
+              <p>The deleted <code>CreatorsHomeModule</code> imported <code>FormsModule</code>, <code>NgSelectModule</code>, <code>AccordionModule</code>, <code>ModalModule</code>, and <code>NgMultiSelectDropDownModule.forRoot()</code>. None of those survive in either PR, and none are needed: the <code>creators-home</code> template contains no <code>ngModel</code>, <code>ng-select</code>, <code>accordion</code>, or <code>ng-multiselect-dropdown</code>. Every element it does use resolves: <code>vjs-ivs-player</code> is the component declared and exported by <code>NgIvsModule</code> (inputs <code>options</code> and <code>appChanEndpoint</code>, confirmed in the <code>@cotufa82/ng-ivs</code> bundle); <code>app-book-demo</code>, <code>app-tick-icon</code>, and <code>app-creator-requirements-modal</code> are exported by <code>SharedModule</code>; <code>app-faq</code>, <code>app-button</code>, and <code>app-book-demo-form</code> are imported directly; <code>app-marketing-page-full-preview</code> and <code>app-whitelabel-cover-page-preview</code> come from <code>MarketingPageSharedModule</code>. The link-in-bio template's <code>app-share-details-preview</code> and its <code>product</code> and <code>profileImageUrl</code> pipes are in <code>SharedModule</code>.</p>
+              <p><code>BsModalService</code>, injected by <code>CreatorsHomeComponent</code>, is <code>providedIn: 'root'</code> in ngx-bootstrap 21.2, so dropping <code>ModalModule</code> from the component does not break it. The AOT build of 10826, which has no <code>CUSTOM_ELEMENTS_SCHEMA</code> anywhere in these files, passing with no <code>NG8001</code> or <code>NG8002</code> is the proof.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">assessed</span>
+            <div class="finding-body">
+              <h3>Dropping <code>AuthModule</code> and <code>SetupProfileModule</code> is safe, and a small win</h3>
+              <p><code>AuthModule</code> has no <code>providers</code>; it only declares components and exports <code>ResendVerification</code>. <code>SetupProfileModule</code> likewise. Nothing <code>CreatorsHomeComponent</code> injects came from either module. No code, prerender route, or sitemap entry links to <code>/creators/login</code>, <code>/creator/signup</code>, or any other auth or setup path under those prefixes. As a side effect, the creators-home lazy chunk no longer drags the whole auth and setup-profile feature code along with it.</p>
+              <p>What happens to <code>/creators/login</code> now: it matches <code>:id/:subPageUrl</code>, so SSR returns 200 with <code>SubPageViewComponent</code> in its loading state, and in the browser the component asks the API for a user called <code>creators</code>, gets nothing, and navigates to not-found. Before, the same URL rendered the login page. If analytics or an old email campaign show traffic to it, add a <code>redirectTo: 'auth/login'</code> entry; otherwise leave it.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>Route <code>data</code> still reaches the components</h3>
+              <p>Before, <code>data: { marketingSlug }</code> sat on the lazy parent route and the component sat on the child <code>''</code> route; <code>paramsInheritanceStrategy: 'always'</code> in the router config carried the data down. With <code>loadComponent</code> the component's <code>ActivatedRoute</code> is the route that owns the data, so <code>currentRoute.snapshot.data['marketingSlug']</code> and <code>['comparisonSlug']</code> read the same value with one less hop. None of the five components reads <code>route.parent</code>, so nothing depended on the old nesting.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>The marketing-pro generator still writes <code>loadChildren</code></h3>
+              <p><code>prefetch-marketing-pages.mjs</code> has three generators. The marketing and comparison ones now emit <code>loadComponent</code>; the marketing-pro one still emits <code>loadChildren</code> to <code>MarketingProPageModule</code>, which both PRs leave in place. That is consistent (the module still exists) and out of scope for "single-component modules", but <code>marketing-pro-page</code> is also a single component with its own routing module, so it is the obvious next candidate.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3><code>SharedModule</code> is still imported wholesale</h3>
+              <p><code>creators-home</code>, <code>sub-page-view</code>, and <code>link-in-bio-fan-preview</code> each import <code>SharedModule</code>, which exports about 160 declarations. That is exactly what their deleted modules did, so it is not a regression and bundle size is unchanged. Standalone components make it possible to import only <code>TickIconComponent</code>, <code>BookDemoComponent</code>, <code>CreatorRequirementsModalComponent</code>, and the pipes each template uses. Worth a follow-up once more of the app is standalone; not a reason to hold either PR.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>No specs, no browser session</h3>
+              <p>None of the five components has a test, before or after. Verification for this review was a QA-configuration build of each head and an SSR smoke test of seven routes (below). Neither PR was clicked through in a browser, and no white-label project was built.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="diff">
+        <h2 id="diff">Where the two PRs differ</h2>
+        <p>Only six files differ between the heads, for a net 24 insertions and 17 deletions. <code>app-routing.module.ts</code>, the prefetch script, both generated route files, and all ten deletions are byte-identical.</p>
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col class="aspect">
+              <col>
+              <col>
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Aspect</th>
+                <th scope="col">PR 10826</th>
+                <th scope="col">PR 10827</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>CUSTOM_ELEMENTS_SCHEMA</code> on <code>CreatorsHomeComponent</code></td>
+                <td class="better">Removed, along with the other four. The description says so explicitly.</td>
+                <td class="worse">Kept as <code>schemas: [CUSTOM_ELEMENTS_SCHEMA]</code>. With it, the compiler stops reporting unknown elements and unknown property bindings in that template. 10826's clean build shows nothing in the template needs it, so it only hides future mistakes.</td>
+              </tr>
+              <tr>
+                <td>How <code>link-in-bio-fan-preview.routes.ts</code> loads the component</td>
+                <td class="better"><code>component: LinkInBioFanPreviewComponent</code> with a static import. Routes and component land in one 59.6 KB chunk.</td>
+                <td class="worse"><code>loadComponent: () =&gt; import('./link-in-bio-fan-preview.component')</code>. The build emits a 319-byte routes chunk plus a 59.5 KB component chunk. The split only pays off when the wildcard matches (<code>/bio</code>, <code>/bio/a/b</code>), which is the not-found page nobody links to. Every real <code>/bio/:userName</code> visit makes one more sequential request before it can hydrate, and <code>NoPreloading</code> means nothing warms it up.</td>
+              </tr>
+              <tr>
+                <td>Import paths in the routes file</td>
+                <td class="better"><code>@modules/...</code> alias for both the component and <code>not-found.module</code>.</td>
+                <td class="same">Keeps the relative <code>'../../modules/public/not-found/not-found.module'</code> from the deleted routing module, next to an <code>@constants</code> alias import.</td>
+              </tr>
+              <tr>
+                <td>Import placement in the components</td>
+                <td class="same">New imports sit with the Angular imports at the top of each file.</td>
+                <td class="same">New imports are appended at the end of the import block; <code>comparison-page</code> and <code>marketing-page</code> gain a stray blank line after <code>CommonModule</code>. Cosmetic.</td>
+              </tr>
+              <tr>
+                <td>Pull request description</td>
+                <td class="better">States the behaviour change, the build result (12.30 MB initial, same as base), which SSR routes were checked, and what was not done.</td>
+                <td class="worse">Summary plus an unchecked test plan. No evidence anything was run.</td>
+              </tr>
+              <tr>
+                <td>Commit message</td>
+                <td class="same">67-character subject; body explains the auth-module removal.</td>
+                <td class="worse">134-character subject, which GitHub cuts with an ellipsis; the body then begins mid-sentence with "…they match".</td>
+              </tr>
+              <tr>
+                <td>Net size</td>
+                <td class="same">+142 / -290</td>
+                <td class="same">+147 / -288</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="changes">
+        <h2 id="changes">Requested changes before merge</h2>
+        <p>None on PR 10826. Two optional follow-ups, neither blocking: convert <code>marketing-pro-page</code> the same way and update the third generator; and, if traffic to <code>/creators/login</code> turns up, add a redirect.</p>
+        <p>If the team prefers to land PR 10827 instead, it needs two edits to reach parity:</p>
+        <ol class="steps">
+          <li>
+            <p><strong>Drop the schema.</strong> In <code>src/app/modules/creators-home/creators-home.component.ts</code>:</p>
+<pre><code><span class="del">-import { CUSTOM_ELEMENTS_SCHEMA, Component, ElementRef, ... } from '@angular/core';</span>
+<span class="add">+import { Component, ElementRef, ... } from '@angular/core';</span>
+       NgIvsModule
+<span class="del">-    ],
+-    schemas: [CUSTOM_ELEMENTS_SCHEMA]</span>
+<span class="add">+    ]</span></code></pre>
+          </li>
+          <li>
+            <p><strong>Load the component eagerly inside the routes chunk.</strong> In <code>src/app/modules/link-in-bio-fan-preview/link-in-bio-fan-preview.routes.ts</code>:</p>
+<pre><code><span class="add">+import { LinkInBioFanPreviewComponent } from '@modules/link-in-bio-fan-preview/link-in-bio-fan-preview.component';</span>
+   {
+     path: ':userName',
+<span class="del">-    loadComponent: () =&gt;
+-      import('./link-in-bio-fan-preview.component').then(
+-        (m) =&gt; m.LinkInBioFanPreviewComponent
+-      )</span>
+<span class="add">+    component: LinkInBioFanPreviewComponent</span>
+   },</code></pre>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="verification">
+        <h2 id="verification">What was verified</h2>
+        <ul class="qa">
+          <li>Both heads were checked out into temporary worktrees sharing the repository's <code>node_modules</code> and built with <code>ng build --configuration=qa --prerender=false</code>. Both pass with no errors. Initial bundle 12.30 MB raw, 2.00 MB estimated transfer, in both. 10826 emits 109 browser chunks, 10827 emits 111.</li>
+          <li>Each <code>dist/TopFans/server/server.mjs</code> was started and seven routes fetched. Results were identical for the two heads:</li>
+        </ul>
+        <ul class="routes" aria-label="SSR smoke test results">
+          <li><span>/creators</span><span class="ok">200</span><span>app-creators-home</span></li>
+          <li><span>/creator</span><span class="ok">200</span><span>app-creators-home</span></li>
+          <li><span>/athletes</span><span class="ok">200</span><span>app-marketing-page</span></li>
+          <li><span>/topfan-vs-patreon</span><span class="ok">200</span><span>app-comparison-page</span></li>
+          <li><span>/bio/testuser</span><span class="ok">200</span><span>app-link-in-bio-fan-preview</span></li>
+          <li><span>/bio</span><span class="miss">404</span><span>app-not-found, as before</span></li>
+          <li><span>/creators/login</span><span class="ok">200</span><span>app-sub-page-view, was the login page</span></li>
+        </ul>
+        <ul class="qa">
+          <li>The five templates were scanned for every dashed element, structural directive, and pipe, and each was traced to <code>NgIvsModule</code>, <code>SharedModule</code>, <code>MarketingPageSharedModule</code>, or a directly imported standalone component.</li>
+          <li><code>AuthModule</code> and <code>SetupProfileModule</code> were read for <code>providers</code>; there are none. <code>BsModalService</code> was confirmed <code>providedIn: 'root'</code> in the installed ngx-bootstrap.</li>
+          <li>The whole tree at each head was searched for references to the five deleted module classes and file paths; none remain.</li>
+          <li>Chunk ownership of <code>LINK_IN_BIO_FAN_PREVIEW_ROUTES</code> and <code>app-link-in-bio-fan-preview</code> was checked in each browser build to confirm the one-chunk versus two-chunk difference.</li>
+        </ul>
+        <p class="footnote">Not run here: <code>npm run build-dev</code> (fails on the base branch too, because <code>environment.dev.ts</code> does not exist), a browser session, prerendering, and white-label project builds.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">QA after merge</h2>
+        <ol class="qa">
+          <li>Open <code>/creators</code> and <code>/creator</code>. Confirm the hero video plays (<code>vjs-ivs-player</code>), the FAQ accordion opens, and the book-a-demo modal opens and closes.</li>
+          <li>Open a marketing slug such as <code>/athletes</code> and a comparison slug such as <code>/topfan-vs-patreon</code>. Confirm the page renders and the console shows no <code>NG0500</code> to <code>NG0507</code> hydration errors.</li>
+          <li>Open <code>/bio/&lt;enabled-user&gt;</code> and confirm the carousel, welcome video, feed preview, and portfolio preview render. Open <code>/bio</code> and confirm not-found.</li>
+          <li>On a white-label site, open the root sub-page route and a <code>/:id/:subPageUrl</code> sub-page. Confirm both render and a missing sub-page lands on not-found.</li>
+          <li>Open <code>/creators/login</code> and <code>/creator/setup-profile</code>. Confirm they end on not-found rather than an error, and that <code>/auth/login</code> still works.</li>
+          <li>Run <code>npm run prefetch-pages-qa</code> and confirm the two generated route files come back unchanged.</li>
+          <li>Prerender one white-label project and confirm the cover page and sub-page HTML are written.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

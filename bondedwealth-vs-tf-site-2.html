@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>bondedwealth.com vs tf-site-2</title>
+  <meta name="description" content="Same Bonded Wealth homepage, two hosts. Desktop Lighthouse logged-out on 3 November 2026. Production is S3. The lab is Firebase with the profile-card overlap work.">
+  <link rel="canonical" href="https://notes.prateekkumar.site/bondedwealth-vs-tf-site-2">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+    strong { color: var(--text); font-weight: 650; }
+    .good { color: var(--green); }
+    .num { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; }
+    section > * + * { padding-top: 0.75rem; }
+    section > h2 + * { padding-top: 0; }
+
+    ul { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+    td:first-child { color: var(--text); }
+    td.good { color: var(--green); }
+    td.bad { color: var(--pink); }
+    td.num { color: var(--amber); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <nav aria-label="Breadcrumb"><a href="/">Development notes</a></nav>
+      <h1>bondedwealth.com vs tf-site-2</h1>
+      <p>Same creator homepage. Production is the S3 and CloudFront site people actually open. The lab is the Firebase build that has the <a href="/profile-card-visible">early owner fetch</a>. Two logged-out desktop Lighthouse runs each, same machine, 3 November 2026. Host TTFB is not the app KPI. The card mark is.</p>
+      <p class="meta">
+        <span>3 November 2026</span>
+        <span><a href="https://www.bondedwealth.com/">www.bondedwealth.com</a></span>
+        <span><a href="https://tf-site-2.web.app/">tf-site-2.web.app</a></span>
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What is on each host</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th></th><th>bondedwealth.com</th><th>tf-site-2.web.app</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Host</td>
+                <td>S3, CloudFront <code>DEL51-P3</code></td>
+                <td>Firebase Hosting</td>
+              </tr>
+              <tr>
+                <td>HTML cache</td>
+                <td><code>max-age=0, must-revalidate</code></td>
+                <td><code>max-age=3600</code></td>
+              </tr>
+              <tr>
+                <td>HTML last-modified</td>
+                <td>10:45 UTC</td>
+                <td>10:57 UTC</td>
+              </tr>
+              <tr>
+                <td>Early owner fetch</td>
+                <td class="bad">No. <code>/assets/owner-prefetch.json</code> falls back to the homepage HTML</td>
+                <td class="good">Yes. Hint points at QA <code>user_by_username/bonded-wealth?wlsOwner=true</code></td>
+              </tr>
+              <tr>
+                <td><code>tf:profile-card:visible</code></td>
+                <td class="bad">Not in this build</td>
+                <td class="good">In the JS. 2265ms and 2338ms</td>
+              </tr>
+              <tr>
+                <td>GET <code>Content-Type</code></td>
+                <td class="bad">Still set. Profile and feed both do OPTIONS first</td>
+                <td class="good">Stripped. No preflight on those GETs</td>
+              </tr>
+              <tr>
+                <td>Stylesheet</td>
+                <td colspan="2">Same file, <code>styles-BM2SPG6W.css</code>. Uncompressed ~1.76 MB</td>
+              </tr>
+              <tr>
+                <td>Main JS</td>
+                <td><code>main-4HWGJTIE.js</code></td>
+                <td><code>main-VHSA2VCV.js</code></td>
+              </tr>
+              <tr>
+                <td>API</td>
+                <td colspan="2">Both call <code>backendapi-qa.topfan.dev</code>. This production hostname is on the QA API today</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>The number that matters</h2>
+        <p>Production cannot report <code>tf:profile-card:visible</code>. The closest proxy is when <code>user_by_username</code> finishes. On the lab, the mark is that finish plus one <code>afterNextRender</code>, about 80ms later.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Run</th><th>Host</th><th>Card mark</th><th>Profile GET</th><th>Preflight</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>bondedwealth.com</td>
+                <td class="bad">no mark</td>
+                <td class="num">9539 to 9988ms</td>
+                <td class="num">8460 to 9539ms</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>bondedwealth.com</td>
+                <td class="bad">no mark</td>
+                <td class="num">5068 to 5678ms</td>
+                <td class="num">3953 to 5068ms</td>
+              </tr>
+              <tr>
+                <td>1</td>
+                <td>tf-site-2</td>
+                <td class="good">2265ms</td>
+                <td class="num">144 to 2178ms</td>
+                <td class="good">none</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>tf-site-2</td>
+                <td class="good">2338ms</td>
+                <td class="num">118 to 2303ms</td>
+                <td class="good">none</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Production starts the profile GET after bootstrap, then waits on OPTIONS. Best case in this pair, the body is done at <span class="num">5.7s</span>. The lab starts the same URL at <span class="num">118ms</span> from the HTML script and paints the card at <span class="num">2.3s</span>.</p>
+      </section>
+
+      <section>
+        <h2>Same API, two bodies</h2>
+        <p>The QA API already knows <code>Origin: https://www.bondedwealth.com</code>. That origin gets the slim homepage view from the <a href="/user-by-username-backend">view cuts</a>. <code>Origin: https://tf-site-2.web.app</code> is not on that list, so the lab gets the fat payload. I confirmed this with curl, not only Lighthouse.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th></th><th>Origin bondedwealth.com</th><th>Origin tf-site-2.web.app</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Bytes</td>
+                <td class="num">1608</td>
+                <td class="num">15453</td>
+              </tr>
+              <tr>
+                <td>Name, bio, banner, location flag</td>
+                <td>Present</td>
+                <td>Present</td>
+              </tr>
+              <tr>
+                <td><code>subscriptions</code></td>
+                <td>Missing</td>
+                <td>About 12 KB of the body</td>
+              </tr>
+              <tr>
+                <td>Extra profile fields</td>
+                <td>Homepage set only</td>
+                <td>Follow counts, theme, org bio, link-in-bio, and the rest</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The lab beat 2.5s while downloading the fat body. Production already has the cheap body and still cannot start the GET until Angular is up. Shipping the overlap to production should land under the lab number, not above it, because the API work is already live for that origin.</p>
+      </section>
+
+      <section>
+        <h2>Vitals, same banner</h2>
+        <p>LCP is the same banner file on <code>cdn-www7.topfan.dev</code>. CLS is the same sidebar ad skeleton. Those are not host problems and the overlap work did not touch them.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Metric</th><th>Prod 1</th><th>Prod 2</th><th>Lab 1</th><th>Lab 2</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>FCP</td>
+                <td class="num">721ms</td>
+                <td class="num">779ms</td>
+                <td class="num">610ms</td>
+                <td class="good">457ms</td>
+              </tr>
+              <tr>
+                <td>LCP, banner image</td>
+                <td class="num">3378ms</td>
+                <td class="num">3542ms</td>
+                <td class="num">3395ms</td>
+                <td class="num">3363ms</td>
+              </tr>
+              <tr>
+                <td>Speed Index</td>
+                <td class="num">4032ms</td>
+                <td class="num">3527ms</td>
+                <td class="good">2505ms</td>
+                <td class="good">2083ms</td>
+              </tr>
+              <tr>
+                <td>TTI</td>
+                <td class="num">3957ms</td>
+                <td class="num">4276ms</td>
+                <td class="num">4089ms</td>
+                <td class="num">3728ms</td>
+              </tr>
+              <tr>
+                <td>TBT</td>
+                <td class="num">36ms</td>
+                <td class="num">26ms</td>
+                <td class="num">57ms</td>
+                <td class="num">25ms</td>
+              </tr>
+              <tr>
+                <td>CLS</td>
+                <td class="num">0.564</td>
+                <td class="num">0.564</td>
+                <td class="num">0.678</td>
+                <td class="num">0.672</td>
+              </tr>
+              <tr>
+                <td>TTFB, host</td>
+                <td class="num">281ms</td>
+                <td class="num">196ms</td>
+                <td class="num">33ms</td>
+                <td class="num">10ms</td>
+              </tr>
+              <tr>
+                <td>Score</td>
+                <td class="num">0.50</td>
+                <td class="num">0.50</td>
+                <td class="num">0.53</td>
+                <td class="num">0.54</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Speed Index moved. LCP and CLS did not. The page looks finished sooner on the lab because the card and the first paint are no longer waiting on a 4 to 9 second request chain. The banner still wins LCP around 3.4s on both.</p>
+      </section>
+
+      <section>
+        <h2>Request chain</h2>
+        <p>Second run on each host, after the first had already touched the edge.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Request</th><th>Prod 2</th><th>Lab 2</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>HTML</td>
+                <td class="num">1 to 1076ms, 34 KB</td>
+                <td class="num">1 to 61ms, 30 KB</td>
+              </tr>
+              <tr>
+                <td>CSS <code>styles-BM2SPG6W.css</code></td>
+                <td class="num">1082 to 1628ms, 240 KB on the wire</td>
+                <td class="num">65 to 577ms, 140 KB on the wire</td>
+              </tr>
+              <tr>
+                <td><code>wls-config.json</code></td>
+                <td class="num">2654 to 2682ms</td>
+                <td class="num">940 to 1262ms</td>
+              </tr>
+              <tr>
+                <td><code>/api/client-ip</code></td>
+                <td>Homepage HTML again, 34 KB</td>
+                <td>Homepage HTML again, 30 KB</td>
+              </tr>
+              <tr>
+                <td>Profile OPTIONS</td>
+                <td class="bad">3953 to 5068ms</td>
+                <td class="good">none</td>
+              </tr>
+              <tr>
+                <td>Profile GET</td>
+                <td class="num">5068 to 5678ms, 996 B</td>
+                <td class="num">118 to 2303ms, 3398 B</td>
+              </tr>
+              <tr>
+                <td>Feed OPTIONS</td>
+                <td class="bad">5685 to 6024ms</td>
+                <td class="good">none</td>
+              </tr>
+              <tr>
+                <td>Feed GET</td>
+                <td class="num">6024 to 7193ms</td>
+                <td class="num">2309 to 3086ms</td>
+              </tr>
+              <tr>
+                <td>Banner image</td>
+                <td class="num">1087 to 1356ms</td>
+                <td class="num">68 to 833ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>HTML and CSS timing include host TTFB and compression. Do not read the 240 KB vs 140 KB CSS transfer as a different stylesheet. Same hash, both brotli. Lighthouse still recorded a fatter CloudFront transfer. The preflight gap is the app. The 5 second start delay on the profile GET is the app.</p>
+      </section>
+
+      <section>
+        <h2>Transfer totals</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th></th><th>Prod 2</th><th>Lab 2</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Requests</td><td class="num">309</td><td class="num">306</td></tr>
+              <tr><td>JS files</td><td class="num">244</td><td class="num">246</td></tr>
+              <tr><td>Script transfer</td><td class="num">2.30 MB</td><td class="num">2.01 MB</td></tr>
+              <tr><td>Stylesheet transfer</td><td class="num">252 KB</td><td class="num">152 KB</td></tr>
+              <tr><td>Document transfer</td><td class="num">34 KB</td><td class="num">30 KB</td></tr>
+              <tr><td>Total transfer</td><td class="num">7.97 MB</td><td class="num">7.53 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Two extra JS files on the lab are the prefetch path, not a new feature bundle. Images and media are the same CDN objects.</p>
+      </section>
+
+      <section>
+        <h2>What I would not claim</h2>
+        <ul>
+          <li>That Firebase is faster than S3 in production. TTFB and CSS transfer are host noise. The card win is the request schedule.</li>
+          <li>That production is already under 2.5s. It has no mark, and the GET that feeds the card still starts after 4s on a warm edge.</li>
+          <li>That LCP improved. It did not. Same banner, ~3.4s both sides.</li>
+          <li>A logged-in comparison. QA login creds are not a production session, and production here is already talking to the QA API.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      Related: <a href="/profile-card-visible">how the profile card got under 2.5s</a>,
+      <a href="/user-by-username-backend">user_by_username view cuts</a>,
+      <a href="/user-by-username-schema">response shape</a>.
+      Raw lab files: <code>/tmp/compare-prod-1.json</code>, <code>/tmp/compare-prod-2.json</code>, <code>/tmp/compare-lab-1.json</code>, <code>/tmp/compare-lab-2.json</code>.
+    </footer>
+  </div>
+</body>
+</html>

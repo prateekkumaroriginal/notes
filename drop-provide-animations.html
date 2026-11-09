@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Drop provideAnimations and withNoHttpTransferCache</title>
+  <meta name="description" content="Removed provideAnimations() and withNoHttpTransferCache() from app.config.ts. What those calls were doing, and a QA list for toasts and hydration.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, h4, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code, h4 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .cmt { color: var(--muted); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td:first-child { color: var(--text); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Drop provideAnimations and withNoHttpTransferCache</h1>
+      <p>Two extras in <code>app.config.ts</code>. <span class="focus">provideAnimations()</span> was the leftover from <code>BrowserAnimationsModule</code>. <span class="focus">withNoHttpTransferCache()</span> was an opt-out so <code>CacheService</code> stayed the only SSR transfer cache. Both are gone. <code>withEventReplay()</code> stays.</p>
+      <div class="meta">
+        <span>commits f20222c72f, 28897b68a7</span>
+        <span>t3code/explain-provide-animations</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10880">PR 10880</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Still one file, <code>src/app/app.config.ts</code>. The animation provider is gone. Hydration is now <code>provideClientHydration(withEventReplay())</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Before</th><th scope="col">Now</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>BrowserAnimationsModule</code> in <code>AppModule</code></td>
+                <td>Already gone. The standalone bootstrap copied it as <code>provideAnimations()</code>.</td>
+              </tr>
+              <tr>
+                <td><code>provideAnimations()</code> in <code>appConfig.providers</code></td>
+                <td>Removed. No replacement provider.</td>
+              </tr>
+              <tr>
+                <td><code>provideClientHydration(withEventReplay(), withNoHttpTransferCache())</code></td>
+                <td><code>provideClientHydration(withEventReplay())</code>. Angular's HTTP transfer cache is on again.</td>
+              </tr>
+              <tr>
+                <td><code>@angular/animations</code> in <code>package.json</code></td>
+                <td>Still there. Angular still ships the types until v23. That uninstall is a later cleanup.</td>
+              </tr>
+              <tr>
+                <td><code>CacheService</code> and <code>api-cache.service</code> write <code>TransferState</code></td>
+                <td>Unchanged. Those keys still exist. Public GETs may now sit in Angular's cache as well.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Why we had them</h2>
+        <p>The animation warning is the no-arg signature, <code>(): Provider[]</code>. Angular is not saying we called the wrong overload. The whole legacy engine is on the way out. Removal is planned for v23.</p>
+        <p>I searched <code>src</code> for <code>from '@angular/animations'</code>. Zero hits. The <code>animate()</code> methods that do exist are <code>requestAnimationFrame</code> loops, not Angular triggers. ngx-toastr 20 already uses <code>animate.enter="toast-in"</code>.</p>
+        <p><code>withNoHttpTransferCache()</code> landed in <code>2159ef92824</code>. The commit said Angular 21 hydration would serialize public GETs a second time next to <code>CacheService</code>. That is the tradeoff we are taking back. <code>provideClientHydration()</code> caches GET responses by default and skips requests that already carry an <code>Authorization</code> header.</p>
+      </section>
+
+      <section>
+        <h2>What the replacement looks like</h2>
+        <p><code>provideAnimationsAsync()</code> is the wrong swap. Same deprecated package, later crash. Angular did not add a new <code>provideSomething()</code> for this.</p>
+        <p>If we ever write first-party enter or leave motion, Angular wants a class on the element and a CSS animation. ngx-toastr already does that internally. A fade we owned would look like this.</p>
+        <pre><code><span class="cmt">&lt;!-- old --&gt;</span>
+&lt;div [@fadeIn]&gt;...&lt;/div&gt;
+
+<span class="cmt">&lt;!-- now --&gt;</span>
+&lt;div <span class="fn">animate.enter</span>=<span class="str">"fade-in"</span> <span class="fn">animate.leave</span>=<span class="str">"fade-out"</span>&gt;...&lt;/div&gt;</code></pre>
+        <pre><code><span class="fn">.fade-in</span> {
+  animation: fade-in 200ms ease-out;
+}
+
+<span class="fn">.fade-out</span> {
+  animation: fade-in 200ms ease-in reverse forwards;
+}
+
+<span class="kw">@keyframes</span> fade-in {
+  <span class="kw">from</span> { opacity: 0; }
+  <span class="kw">to</span> { opacity: 1; }
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>How I checked it</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>First-party animation DSL</td><td>None. No <code>trigger()</code>, no <code>transition()</code>, no <code>AnimationBuilder</code> in app code.</td></tr>
+              <tr><td>ngx-toastr 20.0.5</td><td>Uses <code>animate.enter</code>. Does not import <code>@angular/animations</code>.</td></tr>
+              <tr><td>PrimeNG 21.1.10 peers</td><td>CDK, common, core, forms, router, platform-browser. No animations package.</td></tr>
+              <tr><td>HTTP transfer cache default</td><td>On, once the opt-out is gone. Auth-header GETs stay out of that cache.</td></tr>
+              <tr><td>Browser click-through</td><td>Not run. This worktree has no preview server. That is the checklist below.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Human QA on a running SSR build. Console and Network open. If the old animation engine is still required, toast open throws <code>NG05105</code>. If transfer cache fights <code>CacheService</code>, a public page will flash stale data or fire the first GET twice.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Hydration transfer cache</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-cache-optout"><span><code>withNoHttpTransferCache</code> is gone from <code>app.config.ts</code>. <code>withEventReplay()</code> is still there.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-public-get"><span>Hard-refresh a fresh SSR public page. The first public GET does not fire again after hydrate. The page does not flash empty then refill.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-auth-get"><span>Log in. A dashboard or profile GET that sends <code>Authorization</code> still hits the API on the client. You are not looking at another user's transferred payload.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-cache-svc"><span>A page that uses <code>CacheService</code> still shows the server payload after hydrate. No duplicate key warning in the console.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Deprecation and toasts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-deprec"><span>Typecheck or the IDE no longer flags <code>provideAnimations()</code> as deprecated. The call is gone from <code>app.config.ts</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-toast"><span>Trigger a success toast and an error toast. Each appears, keeps the custom classes, and dismisses. No <code>NG05105</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-activity"><span>An activity notification toast still renders the icon and message. Click still navigates.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-console"><span>Browser console on a logged-in page has no missing <code>AnimationBuilder</code> or unexpected synthetic property errors.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Overlays that used to piggyback on the engine</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-modal"><span>Open a shared ngx-bootstrap modal from a lazy route. It opens and closes. No injector error.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-primeng"><span>A PrimeNG overlay we actually use, a dropdown or dialog, still opens and dismisses.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-ngb"><span>An ng-bootstrap modal still opens. <code>NgbActiveModal</code> still resolves.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag low">Low</span> Boot and leftover package</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-ssr"><span>A fresh SSR URL still renders. Server log has no animation-provider crash.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-hydrate"><span>That page hydrates. Header and outlet stay put.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-pkg"><span>Leaving <code>@angular/animations</code> in <code>package.json</code> is accepted for this PR. Uninstall is not in this diff.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <a href="appmodule-standalone-conversion.html">AppModule is gone</a>
+      ·
+      <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10880">PR 10880</a>
+    </footer>
+  </div>
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "drop-provide-animations-v2";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

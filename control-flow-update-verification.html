@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Control flow update</title>
+  <meta name="description" content="TopFans templates now use @if, @for, and @switch. What changed, five hand fixes, and a QA list covering every module in the diff.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, h4, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code, h4 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td:first-child { color: var(--text); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Control flow update</h1>
+      <p>Live templates now use <span class="focus">@if</span>, <span class="focus">@for</span>, and <span class="focus">@switch</span>. 550 HTML files plus the price-display inline template. Routing, SCSS, and business logic are unchanged.</p>
+      <div class="meta">
+        <span>commit e6d8ff44e4</span>
+        <span>hotfix/release-0.0.23/control-flow-update</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10865">PR 10865</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>A whole-app schematic pass ran out of memory at about 8 GB. I ran Angular's official schematic per directory instead.</p>
+        <pre><code>NODE_OPTIONS=--max_old_space_size=10048 npx ng generate @angular/core:control-flow --path=src/app/components --defaults --interactive=false</code></pre>
+        <p>I put CommonModule and the schematic's TypeScript formatting back. Eleven <code>trackBy*</code> methods now take a second unused argument because <code>@for</code> calls <code>track fn($index, item)</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">In templates</th><th scope="col">Count</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>@if</code></td><td>509 files</td></tr>
+              <tr><td><code>@for</code></td><td>323 files</td></tr>
+              <tr><td><code>@switch</code></td><td>15 files</td></tr>
+              <tr><td>Live <code>*ngIf</code> / <code>*ngFor</code> / <code>[ngSwitch]</code></td><td>0. Comment leftovers only.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Five files converted by hand</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">File</th><th scope="col">Fix</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>table.component.html</code></td>
+                <td>Comments and a label sitting inside <code>ngSwitch</code>. Duplicate <code>#noImageIcon</code> refs. Moved both outside, then <code>@switch</code>.</td>
+              </tr>
+              <tr>
+                <td><code>vip-offer-list.component.html</code></td>
+                <td>Two templates named <code>#unlocked_code</code>. Renamed one to <code>#unlocked_code_modal</code>.</td>
+              </tr>
+              <tr>
+                <td><code>post-payment.component.html</code></td>
+                <td><code>[ngSwitch]</code> on a wrapper, cases on an inner div. Switched the inner element.</td>
+              </tr>
+              <tr>
+                <td><code>post-detail.component.html</code></td>
+                <td>Missing <code>&lt;/ng-container&gt;</code>. Closed it and reran the schematic.</td>
+              </tr>
+              <tr>
+                <td><code>info-modal.component.html</code></td>
+                <td>Broken <code>*ngIf="icomoonClass; icon"</code> became <code>@if (icomoonClass) { ... } @else if (icon)</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>How I checked it</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Main QA build</td><td>Pass, 60.6s</td></tr>
+              <tr><td>Perfect Crew QA build</td><td>Pass, 51.8s</td></tr>
+              <tr><td>SSR</td><td>200 on home, login, pricing, about, contact, FAQ, creators, Perfect Crew home. No <code>*ngIf</code> in the HTML.</td></tr>
+              <tr><td>Logged-out browser</td><td>TopFans home hydrates, carousel Next works, login form renders, Perfect Crew header and posts show.</td></tr>
+              <tr><td>Logged-in product</td><td>Not run.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Creator account on a white-label site for logged-in checks. Private window for logged-out. Console open. Grouped by the modules in the 562-file diff. Edit preference is 64 templates. Skip that folder and you miss one of the largest chunks.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Shared UI, profile, posts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-shell"><span>Header, sidebar, footer, and language switcher still show the right items logged in and logged out.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-table"><span>A data table loads, empty state, sort, row select. Image vs no-image cells still switch.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-profile"><span>Creator profile: loading, empty, then posts. Conditional actions match the role.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-post"><span>Post detail and a feed card: like, comments, locked media, collaborators. The wrong card must not remount.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Messages, dashboard, wallet</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-msg"><span>In messages, send, switch threads, come back. Typed text and the open thread stay.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-dash"><span>Dashboard home, activity, new post (each type), live stream, merchandise, events, leaderboard.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-pay"><span>Post-payment status fields, wallet lists, VIP unlock code, transaction detail. Close the modal. The list is still there.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-plan"><span>Create a plan. Each type changes the fields. Empty type still shows the default.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Edit preference, monetize, cover editor</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-edit"><span>Edit preference. Personal info, privacy, notifications, badges, portfolio, white-label appearance. Save still works.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-monetize"><span>Monetize courses, experiences, newsletters, ads, NFTs, discount codes, referrals. Lists and create/edit screens.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-cover"><span>White-label cover editor. Add a section, switch layout type, preview. Comparison and carousel editors still list cards.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-form"><span>A dynamic form with a switch and conditional fields. Changing the type shows the right inputs and errors.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Auth, insights, forum, resources</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-auth"><span>Login, signup, forgot password, reset. Extra fields show and hide. OTP still lands on dashboard.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-insights"><span>Insights tabs and the filter modal. Charts still load after a date change.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-forum"><span>Forum list, a thread, members. Topic tags still attach.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-resources"><span>Resources list and a resource or service-provider detail page.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag low">Low</span> Public, setup, players, leftovers</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-public"><span>Logged out. TopFans home, pricing, about, contact, FAQ, creators. White-label home branding and posts.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-setup"><span>Setup profile, link-in-bio preview, comparison page, promotional landing.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-player"><span>Music and video player modals. Comments. Info modal with an icon font and with an image. Price local vs dollar.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-skel"><span>A slow page still shows its skeleton, then real rows. The skeleton must not stick after data arrives.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <a href="control-flow-update.html">Migration plan</a>
+      ·
+      <a href="https://angular.dev/reference/migrations/control-flow">Angular control-flow schematic</a>
+    </footer>
+  </div>
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "control-flow-update-verification-v2";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

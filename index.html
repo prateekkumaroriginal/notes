@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="A collection of practical JavaScript and React notes.">
-  <title>JavaScript and React notes</title>
+  <meta name="description" content="Development notes about JavaScript, React, TypeScript, and Angular.">
+  <title>Development notes</title>
   <style>
     :root {
       color-scheme: dark;
@@ -29,7 +29,7 @@
       font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
 
-    h1, ul { margin: 0; }
+    h1, h2, ul { margin: 0; }
 
     .page {
       width: min(900px, calc(100% - 2rem));
@@ -47,6 +47,11 @@
     .folder:nth-child(1) { --folder-color: var(--js-yellow); }
     .folder:nth-child(2) { --folder-color: var(--react-blue); }
     .folder:nth-child(3) { --folder-color: var(--violet); }
+    .folder:nth-child(4) { --folder-color: var(--pink); }
+    .folder:nth-child(5) { --folder-color: var(--amber); }
+    .folder:nth-child(6) { --folder-color: var(--green); }
+    .folder:nth-child(7) { --folder-color: var(--blue); }
+    .folder:nth-child(8) { --folder-color: var(--violet); }
 
     summary {
       display: grid;
@@ -95,11 +100,33 @@
       outline-offset: 0.3rem;
     }
 
+    .folder-contents {
+      display: grid;
+      gap: 1.75rem;
+      padding: 0.85rem 0 0 1.75rem;
+    }
+
+    .group {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .group-title {
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 650;
+    }
+
     .notes {
       display: grid;
       gap: 0.65rem;
       padding: 0.85rem 0 0 1.75rem;
       list-style: none;
+    }
+
+    .group .notes,
+    .folder-contents > .notes {
+      padding: 0;
     }
 
     .notes a {
@@ -133,7 +160,7 @@
 <body>
   <div class="page">
     <header>
-      <h1>JavaScript and React notes</h1>
+      <h1>Development notes</h1>
     </header>
 
     <main>
@@ -185,6 +212,252 @@
             <li><a href="0009-prepare-npm-access.html">Prepare npm access</a></li>
             <li><a href="0010-publish-in-dependency-order.html">Publish in dependency order</a></li>
             <li><a href="0011-release-and-maintain-safely.html">Release and maintain safely</a></li>
+          </ul>
+        </details>
+
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Angular upgrades</span></summary>
+          <div class="folder-contents">
+            <section class="group">
+              <h2 class="group-title">15 to 20</h2>
+              <ul class="notes">
+                <li><a href="angular-15-to-19-upgrade.html">Angular 15 to 19: TopFans web frontend</a></li>
+                <li><a href="angular-15-to-lts-upgrade.html">Angular 15 to 21 LTS: TopFans web frontend</a></li>
+                <li><a href="angular-16-upgrade-explained.html">Angular 16 upgrade explained</a></li>
+                <li><a href="angular-16-upgrade-verification.html">Verify the Angular 16 upgrade</a></li>
+                <li><a href="angular-17-upgrade.html">Angular 16 to 17 upgrade</a></li>
+                <li><a href="angular-18-upgrade-explained.html">Angular 18 upgrade explained</a></li>
+                <li><a href="angular-18-upgrade-verification.html">Verify the Angular 18 upgrade</a></li>
+                <li><a href="angular-19-upgrade-verification.html">Verify the Angular 19 upgrade</a></li>
+                <li><a href="angular-20-upgrade-verification.html">Verify the Angular 20 upgrade</a></li>
+                <li><a href="angular-20-vs-resolve-build-size-19.html">Angular 20 vs. Resolve_build_size_19 chunk sizes</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">20 to 21</h2>
+              <ul class="notes">
+                <li><a href="angular-20-to-21-upgrade.html">Angular 20 to 21 upgrade</a></li>
+                <li><a href="angular-20-to-21-upgrade-plan-fable.html">Angular 20 to 21 upgrade plan, revised</a></li>
+                <li><a href="angular-20-to-21-plan-audit-fable.html">Audit of the Angular 20 to 21 upgrade plan</a></li>
+                <li><a href="angular-20-to-21-upgrade-plan-audit-sol.html">Angular 20 to 21 upgrade plan audit</a></li>
+                <li><a href="angular-21-upgrade-verification.html">Verify the Angular 21 upgrade</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">21 practices</h2>
+              <ul class="notes">
+                <li><a href="angular-21-practices-audit.html">Angular 21 practices audit</a></li>
+                <li><a href="angular-21-practices-verification.html">Verify the Angular 21 practices update</a></li>
+                <li><a href="/drop-provide-animations">Drop provideAnimations and withNoHttpTransferCache</a></li>
+              </ul>
+            </section>
+          </div>
+        </details>
+
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Angular builds and investigations</span></summary>
+          <div class="folder-contents">
+            <section class="group">
+              <h2 class="group-title">Builders</h2>
+              <ul class="notes">
+                <li><a href="application-builder-implementation.html">Application builder implementation</a></li>
+                <li><a href="browser-esbuild-builder-implementation.html">browser-esbuild builder implementation</a></li>
+                <li><a href="application-bundler-migration.html">From Webpack to the Angular application builder</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">Bundle size and prerendering</h2>
+              <ul class="notes">
+                <li><a href="what-resolve-build-size-19-did.html">What Resolve_build_size_19 did</a></li>
+                <li><a href="port-resolve-build-size-19.html">Port Resolve_build_size_19 onto Angular 19</a></li>
+                <li><a href="prerender-all-qa-chunks.html">prerender-all-qa chunk sizes</a></li>
+                <li><a href="wls-build-and-prerender-solution.html">WLS builds and selective prerendering</a></li>
+              </ul>
+            </section>
+            <ul class="notes">
+              <li><a href="codebase-audit.html">TopFans frontend audit</a></li>
+            </ul>
+          </div>
+        </details>
+
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Standalone routes</span></summary>
+          <div class="folder-contents">
+            <section class="group">
+              <h2 class="group-title">Planning</h2>
+              <ul class="notes">
+                <li><a href="standalone-routes-one-component-pages.html">Standalone routes: the 15 one-component pages</a></li>
+                <li><a href="standalone-routes-mid-sized-modules.html">Standalone routes: the 10 mid-sized modules</a></li>
+                <li><a href="standalone-routes-whats-left.html">Standalone routes: what's left after monetize and home Profile</a></li>
+                <li><a href="standalone-routes-whats-left-plain.html">Standalone routes: what's left after monetize and home Profile (plain)</a></li>
+                <li><a href="standalone-leftovers.html">Leftovers after the SharedModule work</a></li>
+                <li><a href="marketing-layouts-every-page.html">Why every marketing page ships 54 layouts</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">Conversions</h2>
+              <ul class="notes">
+                <li><a href="standalone-routes-pr-10826.html">PR 10826: five pages without NgModules</a></li>
+                <li><a href="standalone-routes-pr-10829.html">PR 10829: three more pages without NgModules</a></li>
+                <li><a href="dynamic-form-builder-standalone.html">The dynamic form builder is standalone</a></li>
+                <li><a href="biolink-pipe-standalone.html">BioLinkPipe is standalone</a></li>
+                <li><a href="unused-components-deleted.html">Unused standalone leftovers are deleted</a></li>
+                <li><a href="lazy-monetize-home-profile.html">Monetize pages load one at a time, and home no longer ships Profile</a></li>
+                <li><a href="lazy-marketing-layouts.html">Public marketing pages load only the layouts they use</a></li>
+                <li><a href="lazy-marketing-layouts-code.html">How the marketing preview loads a layout</a></li>
+                <li><a href="fix-marketing-preview-load-loop.html">Stop the cover preview from reloading layouts every cycle</a></li>
+                <li><a href="/appmodule-standalone-conversion">AppModule is gone</a></li>
+              </ul>
+            </section>
+          </div>
+        </details>
+
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>SharedModule removal</span></summary>
+          <ul class="notes">
+            <li><a href="shared-module-app-shell.html">SharedModule leaves the initial bundle</a></li>
+            <li><a href="wallet-standalone.html">Wallet stops loading SharedModule</a></li>
+            <li><a href="shared-module-small-pages.html">The 18 small pages stop loading SharedModule</a></li>
+            <li><a href="shared-module-marketing-home.html">Marketing pages and the home page stop loading SharedModule</a></li>
+            <li><a href="shared-module-monetize.html">Monetize stops loading SharedModule</a></li>
+            <li><a href="shared-module-auth-forum-messages.html">Auth, forum, messages and post pages stop loading SharedModule</a></li>
+            <li><a href="shared-module-bio-profile-portfolio.html">Link in bio, profile and portfolio stop loading SharedModule</a></li>
+            <li><a href="shared-module-edit-preference-cover-page.html">Edit preference and the whitelabel cover page stop loading SharedModule</a></li>
+            <li><a href="shared-module-dashboard.html">Dashboard is standalone and SharedModule is gone</a></li>
+          </ul>
+        </details>
+
+        <details class="folder">
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Pull request reviews</span></summary>
+          <div class="folder-contents">
+            <section class="group">
+              <h2 class="group-title">Router and hydration</h2>
+              <ul class="notes">
+                <li><a href="pr-10823-10824-router-hydration-review-sol.html">PR 10823 and 10824: router and hydration review</a></li>
+                <li><a href="pr-10823-10824-router-hydration-review-fable.html">PR 10823 and 10824: hydration and provideRouter review</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">Standalone routes</h2>
+              <ul class="notes">
+                <li><a href="pr-10826-10827-standalone-routes-review-6-sol.html">PR 10826 and 10827: standalone routes review-6-sol</a></li>
+                <li><a href="pr-10826-10827-standalone-routes-review-fable.html">PR 10826 and 10827: standalone routes review-fable</a></li>
+                <li><a href="/pr-10829-review-astra">PR 10829 review-astra</a></li>
+                <li><a href="pr-10829-standalone-routes-review-fable.html">PR 10829: standalone routes review-fable</a></li>
+                <li><a href="/pr-10830-review-astra">PR 10830 review-astra</a></li>
+                <li><a href="/pr-10830-standalone-routes-review-fable">PR 10830: standalone routes review-fable</a></li>
+                <li><a href="/pr-10831-review-astra">PR 10831 review-astra</a></li>
+                <li><a href="/pr-10871-review-sol-6-1">PR 10871 review-sol-6-1</a></li>
+                <li><a href="/pr-10872-review-sol-6-1">PR 10872 review-sol-6-1</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">SharedModule removal</h2>
+              <ul class="notes">
+                <li><a href="/pr-10832-review-astra">PR 10832 review-astra</a></li>
+                <li><a href="/pr-10832-shared-module-app-shell-review-fable">PR 10832: SharedModule app shell review-fable</a></li>
+                <li><a href="/pr-10833-review-astra">PR 10833 review-astra</a></li>
+                <li><a href="/pr-10837-review-astra">PR 10837 review-astra</a></li>
+                <li><a href="/pr-10838-review-astra">PR 10838 review-astra</a></li>
+                <li><a href="/pr-10839-review-astra">PR 10839 review-astra</a></li>
+                <li><a href="/pr-10840-review-astra">PR 10840 review-astra</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">Leftover standalone work</h2>
+              <ul class="notes">
+                <li><a href="/pr-10841-review-astra">PR 10841 review-astra</a></li>
+                <li><a href="/pr-10847-review-grok-4-7">PR 10847 review-grok-4-7</a></li>
+                <li><a href="/pr-10849-review-grok-4-7">PR 10849 review-grok-4-7</a></li>
+                <li><a href="/pr-10854-review-grok-4-7">PR 10854 review-grok-4-7</a></li>
+                <li><a href="/pr-10854-review-astra">PR 10854 review-astra</a></li>
+                <li><a href="/pr-10849-review-astra">PR 10849 review-astra</a></li>
+                <li><a href="/pr-10845-review-astra">PR 10845 review-astra</a></li>
+                <li><a href="/pr-10842-review-astra">PR 10842 review-astra</a></li>
+              </ul>
+            </section>
+          </div>
+        </details>
+        <details class="folder" style="--folder-color: #8FB4FF" open>
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Control Flow Update</span></summary>
+          <ul class="notes">
+            <li><a href="control-flow-update.html">Schematic + manual fixes + validation</a></li>
+            <li><a href="control-flow-update-verification.html">What the control flow update shipped</a></li>
+            <li><a href="/pr-10865-review-sol-6-1">PR 10865 review-sol-6-1</a></li>
+          </ul>
+        </details>
+
+        <details class="folder" style="--folder-color: var(--green)" open>
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Signal APIs</span></summary>
+          <ul class="notes">
+            <li><a href="signal-inputs-verification.html">What the signal inputs update shipped</a></li>
+            <li><a href="/pr-10879-grok-4-7">PR 10879-grok-4-7</a></li>
+          </ul>
+        </details>
+
+        <details class="folder" style="--folder-color: var(--amber)" open>
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>S3 uploads</span></summary>
+          <ul class="notes">
+            <li><a href="/pr-10927-grok-4-7">PR 10927-grok-4-7</a></li>
+          </ul>
+        </details>
+
+        <details class="folder" style="--folder-color: var(--pink)" open>
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Performance</span></summary>
+          <ul class="notes">
+            <li><a href="/post-prefetching">Post prefetching on the white-label homepage</a></li>
+            <li><a href="/bondedwealth-vs-tf-site-2">bondedwealth.com vs tf-site-2</a></li>
+            <li><a href="/profile-card-visible">How the profile card got under 2.5s</a></li>
+            <li><a href="/user-by-username-backend">GET user_by_username view cuts (backend)</a></li>
+            <li><a href="/user-by-username-schema">user_by_username response cuts</a></li>
+            <li><a href="/profile-performance-after-service-cleanup">Profile performance after service cleanup: combined review and remaining work</a></li>
+            <li><a href="/profile-performance-implementation">What shipped for profile performance after service cleanup</a></li>
+            <li><a href="/pr-10977-performance">PR 10977: performance hotfix, by concern</a></li>
+          </ul>
+        </details>
+
+        <details class="folder" style="--folder-color: var(--blue)" open>
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>Messages Revamp</span></summary>
+          <div class="folder-contents">
+            <section class="group">
+              <h2 class="group-title">Messages Revamp</h2>
+              <ul class="notes">
+                <li><a href="/messages-modular-components-opus-5-5">Split message-container into pieces you can change safely-opus-5-5</a></li>
+                <li><a href="/messages-modular-components-grok-4-6">Cut message-container into pieces-grok-4-6</a></li>
+                <li><a href="/messages-modularization-plan-sol-6-1">Make messages maintainable: component boundaries and migration plan-sol-6-1</a></li>
+                <li><a href="/messages-module-features-grok-4-6">Messages module features</a></li>
+                <li><a href="/messages-module-features-sonnet-5-5">Messages module: complete feature list (sonnet-5-5)</a></li>
+                <li><a href="/messages-module-features-sol-6-1">Messages module features (sol-6-1)</a></li>
+                <li><a href="/messages-page-load-fast-grok-4-7">Make the messages page load fast-grok-4-7</a></li>
+                <li><a href="/messages-page-load-fast-astra">Make messages load faster (astra)</a></li>
+                <li><a href="/messages-page-load-fast-opus-5-5">Make the messages page load fast (opus-5-5)</a></li>
+                <li><a href="/messages-modularization-and-performance-sol-6-1">Messages modularization and performance (sol-6-1)</a></li>
+                <li><a href="/messages-breakdown-vs-speed-grok-4-6">Speed the messages page first, then split it (grok-4-6)</a></li>
+                <li><a href="/messages-page-performance-diff-sonnet-5-5">Messages page performance: proposed changes (sonnet-5-5)</a></li>
+                <li><a href="/messages-container-split-grok-4-7">Split the messages page after the first speed pass (grok-4-7)</a></li>
+                <li><a href="/messages-chat-api-pagination">Chat cursor pagination</a></li>
+                <li><a href="messages-chat-pagination-changes-sol-6-1.html">Inbox and history pagination: changes and verification (sol-6-1)</a></li>
+                <li><a href="/messages-chat-pagination-verification">Chat cursor pagination, verified on Jon Snow</a></li>
+              </ul>
+            </section>
+            <section class="group">
+              <h2 class="group-title">PR reviews and explanations</h2>
+              <ul class="notes">
+                <li><a href="/pr-10918-review-sol-6-1">PR 10918 review-sol-6-1</a></li>
+                <li><a href="/pr-10910-review-sol-6-1">PR 10910 review-sol-6-1</a></li>
+                <li><a href="/pr-10900-review-sol-6-1">PR 10900 review-sol-6-1</a></li>
+                <li><a href="/pr-10896-review-sol-6-1">PR 10896 review-sol-6-1</a></li>
+                <li><a href="/pr-10895-10896-grok-4-7">PR 10895 and 10896-grok-4-7</a></li>
+                <li><a href="/pr-10885-grok-4-7">PR 10885-grok-4-7</a></li>
+                <li><a href="/messages-phase-1-stop-waiting">Phase 1: history no longer waits on permissions</a></li>
+              </ul>
+            </section>
+          </div>
+        </details>
+        <details class="folder" id="devtools" style="--folder-color: var(--blue)" open>
+          <summary><span class="disclosure-icon" aria-hidden="true"></span><span>DevTools</span></summary>
+          <ul class="notes">
+            <li><a href="/devtools/overidify-network-rules">How Overidify builds a Network Rule in DevTools</a></li>
           </ul>
         </details>
       </section>

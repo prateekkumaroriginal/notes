@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Do the first messages speed pass in the current component, then split it. Angular 21 APIs go into the new files only.">
+<title>Split the messages page after the first speed pass (grok-4-7)</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1015;--surface:#121923;--text:#e8edf3;--muted:#99a6b5;--line:#2b3745;--blue:#68d7ff;--green:#8ee6a2;--violet:#d5a6ff;--amber:#f1c66d;--pink:#ff91b8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--muted);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}
+h1,h2,h3,p,ul,ol,figure,table,pre{margin:0}
+h1,h2,h3,strong,th{color:var(--text)}
+h1{padding-bottom:.75rem;line-height:1.2}
+h2{padding-bottom:.75rem;line-height:1.3}
+h3{padding-bottom:.5rem;line-height:1.4}
+.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}
+main{padding-top:3rem}
+section+section{padding-top:2.5rem}
+.stack{display:grid;gap:1rem}
+.items{display:grid;gap:1.75rem}
+ul,ol{padding-left:1.4rem}
+li+li{padding-top:.5rem}
+a{color:var(--blue);text-underline-offset:3px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.88em;background:var(--surface);color:var(--blue);padding:.12em .35em;border-radius:.35rem;overflow-wrap:anywhere}
+pre{padding:1.25rem;background:var(--surface);border:1px solid var(--line);border-radius:.65rem;overflow-x:auto;line-height:1.5}
+pre code{background:none;padding:0;color:var(--text);font-size:.84rem}
+.meta{padding-top:1rem;font-size:.875rem}
+.num{color:var(--amber)}
+.good{color:var(--green)}
+.be{color:var(--violet)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:.65rem}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:.8rem}
+thead{background:var(--surface)}
+tbody tr+tr{border-top:1px solid var(--line)}
+.q{color:var(--text)}
+@media(max-width:720px){.page{padding-block:3rem}th,td{padding:.6rem}}
+</style>
+</head>
+<body><div class="page">
+<header>
+<h1>Split the messages page after the first speed pass</h1>
+<p><code>message-container</code> is <span class="num">4,283</span> lines of TypeScript, <span class="num">3,118</span> lines of template, and <span class="num">1,218</span> lines of SCSS. A conversation still takes about <span class="num">1.9 s</span> to become readable, and <span class="num">1.5 s</span> of that is timers. I would delete those timers in the file that exists, measure the page, and only then cut it apart. New components get Angular 21 APIs. A source-wide Angular 21 conversion does not belong in this work.</p>
+<p class="meta">1 Oct 2026, branch <code>hotfix/release-0.0.23/messages-revamp</code>. The app already depends on Angular <span class="num">21.2.23</span>. Speed numbers and the phase plan come from <a href="/messages-page-load-fast-opus-5-5">Make the messages page load fast</a>. That note is a suggestion. Where this page disagrees, it says so.</p>
+</header>
+<main>
+
+<section class="stack">
+<h2>The four answers</h2>
+<div class="items">
+
+<div>
+<h3 class="q">1. Speed first, and only the critical path</h3>
+<p>Do the first speed pass before the split. The wait is a few functions, and the <a href="/messages-page-load-fast-opus-5-5">speed note</a> already points at them. <code>getUserEmail()</code> sleeps for a second to discover a participant the inbox row already has. History and permissions share one cancel subject, so they cannot run together. One loader hides both the thread and the composer. <code>ngAfterViewChecked()</code> runs change detection a second time on the whole template.</p>
+<p>That pass is a behavior change. It should land, and get a production timing, while there is still one file to blame. Expected result from the note: history readable around <span class="num">0.6 s</span> after the component starts, with no backend change. If the measurement misses that, splitting the template will not explain why.</p>
+<p>The rest of the speed note waits. Deferring the emoji picker, the audio player, and the share modals is easier once those are their own components. A <code>MessagesStore</code>, a memory cache, and patching one inbox row per websocket message want a boundary to sit behind. Building that store against the current class just moves the pile.</p>
+</div>
+
+<div>
+<h3 class="q">2. The tree</h3>
+<p>Twelve components. The shell keeps routing, white-label gates, and which conversation is open. Children receive data and emit intents. They do not call <code>get-chatGroups-and-users</code>.</p>
+<pre><code>app-message-container
+  app-inbox
+    app-inbox-row
+    app-broadcast-row
+  app-thread
+    app-thread-header
+    app-message-list
+      app-message-item
+        app-message-body
+    app-composer
+      app-attachment-tray
+      app-composer-tools
+  app-automated-messages</code></pre>
+<p><code>app-tab-view</code> stays inside the inbox for Priority, General, and Bulk. The modals that already exist stay modals. The shell or the composer opens them with <code>await import(...)</code> on click, and they leave the <code>imports</code> array:</p>
+<ul>
+<li><code>new-message-model</code>, <code>message-price-model</code>, <code>edit-participants-modal</code></li>
+<li><code>automated-message-modal</code></li>
+<li>merchandise, portfolio, and event share modals</li>
+<li>image overlay, tip-required alert, guaranteed-reply alert</li>
+</ul>
+<p><code>image-audio-message</code> stays with the automated modal, which already uses it. Thread audio should be a native element, with the real player deferred until a message is on screen. Pulling that old component into the thread would drag Angular Material back in for one slider.</p>
+</div>
+
+<div>
+<h3 class="q">3. One pull request at a time</h3>
+<p>Same files, so two people editing <code>message-container.component.ts</code> will collide every day, and a bug will have two possible causes. Ship the speed pass, then each slice of the tree, and stop between them.</p>
+<p>Two of those slices also do the second speed phase. Extracting the composer and then deferring the emoji picker in a later PR means wiring the same boundary twice. Extract it once, and defer it in that PR. That is the only overlap I would allow.</p>
+</div>
+
+<div>
+<h3 class="q">4. Angular 21 APIs in the new files, later for the rest</h3>
+<p>The framework upgrade is done. <code>package.json</code> is on <span class="num">21.2.23</span>, control flow is already in this template (<code>@if</code>, <code>@for</code>), and <code>viewChild()</code> is already in the class. What this component does not have is <code>OnPush</code>, <code>signal()</code>, <code>input()</code>, <code>output()</code>, or <code>@defer</code>.</p>
+<p>Write those into components as you create them. Leave the shell on class fields until it is small. Converting 8,000 lines to signals and then cutting them up is two rewrites of code you are about to delete. Doing the conversion inside every extraction PR makes the diff impossible to review, and a timing bug hides inside a signals migration.</p>
+<p>A repo-wide pass stays on its own track. Signal inputs already shipped separately. This task should not reopen that.</p>
+</div>
+
+</div>
+</section>
+
+<section class="stack">
+<h2>What each piece owns</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Component</th><th>Takes from the template today</th><th>Leaves behind</th></tr></thead>
+<tbody>
+<tr><td><code>app-message-container</code></td><td>Route params, the Messages / Automated tabset, white-label visibility, selected <code>groupId</code></td><td>Fetching, sorting, rendering rows, sending</td></tr>
+<tr><td><code>app-inbox</code></td><td>Left column, search, empty state, mobile list</td><td>Per-row menus</td></tr>
+<tr><td><code>app-inbox-row</code></td><td>One 1:1 row: avatar, preview, unread, time</td><td>Bulk lists</td></tr>
+<tr><td><code>app-broadcast-row</code></td><td>One mailing-list row and its actions</td><td>1:1 rows</td></tr>
+<tr><td><code>app-thread</code></td><td>Right column, including the mobile back state</td><td>How a single bubble is drawn</td></tr>
+<tr><td><code>app-thread-header</code></td><td><code>messages-righthead</code>: name, badges, block, report, participants</td><td>The message list</td></tr>
+<tr><td><code>app-message-list</code></td><td>Scrollbar, day chip, "in progress", history loader</td><td>Media markup</td></tr>
+<tr><td><code>app-message-item</code></td><td>Incoming or outgoing alignment, avatar, timestamp</td><td>The body switch</td></tr>
+<tr><td><code>app-message-body</code></td><td>Text, image, video, audio, file, tip, locked attachment, share cards</td><td>The composer preview</td></tr>
+<tr><td><code>app-composer</code></td><td>Free-DM banner, the form, send disabled until permissions arrive</td><td>The drag lists</td></tr>
+<tr><td><code>app-attachment-tray</code></td><td>Paid items, optional free preview, the drag rules</td><td>Emoji and the record button</td></tr>
+<tr><td><code>app-composer-tools</code></td><td>Attach, record, emoji host, share, price</td><td>When those chunks download. Emoji and the audio UI are <code>@defer</code> here</td></tr>
+<tr><td><code>app-automated-messages</code></td><td>Second tab: button, <code>app-table</code>, empty state</td><td>The modal, which stays lazy</td></tr>
+</tbody></table></div>
+<p>The history template draws media twice, once for a locked attachment and once for a normal message. <code>app-message-body</code> replaces both, with a locked flag. The composer has its own previews of those same files. They look alike. Keep them apart. Send-state and history rendering get tangled the moment one component serves both.</p>
+<p>Styles move with the component. A shared <code>messages.scss</code> that every child imports would leave the pile in one place with extra filenames.</p>
+<p>If a new template crosses about <span class="num">400</span> lines, it still has two jobs. <code>app-message-body</code> is the one most likely to hit that. Split a media child out then, after you can see the real size, and only if audio or video needs its own deferred chunk.</p>
+</section>
+
+<section class="stack">
+<h2>Pull request order</h2>
+<ol>
+<li><span class="good">Critical path, current file.</span> Delete the timer in <code>getUserEmail()</code>. Give history and validation their own cancel streams, keyed by <code>groupId</code>. Split <code>msgrightLoader</code> into history and permissions. Show history when it arrives, and keep send, tip, and unlock disabled until permissions arrive. Stop calling validation from the inbox response. Replace the full-screen loader with a list skeleton. Scroll with <code>afterNextRender</code>. Remove <code>ngAfterViewChecked()</code>. Sort each inbox tab once, and track rows by <code>groupId</code> and messages by <code>sk</code>. Debounce search. Measure on a production build before the next PR.</li>
+<li><span class="be">Inbox.</span> Move the left column, the 1:1 row, and the broadcast row. No loading change.</li>
+<li><span class="be">Thread body.</span> Move the header, the list, the item, and the body. Collapse the duplicated media markup in this PR. No loading change.</li>
+<li><span class="good">Composer, and the deferred chunks.</span> Move the composer, the attachment tray, and the tools. This is also phase 2 of the speed note: <code>@defer</code> the emoji picker on interaction, defer the audio player until a message is in view, and open the new-message, price, participants, and share modals with a dynamic import. Confirm with <code>ng build --stats-json</code> that those chunks stay out of the first load.</li>
+<li><span class="be">Automated tab.</span> Move it, and defer it until that tab is selected. <code>app-table</code>, the dynamic form builder, and the datepicker should not load with a normal inbox.</li>
+<li><span class="good">Memory and live updates.</span> Add <code>MessagesStore</code> (<code>providedIn: 'root'</code>). Start the inbox request when navigation to <code>/messages</code> starts. Cache the inbox and recent threads, scoped to account and tenant, and clear them on logout. Patch one row when a websocket message arrives, once the event actually carries the row summary. Turn history pagination back on. Virtualize the inbox only if a profile shows lists past about <span class="num">100</span> rows. Leave the message list alone. Variable-height media makes that scroll fragile, and the speed note says the same.</li>
+</ol>
+<p>Backend pagination, a thread bootstrap endpoint, and an inline first thread are still worth doing. They are a separate contract, and PRs 1 to 5 do not wait on them. The one-round-trip path in the speed note needs that API. Until it exists, parallel history and validation is the win you can ship.</p>
+</section>
+
+<section class="stack">
+<h2>What has to keep working</h2>
+<ul>
+<li>Paid DM and tip-required stay locked while permissions load. A missing validation response is not a free send. The server still enforces this. The UI must not get ahead of it.</li>
+<li>White label. Fans with the user list hidden still land in the owner's chat. <code>WLSAllowDMs</code> still controls the list.</li>
+<li>Default conversation. Creators still open Priority, then General, then Bulk. A <code>groupId</code> in history state still opens Bulk.</li>
+<li>The header unread badge, <code>coreService.messageCount</code>, once the full inbox refetch goes away.</li>
+<li>Optimistic sends. They match on <code>uinqueId</code> today. Keep that spelling until a rename has its own PR. A drive-by fix will drop in-flight messages.</li>
+<li>Direct entry: <code>?user=</code>, <code>history.state.user_key</code>, and tip-back <code>id</code>.</li>
+<li>Both TopFans and one generated white-label project, as fan, creator, and delegate.</li>
+</ul>
+</section>
+
+<section class="stack">
+<h2>How you know a PR is done</h2>
+<ul>
+<li>PR 1 adds <code>performance.mark</code> at route activation, inbox painted, history painted, and composer enabled. Log them from a production build. The dev server will lie about the timers you just removed, because it lies about everything else too.</li>
+<li>PR 4 compares <code>--stats-json</code> with the build from before. Emoji, Material, the datepicker, and the share modals stay unloaded until used.</li>
+<li>Every PR gets a pass on an empty inbox, a normal inbox, fast switching, an incoming message during load, a failed validation, and a direct link. Send, tip, and unlock stay disabled until permissions arrive, and the history on screen belongs to the conversation you clicked.</li>
+</ul>
+</section>
+
+<section class="stack">
+<h2>Still open</h2>
+<ul>
+<li>The speed note had no logged-in session, so the <span class="num">1.9 s</span> and <span class="num">0.6 s</span> figures assume <span class="num">300 ms</span> per call. PR 1 replaces them with a real trace. If <code>chat-user-validation</code> is the slow call, the composer stays disabled longer. That is acceptable. History should not wait for it.</li>
+<li>ngx-bootstrap <code>tabset</code> stays for this work. Replacing it is a visual change with no speed payoff.</li>
+<li>Old messages may be unreachable. <code>onUp()</code> is commented out, and the frontend never asks for another page. Confirm with the backend whether <code>getpreviousMessagesFromHttp</code> already returns the whole thread. Pagination in PR 6 is pointless if the API returns everything, and dangerous if we assume a cursor it does not send.</li>
+<li>Someone needs to say how large <code>get-chatGroups-and-users</code> is at p95. If a typical inbox is 30 rows, the virtual-scroll idea in PR 6 can be dropped without a debate.</li>
+</ul>
+</section>
+
+</main>
+</div></body>
+</html>

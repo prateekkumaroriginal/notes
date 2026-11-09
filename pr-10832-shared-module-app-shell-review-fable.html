@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review of TopFans web frontend pull request 10832, which makes the app shell standalone and moves SharedModule out of the initial bundle.">
+  <title>PR 10832: SharedModule out of the initial bundle, reviewed</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, figure, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1.25rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .verdict {
+      display: grid;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      background: rgba(142, 230, 162, 0.1);
+    }
+
+    .verdict h2 { color: var(--green); font-size: 1rem; padding: 0; }
+
+    .verdict p { color: var(--text); }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    section > p + p, section > p + ul, section > ul + p, section > p + .table-wrap, section > .table-wrap + p, section > p + pre, section > pre + p, section > p + ol { padding-top: 0.75rem; }
+
+    .findings { display: grid; gap: 1.75rem; }
+
+    .finding {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tag {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      background: rgba(104, 215, 255, 0.12);
+      color: var(--blue);
+    }
+
+    .tag.ok { background: rgba(142, 230, 162, 0.12); color: var(--green); }
+    .tag.fix { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.old { background: rgba(213, 166, 255, 0.14); color: var(--violet); }
+
+    .finding-body { display: grid; gap: 0.5rem; }
+
+    .finding-body h3 { color: var(--text); font-size: 1rem; }
+
+    .finding-body ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+
+    .finding-body pre { margin-top: 0.25rem; }
+
+    .chain {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      gap: 0.15rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    .chain li { padding-left: calc(var(--depth, 0) * 1.25rem); }
+
+    .chain .weight { color: var(--amber); }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num { font-family: var(--mono); font-size: 0.85rem; white-space: nowrap; }
+
+    .routes { display: grid; gap: 0.35rem; list-style: none; padding: 0; }
+
+    .routes li {
+      display: grid;
+      grid-template-columns: 15rem 3.5rem minmax(0, 1fr);
+      gap: 1rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    .routes .ok { color: var(--green); }
+    .routes .miss { color: var(--amber); }
+
+    ol.qa { padding-left: 1.4rem; display: grid; gap: 0.5rem; }
+
+    .footnote { font-size: 0.9rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .finding { grid-template-columns: 1fr; gap: 0.5rem; }
+      .routes li { grid-template-columns: 1fr; gap: 0.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10832: SharedModule out of the initial bundle, reviewed</h1>
+      <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10832">PR 10832</a> stops <code>AppModule</code> from importing <code>SharedModule</code>. Thirteen shell classes go standalone, <code>AppModule</code> imports the five its template uses, and <code>shared-root.providers.ts</code> keeps the root injector's provider list intact. One commit, 17 files, +212 / &minus;62. The author's <a href="shared-module-app-shell.html">write-up</a> is thorough, so I spent my time trying to break its claims: I built base and head from clean worktrees, audited the providers from compiled library code, diffed server output for 19 URLs, and drove both builds in headless Chrome.</p>
+
+      <div class="verdict">
+        <h2>Verdict</h2>
+        <p>Merge it. Every number I reproduced landed within a percent of the write-up. Initial JavaScript drops 32%, the server sends identical HTML, the login dialog still opens on the new root injector, and the provider list matches what I found by reading every module <code>SharedModule</code> imports. It also clears a bundle budget warning the base branch had. My one addition is about what the shell still drags in: one <code>@ContentChild</code> query in the header layout keeps 1.2 MB of video player code on the critical path.</p>
+      </div>
+
+      <div class="meta">
+        <span>reviewed 2026-09-23</span>
+        <span>base e6d7afd43c</span>
+        <span>head 4ea9a1b5ee</span>
+        <span>Angular 21.2.23</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="scope">
+        <h2 id="scope">What changed</h2>
+        <p><code>AppComponent</code>'s template could only see <code>app-header</code> and <code>app-sidebar</code> through <code>SharedModule</code>, and that import put 147 declarations and 83 module imports in <code>main</code>'s static graph. Now the header, sidebar, user menu, two modals, a directive, and four pipes are standalone. <code>SharedModule</code> imports and re-exports them, so the 41 lazy modules that use it don't change. <code>MinimizedPlayerComponent</code> loads the music player modal with a dynamic import, because that modal imports <code>SharedModule</code>.</p>
+      </section>
+
+      <section aria-labelledby="findings">
+        <h2 id="findings">Findings</h2>
+        <div class="findings">
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The import lists match the templates</h3>
+              <p>I pulled every tag, pipe, and directive out of the eight converted templates and checked each against its component's <code>imports</code>. All resolve. Standalone components have no <code>CUSTOM_ELEMENTS_SCHEMA</code> to hide a missing element, and Angular warns on unused imports. The head build prints neither.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The root providers are all there</h3>
+              <p>This is the part that breaks at runtime without the compiler noticing, so I checked it myself. I read the compiled injector of every module <code>SharedModule</code> imports. Six carry providers: <code>NgSelectModule</code>, <code>NgMultiSelectDropDownModule</code>, <code>CarouselModule</code>, <code>NgOtpInputModule</code>, <code>ColorPickerModule</code>, and <code>NgbModalModule</code> (root-provided anyway). Two more provide through <code>forRoot</code> and <code>withConfig</code>, and <code>ShareIconsModule</code>'s constructor registers icons. All are in <code>provideSharedRootProviders()</code>. The plain ngx-bootstrap 21 modules declare nothing. <code>DynamicFormBuilderModule</code>'s other two providers are <code>providedIn: 'root'</code>. No token fell off.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The music player dynamic import is safe</h3>
+              <p><code>MusicPlayerModalComponent</code> imports <code>SharedModule</code>, so any static reference would have pulled it back into <code>main</code>. It now lands in a 68 KB lazy chunk. The <code>await</code> runs before any state changes, so a failed load leaves the player as it was. Two fast taps before the chunk arrives would stack two modals; first open only, not worth holding the PR.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag fix">suggest</span>
+            <div class="finding-body">
+              <h3>The header keeps 1.2 MB of video code in the initial bundle</h3>
+              <p>The write-up says what remains is "mostly libraries" and names ng-ivs, the IVS player, and aws-sdk. I walked the head build's static import graph to see why a logged-out visitor on <code>/about</code> downloads a live-stream player. Most of it comes through one edge:</p>
+              <ul class="chain" aria-label="Import chain from main to ng-ivs">
+                <li style="--depth: 0">app.module.ts</li>
+                <li style="--depth: 1">header/header.component.ts</li>
+                <li style="--depth: 2">header-layout/header-layout.component.ts</li>
+                <li style="--depth: 3">welcome-video-modal/welcome-video-modal.component.ts</li>
+                <li style="--depth: 4">video-player-v2.component.ts <span class="weight">→ ng-ivs 551 KB, amazon-ivs-player 360 KB</span></li>
+                <li style="--depth: 4">comments.component.ts <span class="weight">→ upload.service.ts → aws-sdk 349 KB</span></li>
+              </ul>
+              <p><code>HeaderLayoutComponent</code> imports the modal's class for one <code>@ContentChild(CustomWelcomeModalTemplate)</code> query. Using the class as the token makes its whole compiled dependency tree part of the header. Remove that edge and 88 files, about 1,216,000 bytes, go lazy. That's a third of what this PR saved, from a one-file change. Query by a token instead:</p>
+              <pre><code>// welcome-video-modal.token.ts
+export const WELCOME_VIDEO_MODAL = new InjectionToken&lt;WelcomeVideoModal&gt;('WELCOME_VIDEO_MODAL');
+
+// welcome-video-modal.component.ts
+providers: [{ provide: WELCOME_VIDEO_MODAL, useExisting: CustomWelcomeModalTemplate }]
+
+// header-layout.component.ts
+@ContentChild(WELCOME_VIDEO_MODAL) welcomeVideoModal?: WelcomeVideoModal;</code></pre>
+              <p>Pre-existing, but before this PR the header's imports didn't matter. Now they decide what a first visit downloads. I'd do this before the per-route <code>SharedModule</code> removals, since it helps every route at once.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag fix">suggest</span>
+            <div class="finding-body">
+              <h3>video.js rides in on the minimized player</h3>
+              <p><code>MinimizedPlayerComponent</code> imports <code>MediaService</code>, which imports <code>video.js</code> at the top of the file. That edge holds 622 KB in the initial bundle. The minimized player plays audio; a dynamic import where <code>MediaService</code> creates a video player would leave the audio path alone.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>Two preserved tokens are dead</h3>
+              <p><code>PhoneMaskDirective</code> and <code>SsnMaskDirective</code> are provided as services because <code>DynamicFormBuilderModule</code> did. Nothing injects either; four components reach the first through <code>@ViewChild</code>, which skips the injector. Cost is about 1 KB. Right call for a parity PR, drop them in the next cleanup.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>The base branch was over budget</h3>
+              <p>The PR says both sides build with no warnings. On a clean base worktree the QA build prints <code>bundle initial exceeded maximum budget</code>, 12.31 MB against 10 MB. Head is 8.92 MB and silent. The PR fixes a warning it doesn't claim; the author's build likely had different generated marketing data.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag old">pre-existing</span>
+            <div class="finding-body">
+              <h3>Lint</h3>
+              <p>Two errors on head: <code>[modal-extention]</code> isn't camelCase, and <code>UserTimeZone</code>, a second pipe in <code>timer-format.pipe.ts</code>, still says <code>standalone: false</code>. Both predate the PR. The same files on base had 15 errors; the PR removed 13 of them.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>Where my numbers differ</h3>
+              <p>I get 10,481,271 and 7,099,070 initial bytes against the write-up's 10,579,176 and 7,196,975. The gap is the polyfills file, which isn't in <code>main</code>'s import graph. Same &minus;32%. I count 147 declarations, not 146, because <code>CurrencyConversionModalComponent</code> is listed twice. Harmless and not from this PR.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="verification">
+        <h2 id="verification">What I ran</h2>
+        <p>Two detached worktrees at <code>e6d7afd43c</code> and <code>4ea9a1b5ee</code>, shared <code>node_modules</code>, committed data files. <code>ng build --configuration=qa --prerender=false --stats-json</code> took 49 seconds each. Initial set is what <code>main</code> reaches by static import.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Measure</th><th>Base</th><th>Head</th><th>Change</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Angular's initial total</td><td class="num">12.31 MB</td><td class="num">8.92 MB</td><td class="num">&minus;3.39 MB</td></tr>
+              <tr><td>Estimated transfer</td><td class="num">1.98 MB</td><td class="num">1.45 MB</td><td class="num">&minus;27%</td></tr>
+              <tr><td>Initial JS, static graph</td><td class="num">10,481,271</td><td class="num">7,099,070</td><td class="num">&minus;32.3%</td></tr>
+              <tr><td><code>main</code> raw bytes</td><td class="num">287,458</td><td class="num">287,572</td><td class="num">+114</td></tr>
+              <tr><td><code>src/</code> files in initial</td><td class="num">487</td><td class="num">258</td><td class="num">&minus;229</td></tr>
+              <tr><td>SharedModule's chunk</td><td class="num">7.27 MB, initial</td><td class="num">3.30 MB, lazy</td><td class="num"></td></tr>
+              <tr><td>Budget warning</td><td class="num">yes</td><td class="num">no</td><td class="num"></td></tr>
+              <tr><td>Preloaded JS on <code>/about</code>, gzip</td><td class="num">1,865,903</td><td class="num">1,116,620</td><td class="num">&minus;40%</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Twelve packages left the initial bundle, the largest being ngx-emoji-mart at 437 KB. A full page still downloads about the same total (10.57 MB base, 10.50 MB head on <code>/about</code>) because the route chunk imports <code>SharedModule</code> a moment later. The write-up says this too.</p>
+        <p>I served both builds and fetched 19 URLs. After normalizing chunk hashes and component ids, every pair is byte-identical.</p>
+        <ul class="routes" aria-label="SSR smoke test results">
+          <li><span>/, /home, /creators-home</span><span class="ok">200</span><span>same</span></li>
+          <li><span>/about, /pricing, /help-faq, /contact-us</span><span class="ok">200</span><span>same</span></li>
+          <li><span>/auth/login, /explore-creators, /topfan-vs-patreon</span><span class="ok">200</span><span>same</span></li>
+          <li><span>/dashboard/posts, /edit-preference, /wallet, /messages</span><span class="ok">200</span><span>logged-out shell, same</span></li>
+          <li><span>/triplespurband, /badbunny, /share/abc123</span><span class="ok">200</span><span>same</span></li>
+          <li><span>/not-found</span><span class="miss">404</span><span>same</span></li>
+          <li><span>/this-does-not-exist/x</span><span class="ok">200</span><span>app-sub-page-view, same as base</span></li>
+        </ul>
+        <p>Headless Chrome, logged out, 1280 by 800: both builds render the same shell on <code>/about</code> and <code>/badbunny</code>, hydrated. FOLLOW on <code>/badbunny</code> opened the "Account Required" dialog on both, which goes through <code>BsModalService</code> and the new root providers. No Angular errors.</p>
+        <p class="footnote">Not run: anything logged in, the music player maximize, the dev build, white-label builds, prerender.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">QA after merge</h2>
+        <p>The write-up's checklist covers it. If there's time for three items, these touch paths neither of us reached logged out:</p>
+        <ol class="qa">
+          <li>Log in as a creator with a delegate, switch to the delegate, and complete the OTP modal.</li>
+          <li>On a fan account that doesn't qualify, open "Become a creator" from the user menu and the sidebar.</li>
+          <li>Play a track, minimize, maximize. Then tap maximize twice quickly on a throttled connection and confirm one modal opens.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

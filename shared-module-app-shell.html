@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SharedModule leaves the initial bundle</title>
+  <meta name="description" content="The header, sidebar, and the pieces they use became standalone, and AppModule stopped importing SharedModule. What changed, how it was tested, and a checklist to verify it.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>SharedModule leaves the initial bundle</h1>
+      <p>AppModule imported SharedModule, so every page loaded SharedModule's code before the router picked a route. The header, the sidebar, and the pieces they need are standalone now, and AppModule imports them directly. On the QA build the initial JavaScript drops from <span class="focus">10.09 MB</span> to <span class="ok">6.86 MB</span>, 31% less.</p>
+      <p>Pages aren't faster yet. 41 lazy routes still import SharedModule, so most pages fetch it anyway, just a little later. This branch moves SharedModule off the critical path. The per-page savings come when those routes stop importing it.</p>
+      <div class="meta">
+        <span>branch t3code/shared-module-app-shell</span>
+        <span>base e6d7afd43c, the PR 10831 merge</span>
+        <span>commits 4ea9a1b5ee, e774e58c88</span>
+        <span>17 files, +242 &minus;64</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10832">PR 10832</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Thirteen classes stopped being SharedModule declarations. Each one is standalone and lists its own imports.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Class</th><th>Kind</th><th>Rendered by</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>HeaderComponent</code></td><td>component</td><td>AppComponent</td></tr>
+              <tr><td><code>SidebarComponent</code></td><td>component</td><td>AppComponent</td></tr>
+              <tr><td><code>HeaderUserMenuComponent</code></td><td>component</td><td>the header</td></tr>
+              <tr><td><code>UserImageComponent</code>, <code>UserProfileComponent</code></td><td>component</td><td>the user menu, the sidebar, and many feature pages</td></tr>
+              <tr><td><code>TickIconComponent</code></td><td>component</td><td>the user profile card</td></tr>
+              <tr><td><code>CreatorRequirementsModalComponent</code></td><td>modal</td><td>the header, the user menu, and the sidebar</td></tr>
+              <tr><td><code>VerifyOTPModalComponent</code></td><td>modal</td><td>the user menu, for the delegate switch</td></tr>
+              <tr><td><code>ModalExtention</code></td><td>directive</td><td>the user menu</td></tr>
+              <tr><td><code>HasPermissionPipe</code>, <code>ShowTabByApprovalPipe</code>, <code>MyProfile</code>, <code>TimerFormat</code></td><td>pipe</td><td>the header, the sidebar, and the OTP modal</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>SharedModule imports all 13 and exports the same list it did before. The feature modules that import SharedModule compile without changes. SharedModule now has 133 declarations, down from 146.</p>
+        <p>AppModule imports the five things its own template uses. Those are <code>HeaderComponent</code>, <code>SidebarComponent</code>, <code>FooterComponent</code>, <code>LanguageSwitcherComponent</code>, and <code>SpaLinkDirective</code>. I also removed <code>exports: [SharedModule]</code>. Nothing imports AppModule, so that export did nothing.</p>
+      </section>
+
+      <section>
+        <h2>The root providers stay at the root</h2>
+        <p>Importing SharedModule into AppModule had a side effect. Every provider SharedModule listed, plus the providers of the modules it imports, ended up in the root injector. ngx-bootstrap's <code>BsModalService</code> builds modal content with the root injector, not the injector of the page that opened the modal. So a modal opened from a lazy page could inject <code>CurrencyToLocal</code> or the ng-select config only because AppModule imported SharedModule. Dropping the import without a replacement would break those modals at runtime, and the build wouldn't catch it.</p>
+        <p>The new file <code>shared-root.providers.ts</code> keeps them in place. AppModule spreads <code>provideSharedRootProviders()</code> into its providers, which returns:</p>
+        <ul>
+          <li>The 11 providers SharedModule listed itself, such as <code>DatePipe</code>, <code>MyProfile</code>, and <code>MAT_BOTTOM_SHEET_DATA</code>.</li>
+          <li><code>PhoneMaskDirective</code> and <code>SsnMaskDirective</code>, which come from DynamicFormBuilderModule.</li>
+          <li>The root providers of eight library modules, through <code>importProvidersFrom</code>. Those are ng-select, the multiselect dropdown, owl carousel, the OTP input, the color picker, circle progress, and the two share-button modules.</li>
+          <li>An environment initializer that registers the X and SMS Font Awesome icons. SharedModule's constructor did this before, and it still does when a lazy page loads SharedModule.</li>
+        </ul>
+        <p>SharedModule reads its provider list, icon list, and share-button options from the same file, so the two lists can't drift apart.</p>
+        <p>To check that nothing fell off, I loaded each build's server bundle in Node, built the root injector from AppModule, and listed every token it can resolve. On base, 25 tokens reached the root only through SharedModule. <span class="ok">The new build resolves all 25.</span> Among them are <code>CircleProgressOptions</code>, <code>ColorPickerService</code>, <code>shareButtonsConfig</code>, <code>WindowRef</code>, <code>OwlLogger</code>, and <code>ResizeService</code>.</p>
+      </section>
+
+      <section>
+        <h2>The music player import</h2>
+        <p>After the first pass, SharedModule was still in the initial bundle. AppModule renders <code>MinimizedPlayerComponent</code>, and that file imported <code>MusicPlayerModalComponent</code> at the top. The modal's file imports SharedModule, so esbuild kept SharedModule in <code>main</code>'s static import graph.</p>
+        <p><code>maximizeModal()</code> now loads the modal with a dynamic import when the user taps maximize. <code>dashboard-module.service.ts</code> already opens modals this way. The first maximize waits for one chunk. After that, the browser has it cached.</p>
+        <p>The first version of this had a race, which the <a href="/pr-10832-review-astra">astra review</a> caught. The player stays clickable while the chunk loads. Two taps opened two modals, and closing the player during the wait still opened the modal a moment later. Commit e774e58c88 adds a guard:</p>
+<pre><code>async maximizeModal() {
+  if (!this.currentMusic || !this.initialState || this.pendingMaximize) return;
+
+  const request = {};
+  const trackKey = this.trackKey;
+  this.pendingMaximize = request;
+  try {
+    const { MusicPlayerModalComponent } = await import(
+      '@components/player-modal/music-player-modal/music-player-modal.component'
+    );
+    if (
+      this.pendingMaximize !== request ||
+      !this.isMinimized ||
+      this.trackKey !== trackKey
+    ) {
+      return;
+    }
+    this.openMaximizedPlayer(MusicPlayerModalComponent);
+  } finally {
+    if (this.pendingMaximize === request) this.pendingMaximize = null;
+  }
+}</code></pre>
+        <p>Taps during the load do nothing. Closing the player clears the token, and so does <code>ngOnDestroy</code>. A track change leaves the token alone but fails the track check. If the chunk fails to load, the audio was never paused, so the track keeps playing, and the <code>finally</code> lets the next tap try again. The modal type comes in through <code>import type</code>, which the compiler erases, so it adds no static import.</p>
+        <p>I bundled the real component with esbuild, once from 4ea9a1b5ee and once with the guard. The service is the real <code>MinimizedPlayerService</code>. The modal import points at a stub module that waits on a promise the test releases.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>While the chunk loads</th><th>4ea9a1b5ee</th><th>With the guard</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Tap maximize twice</td><td class="bad">2 modals</td><td class="ok">1 modal</td></tr>
+              <tr><td>Close the player</td><td class="bad">1 modal</td><td class="ok">none</td></tr>
+              <tr><td>Change track</td><td class="bad">1 modal</td><td class="ok">none</td></tr>
+              <tr><td>Destroy the component</td><td class="bad">1 modal</td><td class="ok">none</td></tr>
+              <tr><td>Chunk fails to load</td><td>none, audio keeps playing</td><td class="ok">none, audio keeps playing, guard released</td></tr>
+              <tr><td>Tap once</td><td>1 modal</td><td class="ok">1 modal</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The repo has no spec files, because commit 4ffa00b728 deleted them all, so this check lives outside the repo. It exercises the component's code, not playback in a browser.</p>
+      </section>
+
+      <section>
+        <h2>How it was tested</h2>
+        <h3>Builds</h3>
+        <p>I built base from e6d7afd43c in a separate worktree and this branch in the main checkout. The development and QA builds pass on both sides. The development build has no warnings. The QA build has 42 on this branch, and all of them are on base too. 41 say a dependency such as lodash or video.js isn't ESM, and one says two CSS rules were skipped. Base has one more, because its initial bundle misses the 10 MB budget at 12.37 MB with CSS. This branch meets the budget.</p>
+        <p>After the maximize fix, <code>ngc -p tsconfig.app.json --noEmit</code> passes, and a fresh QA build gives the same 6.86 MB initial load. <code>main</code> grew by 418 bytes.</p>
+
+        <h3>Bundle size</h3>
+        <p>I rebuilt both sides with <code>--stats-json</code> and walked the static imports from <code>main</code> to find the initial files.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>QA build</th><th class="num">Base</th><th class="num">This branch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Initial JavaScript files</td><td class="num">16</td><td class="num">16</td></tr>
+              <tr><td>Initial JavaScript bytes</td><td class="num">10,579,176</td><td class="num ok">7,196,975, &minus;32%</td></tr>
+              <tr><td>Initial JavaScript, gzip</td><td class="num">2.33 MB</td><td class="num ok">1.61 MB, &minus;31%</td></tr>
+              <tr><td><code>main</code> bytes</td><td class="num">287,458</td><td class="num">287,572</td></tr>
+              <tr><td><code>modules/shared</code> source in the initial load</td><td class="num">1,599 KB</td><td class="num ok">309 KB</td></tr>
+              <tr><td>SharedModule's chunk</td><td class="num">inside a 6.92 MB initial chunk</td><td class="num ok">3.14 MB, lazy</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>No static import path from <code>main</code> reaches <code>shared.module.ts</code> now. What's left in the initial load is mostly libraries. The biggest are moment-timezone at 715 KB, google-libphonenumber at 567 KB, video.js at 546 KB, ng-ivs at 539 KB, and the IVS player at 351 KB. The generated marketing and comparison data files add 285 KB and 252 KB.</p>
+
+        <h3>Server-rendered HTML</h3>
+        <p>I ran the SSR server from each build and requested 32 URLs on both. First I diffed base against itself, to be sure the comparison had no noise. Then I replaced chunk hashes and Angular's style IDs with placeholders and diffed base against the branch. <span class="ok">All 32 match.</span></p>
+        <p>The URLs were <code>/</code>, <code>/home</code>, <code>/creators-home</code>, <code>/athletes</code>, <code>/music-artists</code>, <code>/topfan-vs-patreon</code>, <code>/apps/music-band-fan-club</code>, <code>/about</code>, <code>/pricing</code>, <code>/privacy-policy</code>, <code>/terms-of-service</code>, <code>/contact-us</code>, <code>/request-demo</code>, <code>/help-faq</code>, <code>/explore-creators</code>, <code>/resources</code>, <code>/forum</code>, three <code>/auth</code> pages, <code>/dashboard/posts</code>, <code>/edit-preference</code>, <code>/wallet</code>, <code>/monetize</code>, <code>/messages</code>, <code>/insights</code>, <code>/order-status</code>, <code>/content</code>, <code>/not-found</code>, an unknown URL that returns 404, <code>/creators/login</code>, and <code>/share/abc123</code>.</p>
+        <p>The server renders the header and the footer. The sidebar only renders in the browser. Both match base. The creator profile <code>/triplespurband</code> differs by 60 raw bytes, and all 60 are three component IDs. Angular hashes the <code>standalone</code> flag into those IDs, so they change when a component goes standalone. The server and the browser run the same build, so hydration still lines up.</p>
+
+        <h3>In the browser</h3>
+        <p>I drove both builds logged out with Playwright and Chrome, at 1280 by 800 and at 390 by 844.</p>
+        <ul>
+          <li>The header, footer, and sidebar looked the same on every page I opened, and the Features dropdown opened.</li>
+          <li>On <code>/badbunny</code>, the sidebar showed the guest sign-in cards on both builds.</li>
+          <li>On <code>/badbunny</code>, clicking FOLLOW and then CHAT ROOM opened the "Account Required" login dialog on both builds. That dialog goes through <code>BsModalService</code>, so it's a live test of the root injector.</li>
+          <li>The new build logged no <code>NG0</code> errors, no <code>NullInjectorError</code>, and no uncaught page errors.</li>
+        </ul>
+        <p>Profile pages on the QA backend sometimes returned 429 or 504. That happened on both builds, and I retried until they loaded.</p>
+
+        <h3>Load timing</h3>
+        <p>Most pages still import SharedModule, so I checked whether moving it out of the initial load made anything slower. First, the compressed JavaScript each page downloads, logged out, on a local server:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Base</th><th class="num">This branch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/</code></td><td class="num">2,502 KB</td><td class="num">2,490 KB</td></tr>
+              <tr><td><code>/about</code></td><td class="num">2,347 KB</td><td class="num">2,334 KB</td></tr>
+              <tr><td><code>/auth/login</code></td><td class="num">2,391 KB</td><td class="num">2,379 KB</td></tr>
+              <tr><td><code>/music-artists</code></td><td class="num">2,492 KB</td><td class="num">2,479 KB</td></tr>
+              <tr><td><code>/not-found</code></td><td class="num">2,370 KB</td><td class="num">2,358 KB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Every page saves about 12 KB, which is noise. What changed is when the SharedModule chunk starts. On base it's in the preload list and downloads alongside <code>main</code>. On this branch the browser asks for it once the router resolves the route. On <code>/about</code> that was 1.3 seconds later on my machine.</p>
+        <p>So I reran with Lighthouse's mobile throttling, which is 150 ms of latency, 1.6 Mbps down, and a CPU slowed down 4 times. Each number is the median of three loads.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th>Measure</th><th class="num">Base</th><th class="num">This branch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/about</code></td><td>First paint</td><td class="num">984 ms</td><td class="num">1,084 ms</td></tr>
+              <tr><td><code>/about</code></td><td>Main thread goes quiet</td><td class="num">18.6 s</td><td class="num">18.7 s</td></tr>
+              <tr><td><code>/about</code></td><td>Total blocking time</td><td class="num">1,161 ms</td><td class="num ok">999 ms</td></tr>
+              <tr><td><code>/</code></td><td>First paint</td><td class="num">2,384 ms</td><td class="num">2,484 ms</td></tr>
+              <tr><td><code>/</code></td><td>Main thread goes quiet</td><td class="num">32.5 s</td><td class="num ok">31.1 s</td></tr>
+              <tr><td><code>/</code></td><td>Total blocking time</td><td class="num">1,425 ms</td><td class="num ok">1,174 ms</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>I'd call it a wash. Blocking time is 160 to 250 ms lower, most likely because the browser parses less code before the first route. The later chunk request gives some of that back. First paint was 100 ms later on this branch under throttling, but the same or earlier in the unthrottled runs, and the server sends the same HTML on both. Neither result is a regression, and neither is a speedup worth reporting.</p>
+      </section>
+
+      <section>
+        <h2>Affected areas</h2>
+        <p>I tested logged out. Most of what changed renders for logged-in users, so the risk tags lean on what I couldn't click.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Risk</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Header user menu</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Hand-written import list of 13 entries. The delegate switch and its OTP modal only appear when logged in, and I never opened them.</td>
+              </tr>
+              <tr>
+                <td>Modals opened from lazy pages</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Their dependencies come from the root providers, which moved to a new file. The token diff is clean, but I only opened the login dialog.</td>
+              </tr>
+              <tr>
+                <td>Sidebar when logged in</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Permission and approval pipes decide which nav items show. I only saw the guest view.</td>
+              </tr>
+              <tr>
+                <td>Minimized music player</td>
+                <td><span class="tag low">Low</span></td>
+                <td>Maximize waits for a chunk download the first time. The guard against double taps and closing mid-load is checked outside the browser only.</td>
+              </tr>
+              <tr>
+                <td>Public pages and SSR</td>
+                <td><span class="tag low">Low</span></td>
+                <td>32 server-rendered URLs match base.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Use a QA creator account that has a delegate. Keep the console open the whole time. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Header and user menu</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="hd-avatar"><span>Logged in, the header shows your avatar. A verified creator gets the tick.</span></label></li>
+              <li><label><input type="checkbox" data-id="hd-menu"><span>The user menu opens and closes with its X.</span></label></li>
+              <li><label><input type="checkbox" data-id="hd-links"><span>My site, edit preferences, and log out each go where they did before.</span></label></li>
+              <li><label><input type="checkbox" data-id="hd-theme"><span>Switching the theme from the user menu works on desktop and on a phone-sized screen.</span></label></li>
+              <li><label><input type="checkbox" data-id="hd-delegate"><span>Picking a delegate account shows the confirm modal, then the OTP modal. The code arrives, the resend timer counts down, and the right code switches the account.</span></label></li>
+              <li><label><input type="checkbox" data-id="hd-creator"><span>On a fan account that doesn't qualify, "Become a creator" in the user menu opens the creator requirements modal with its checkboxes.</span></label></li>
+              <li><label><input type="checkbox" data-id="hd-guest"><span>Logged out, the Features and Compare dropdowns open, and so does the kebab menu on a phone-sized screen.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Sidebar</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="sb-card"><span>Logged in as a creator, the sidebar shows your profile card and the same nav items as production.</span></label></li>
+              <li><label><input type="checkbox" data-id="sb-perm"><span>Log in as a delegate with limited permissions. The nav items it can't use stay hidden, the same as production.</span></label></li>
+              <li><label><input type="checkbox" data-id="sb-active"><span>The active item highlights as you move between dashboard, monetize, insights, and messages.</span></label></li>
+              <li><label><input type="checkbox" data-id="sb-creator"><span>"Become a creator" in the sidebar opens the requirements modal on an account that doesn't qualify.</span></label></li>
+              <li><label><input type="checkbox" data-id="sb-mobile"><span>On a phone-sized screen, the bottom nav works for a logged-in user.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Modals and root providers on lazy pages</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="md-login"><span>Logged out, FOLLOW on a creator page opens the login dialog.</span></label></li>
+              <li><label><input type="checkbox" data-id="md-price"><span>A subscribe or tip modal on a creator profile opens and shows prices in your local currency.</span></label></li>
+              <li><label><input type="checkbox" data-id="md-share"><span>Sharing a post opens the share modal, and the X and SMS icons show.</span></label></li>
+              <li><label><input type="checkbox" data-id="md-phone"><span>A phone number field in edit preferences masks the number as you type.</span></label></li>
+              <li><label><input type="checkbox" data-id="md-select"><span>The select dropdowns on the edit preferences personal info page open and filter. They use ng-select, whose config now comes from the root providers.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag low">Low</span> Music player</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="mp-max"><span>Play a track, minimize the player, then maximize it. The full player opens on the first tap and picks up where the track was.</span></label></li>
+              <li><label><input type="checkbox" data-id="mp-again"><span>Minimize and maximize a second time. It opens right away.</span></label></li>
+              <li><label><input type="checkbox" data-id="mp-double"><span>In a fresh tab with DevTools network throttling set to Slow 4G, tap maximize twice fast. One modal opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="mp-close"><span>Same setup, tap maximize and then close the minimized player before the modal appears. No modal opens.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3>Every page</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="all-console"><span>The console has no <code>NG0201</code>, <code>NullInjectorError</code>, or "is not a known element" errors on any page above.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-hydrate"><span>A hard reload on <code>/</code>, a creator profile, and <code>/dashboard</code> logs no <code>NG05xx</code> hydration errors.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-wl"><span>At least one generated white-label project builds and loads.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Not tested</h2>
+        <ul>
+          <li>Anything behind login, including the user menu, the delegate switch, and the logged-in sidebar.</li>
+          <li>The music player maximize, which needs a track playing.</li>
+          <li>Modals other than the login dialog.</li>
+          <li>The production build configuration, a white-label build, and a prerender run.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What's next</h2>
+        <p>SharedModule still loads on almost every page. 41 lazy entry points import it, including <code>/about</code>, <code>/pricing</code>, <code>/privacy-policy</code>, the 404 page, and the marketing and comparison pages. Most of these are one-component pages that use a handful of SharedModule's 133 declarations. Swapping each one's SharedModule import for the few pieces it uses is the change that shrinks downloads, and each page can go in its own small PR.</p>
+        <p>The five large modules come after that, as the plan already says. They're edit-preference, profile, monetize, dashboard, and wallet.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "shared-module-app-shell-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The dynamic form builder is standalone</title>
+  <meta name="description" content="DynamicFormBuilderModule is deleted and its 18 components are standalone. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>The dynamic form builder is standalone</h1>
+      <p><code>DynamicFormBuilderModule</code> is deleted. Its 18 components are standalone, and the 92 components that imported the module now import only the pieces they render. Most routes fetch about 13 KB less JavaScript on a first visit. No feature NgModule is left.</p>
+      <div class="meta">
+        <span>branch t3code/dynamic-form-builder-standalone</span>
+        <span>on top of 9a6dbec043, PR 10840 merged</span>
+        <span>Item 2 of <a href="standalone-routes-whats-left.html">what's left</a></span>
+        <span>2 commits, <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10841">PR 10841</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lazy JavaScript per route</h2>
+        <p>What a first visit fetches on top of the initial bundle, from the QA build. Sizes are minified bytes before compression. Before means after PR 10840. MB means a million bytes.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/edit-preference</code></td><td class="num">4.32 MB</td><td class="num">4.31 MB</td></tr>
+              <tr><td>The whitelabel cover page</td><td class="num">3.17 MB</td><td class="num">3.15 MB</td></tr>
+              <tr><td><code>/monetize</code></td><td class="num">3.21 MB</td><td class="num">3.20 MB</td></tr>
+              <tr><td><code>/dashboard</code></td><td class="num">5.10 MB</td><td class="num">5.09 MB</td></tr>
+              <tr><td><code>/messages</code>, <code>/insights</code>, <code>/wallet</code>, <code>/auth</code>, <code>/resources</code>, profiles, post detail and the pro page</td><td class="num">&nbsp;</td><td class="num">13 KB less each</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The post price dialog is its own lazy entry. On its own it drops from 0.88 MB to 0.12 MB, but it only opens from new post or a live stream, after the dashboard's code has loaded. Counted on top of that, it fetches 64 KB where it fetched 60 KB, so it's about 4 KB worse in practice. Apart from that dialog, no entry grew by more than 198 bytes. The initial bundle has the same source files and 322 fewer bytes of code. It's 1.3 KB bigger overall because it's split into 108 chunks instead of 100, and each chunk adds a little import and export code. Routes now import different subsets of the form builder, so the bundler cuts shared code into smaller pieces.</p>
+      </section>
+
+      <section>
+        <h2>Commit 5bdbb26936: make the module's components standalone</h2>
+        <p class="meta">19 files, +254 &minus;41</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The 18 components the module declared are standalone. They include the form builder itself, the date and time pickers, the file uploads, the color picker, the location input and the map.</li>
+          <li>They moved from the module's declarations to its imports, so the module still exports what it did.</li>
+          <li><code>DynamicFormBuilderComponent</code> imports every field component its template renders. That includes five the module declared but never exported: the time picker, the multi-select, both file upload inputs and the profile image upload.</li>
+        </ul>
+        <p>My conversion script left those five out at first. It builds each import list from the compiled template dependencies, and the diff script I used to compare them hid the gap. Its filter ignored more than the one directive it was meant to skip. I added the five by hand and replaced the diff script with one that ignores only that directive. I then reran it on PR 10840, and it found nothing new there.</p>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against PR 10840</td><td>All 646 components match.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as before.</td></tr>
+              <tr><td>Initial bundle</td><td>Unchanged, byte for byte.</td></tr>
+              <tr><td>Server rendering, 145 URLs</td><td>All match PR 10840.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>3 <code>use-lifecycle-interface</code> errors, all in older code.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit 643b28fbfa: delete DynamicFormBuilderModule</h2>
+        <p class="meta">94 files, +249 &minus;363</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The 92 components that imported the module import the pieces they use. Most need one or two, such as <code>DynamicFormBuilderComponent</code>, <code>ButtonComponent</code> or <code>FormInputComponent</code>.</li>
+          <li><code>dynamic-form-builder.module.ts</code> is deleted, and so is its routing module, which had an empty route list.</li>
+          <li>The module provided the form builder service, the image compressor and the phone and SSN mask directives. The root injector already provides all four.</li>
+          <li>The color picker service still comes from <code>ColorPickerModule</code>, which the color picker field imports. Standalone imports reach through child components, so every route or dialog that renders a picker still gets its own copy of the service, as before.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the first commit</td><td>All 646 components match. Nothing references the deleted files.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass with the same 42 warnings.</td></tr>
+              <tr><td>Server rendering, 145 URLs</td><td>All match PR 10840.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>30 form pages across monetize, edit preference, insights, wallet, messages, resources, contact and new post. All land on the same page with the same components and no page errors. Five differed on the first pass while still loading, then matched with a longer wait.</td></tr>
+              <tr><td>The five restored field types</td><td>The time picker renders on add event and the second version of the file upload input renders on add downloadable, same as before. The multi-select and profile image upload only show inside dialogs, so they're in the checklist.</td></tr>
+              <tr><td>Color pickers</td><td>On the whitelabel appearance page, opening a second picker closes the first, same as before. The social links dialog prefills the same handles.</td></tr>
+              <tr><td>Every layout in the add section modal</td><td>All match, with no page errors. The header and footer editors, the preview and add sub-page match too.</td></tr>
+              <tr><td>New post page</td><td>All ten post type tabs and the five text tab actions match. The post price dialog opens from the article and video tabs with the same content.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>39 errors from older rules, such as <code>use-lifecycle-interface</code> and <code>no-output-on-prefix</code>. The change only touches imports.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Nothing was saved or submitted. The forms were opened and compared, not filled in, so the checklist starts with filling in the forms that use the restored field types.</p>
+      </section>
+
+      <section>
+        <h2>What's left</h2>
+        <ul>
+          <li><code>BioLinkPipe</code> is still <code>standalone: false</code>, and nothing declares it.</li>
+          <li>Four components only the deleted <code>SharedModule</code> used are still in the tree.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Use a creator account on its white-label site. Keep the console open. Checks that end in save or send change real data, so use a test account. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> The five field types the module didn't export</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="f-time"><span>Add an event under <code>/monetize/event-calendar/add-event</code>. Pick start and end times with the time picker.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-lesson"><span>Add a lesson to a course. The time picker works there too.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-v2"><span>Add a downloadable and create a course. Attach a file in each. The upload shows its name and progress.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-stripe"><span>In the wallet, open the Stripe document dialog and attach a document.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-multi"><span>In insights, open send email. Pick several recipients in the multi-select.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-profile"><span>Start a new message and add an image with the profile image upload.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-portfolio"><span>Add a portfolio item. The profile image upload and the direct distribution file upload work.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-file"><span>In the cover page editor, add a marketing section with a file field and attach a file.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Other forms</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="f-monetize"><span>Open add external merch, add VIP offer, add NFT, create experience, add newsletter and add discount code. Submit each one empty. The validation errors show.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-price"><span>On a new post, open the lock dialog. Set a price and loyalty points.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-location"><span>Add an event with a location. The location search suggests places and the map shows the pick.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-masks"><span>Type a phone number in a mobile field, and an SSN on the verify identity step of becoming a creator. Both format as you type.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-color"><span>On the whitelabel appearance page, pick a custom color. On link in bio, pick a custom color from the popover.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-images"><span>Change the banner and add several images to an item that takes more than one. Upload a video where a form asks for one.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag low">Low</span> Public forms</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="f-contact"><span>Logged out, open <code>/contact-us</code>. The form validates and the mobile field formats.</span></label></li>
+              <li><label><input type="checkbox" data-id="f-pro"><span>On the pro page, the contact form works.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "dynamic-form-builder-standalone-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

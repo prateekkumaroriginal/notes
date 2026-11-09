@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How the marketing preview loads a layout</title>
+  <meta name="description" content="A walk through the three files in PR 10849. The loaders map, PendingTasks, the header exception, and why ngComponentOutlet.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); line-height: 1.55; }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      overflow-x: auto;
+      padding: 1rem 1.1rem;
+      border-radius: 0.5rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    pre code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>How the marketing preview loads a layout</h1>
+      <p>PR 10849 touched three files in <code>marketing-page-full-preview</code>. The sizes are in <a href="lazy-marketing-layouts.html">the other notes</a>. This page is the code. I am walking it in the order a public page hits it.</p>
+      <div class="meta">
+        <span>commit 3645b6d5ee</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">PR 10849</a></span>
+        <span>25 Sep 2026</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What used to sit in the preview file</h2>
+        <p>The old <code>marketing-page-full-preview.component.ts</code> imported 54 layout classes at the top and listed all 54 in <code>imports</code>. The template then <code>*ngSwitch</code>ed on <code>section.layoutId</code>. Angular will not render a tag you did not import, so the switch forced the whole catalog into the same JavaScript as the preview.</p>
+        <p>A page with a header, a hero, and a footer still paid for passion-grid. That is the leftover this PR kills. The editor, <code>add-marketing-page-section</code>, still has the static list. Leave it. A creator opening the picker needs every type.</p>
+      </section>
+
+      <section>
+        <h2>The three files</h2>
+        <ul>
+          <li><code>marketing-page-layout-loaders.ts</code> is new. A map from layout id to <code>import()</code>, plus the extra inputs some layouts already had.</li>
+          <li><code>marketing-page-full-preview.component.ts</code> dropped the 54 class imports. It resolves colors the same way, then loads the ids this page actually shows.</li>
+          <li><code>marketing-page-full-preview.component.html</code> kept the header markup. Everything else goes through <code>ngComponentOutlet</code>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>The map has to spell every path</h2>
+        <p>The bundler only splits a dynamic import when the path is a string literal. A clever <code>import(\`.../${id}/...\`)</code> looks nicer and ships nothing as its own file. So the map is 53 boring entries. One of them looks like this.</p>
+        <pre><code>[LAYOUT_IDS.HERO_LAYOUT]: () =&gt;
+  import('../marketing-page-layout-container/hero-layout/hero-layout.component').then(
+    (m) =&gt; m.HeroLayoutComponent
+  ),</code></pre>
+        <p>The function does not run until something calls it. Putting the map in a file the preview imports does not download hero. Calling <code>MARKETING_PAGE_LAYOUT_LOADERS['hero-layout']()</code> does.</p>
+        <p>Header is not in the map. <code>STATIC_MARKETING_PAGE_LAYOUT_IDS</code> is a one-item set, <code>HEADER_LAYOUT</code>. <code>pro-contact-form-layout</code> is not in the map either. That id never had a preview class in the old 54. The pro page still owns that form itself.</p>
+      </section>
+
+      <section>
+        <h2>Inputs that used to live on the switch cases</h2>
+        <p>Most layouts only take <code>data</code>. A few took more, and those bindings used to sit on the matching <code>*ngSwitchCase</code>. They moved into <code>getMarketingPageLayoutInputs</code> so the outlet can pass one object.</p>
+        <pre><code>const inputs = { data: ctx.data };
+
+if (layoutId === LAYOUT_IDS.PINNED_HORIZONTAL_SCROLL_LAYOUT) {
+  inputs['disablePinnedScroll'] = isMobilePreview;
+}
+if (CMS_PREVIEW_EDITING_LAYOUT_IDS.has(layoutId)) {
+  inputs['isEditingMode'] = ctx.cmsPreviewMode;
+}
+if (layoutId === LAYOUT_IDS.FOOTER_LAYOUT) {
+  inputs['syncWhitelabelLogo'] = ctx.syncWhitelabelLogo;
+  inputs['previewBranding'] = ctx.previewBranding;
+}</code></pre>
+        <p>The CMS set is the layouts that already accepted <code>isEditingMode</code> in the old template. Snap-scroll also gets <code>isEditingMode</code> when the cover preview is in the mobile frame. Carousel and the two comparison tables get <code>forceMobileView</code> in that frame. I did not invent those flags. I copied the old cases.</p>
+      </section>
+
+      <section>
+        <h2>The preview now imports four things</h2>
+        <pre><code>imports: [
+  CommonModule,
+  HeaderLayoutComponent,
+  HeaderUserMenuComponent,
+  CustomWelcomeModalTemplate
+]</code></pre>
+        <p>That is the whole static graph of the preview. Hero is gone. Footer is gone. Comparison table is gone. Header stays because the template still writes <code>&lt;app-header-layout&gt;</code> by hand.</p>
+        <p><code>layoutComponents</code> is the cache. Key is a layout id. Value is the class that came back from <code>import()</code>. Once hero is in there, a later section with the same id does not fetch again. A second marketing URL in the same visit can reuse the chunk the browser already has.</p>
+      </section>
+
+      <section>
+        <h2>Resolve colors, then load</h2>
+        <p><code>resolveSectionsOnce</code> is the old color pass. Theme vars, cover-page color mode, the heading-highlight flag. That did not change. What changed is the last two lines. Each resolved section now carries <code>layoutInputs</code>, and then we start the imports.</p>
+        <pre><code>layoutInputs: this.buildLayoutInputs(item.section.layoutId, resolvedData)
+// ...
+this.cdr.markForCheck();
+void this.loadVisibleLayoutComponents();</code></pre>
+        <p><code>void</code> is there because the method is async and we are not awaiting it from <code>ngOnInit</code>. The wait lives inside the method, on <code>PendingTasks</code>. If you await from the lifecycle hook instead and skip the task list, SSR still finishes early. Angular does not treat a dangling promise on <code>ngOnInit</code> as work it must finish. It treats <code>PendingTasks</code> that way.</p>
+        <p><code>ngOnChanges</code> rebuilds the whole list when sections arrive after init, or when colors change. If only the CMS preview flags change, it rebuilds <code>layoutInputs</code> and leaves the cached classes alone. That is the cheap path. Switching the cover preview from desktop to mobile should not reload hero.</p>
+      </section>
+
+      <section>
+        <h2>Load only what this page shows</h2>
+        <pre><code>const layoutIds = [
+  ...new Set(
+    this.resolvedSections
+      .filter((item) =&gt; item.section.isVisible !== false)
+      .map((item) =&gt; item.section.layoutId)
+      .filter((layoutId) =&gt;
+        !!layoutId &amp;&amp;
+        !STATIC_MARKETING_PAGE_LAYOUT_IDS.has(layoutId) &amp;&amp;
+        !!MARKETING_PAGE_LAYOUT_LOADERS[layoutId] &amp;&amp;
+        !this.layoutComponents[layoutId]
+      )
+  )
+];</code></pre>
+        <p>Hidden sections stay off the wire. Header never goes through the map. An unknown id is skipped, not thrown. Already-cached ids are skipped. <code>Set</code> so two heroes on one page fetch once.</p>
+        <p>Then the part that keeps prerender honest.</p>
+        <pre><code>const generation = ++this.layoutLoadGeneration;
+const done = this.pendingTasks.add();
+try {
+  const loaded = await Promise.all(
+    layoutIds.map(async (layoutId) =&gt; {
+      const layoutComponent = await MARKETING_PAGE_LAYOUT_LOADERS[layoutId]();
+      return [layoutId, layoutComponent];
+    })
+  );
+  if (generation !== this.layoutLoadGeneration) {
+    return;
+  }
+  for (const [layoutId, layoutComponent] of loaded) {
+    this.layoutComponents[layoutId] = layoutComponent;
+  }
+  this.cdr.markForCheck();
+} finally {
+  done();
+}</code></pre>
+        <p><code>Promise.all</code> starts every missing layout together. Sequential <code>import()</code> would make SSR wait for the sum of the chunk times. Parallel waits for the slowest one.</p>
+        <p><code>pendingTasks.add()</code> tells Angular the page is not ready. <code>done()</code> in <code>finally</code> tells it we finished, including when an import throws. Skip that and the first HTML has no <code>&lt;app-hero-layout&gt;</code>. We already saw this on white-label home when Profile used a fire-and-forget <code>import()</code>. 172 KB, no <code>&lt;app-profile&gt;</code>. The task list brought it back.</p>
+        <p>The generation number is the same idea as the camera-modal race. Sections change, or the component dies, and an older <code>Promise.all</code> must not write into <code>layoutComponents</code>. <code>ngOnDestroy</code> bumps the number. A stale load still calls <code>done()</code>, so SSR does not hang, but it does not paint dead classes.</p>
+        <p><code>@defer</code> is the wrong tool here. It is client-only. The server HTML would be empty wrappers. Search engines and the first paint would see a hole, then the browser would fill it. That is the prerender you do not want on a public marketing page.</p>
+      </section>
+
+      <section>
+        <h2>Header stays a real tag</h2>
+        <pre><code>&lt;ng-container *ngIf="item.section.layoutId === LAYOUT_IDS.HEADER_LAYOUT; else lazySectionLayout"&gt;
+  &lt;app-header-layout #headerLayout ...&gt;
+    &lt;ng-template #coverUserMenuTemplate&gt;
+      &lt;app-header-user-menu ...&gt;&lt;/app-header-user-menu&gt;
+    &lt;/ng-template&gt;
+    &lt;app-welcome-video-modal
+      headerLayoutWelcomeVideo
+      [post]="headerLayout.welcomeVideoPost"
+      (canceled)="headerLayout.onWelcomeVideoModalClosed()"
+    &gt;&lt;/app-welcome-video-modal&gt;
+  &lt;/app-header-layout&gt;
+&lt;/ng-container&gt;
+
+&lt;ng-template #lazySectionLayout&gt;
+  &lt;ng-container
+    [ngComponentOutlet]="layoutComponents[item.section.layoutId]"
+    [ngComponentOutletInputs]="item.layoutInputs"
+  &gt;&lt;/ng-container&gt;
+&lt;/ng-template&gt;</code></pre>
+        <p>The header block is the old template. It projects a user-menu template and a welcome-video modal. The modal reads <code>headerLayout.welcomeVideoPost</code> and calls back into the header when it closes. <code>ngComponentOutlet</code> can pass inputs. It cannot project content, and it cannot give you a template variable pointing at the created instance for a sibling to bind to. Moving the welcome modal into HeaderLayout would fix that. That is a different PR, and I would not hold this one for it.</p>
+        <p>When the outlet's class is still undefined, Angular renders nothing for that section. That is why the load has to finish before SSR serializes. After the cache fill, <code>markForCheck</code> makes OnPush notice the new classes.</p>
+      </section>
+
+      <section>
+        <h2>What this file does not decide</h2>
+        <p>SEO tags come from <code>setMarketingPageSeo</code> on the page component, from the published payload. They never imported a layout class. Title and description stay the same whether hero is static or lazy.</p>
+        <p>The four promotional route files still import each other. That is why home is 1.76 MB after this change. The preview no longer owns that leftover. <code>promotional.routes.ts</code> does.</p>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

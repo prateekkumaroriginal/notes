@@ -1,0 +1,535 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Audit of the TopFans Angular 20 to 21 upgrade plan.">
+  <title>Angular 20 to 21 upgrade plan audit</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0d1117;
+      --panel: #151b24;
+      --panel-2: #19212d;
+      --text: #e6edf3;
+      --muted: #98a6b8;
+      --rule: #2a3442;
+      --blue: #8fb4ff;
+      --green: #70d6a0;
+      --amber: #efc66c;
+      --red: #f1847d;
+      --code: #101722;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--bg); }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.55 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    main {
+      width: min(1080px, calc(100% - 36px));
+      margin: 0 auto;
+      padding: 52px 0 90px;
+    }
+
+    header {
+      padding-bottom: 32px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    h1, h2, h3, p, ul, ol { margin-top: 0; }
+
+    h1 {
+      max-width: 900px;
+      margin-bottom: 14px;
+      font-size: clamp(34px, 6vw, 62px);
+      line-height: 1.02;
+      letter-spacing: -.04em;
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: 25px;
+      line-height: 1.2;
+      letter-spacing: -.02em;
+    }
+
+    h3 {
+      margin-bottom: 7px;
+      font-size: 17px;
+      line-height: 1.3;
+    }
+
+    p { max-width: 82ch; margin-bottom: 12px; }
+
+    ul, ol {
+      max-width: 90ch;
+      margin-bottom: 0;
+      padding-left: 21px;
+    }
+
+    li { margin: 6px 0; }
+
+    a {
+      color: var(--blue);
+      text-decoration-thickness: 1px;
+      text-underline-offset: .18em;
+    }
+
+    code {
+      padding: 1px 5px;
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: var(--code);
+      color: #c9d7f2;
+      font: .88em/1.4 var(--mono);
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0 0;
+      padding: 14px 16px;
+      border: 1px solid var(--rule);
+      border-radius: 7px;
+      background: var(--code);
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      background: none;
+      white-space: pre;
+    }
+
+    section {
+      padding-top: 42px;
+    }
+
+    .eyebrow {
+      margin-bottom: 10px;
+      color: var(--green);
+      font: 12px/1.4 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .lede {
+      color: var(--muted);
+      font-size: 19px;
+      line-height: 1.45;
+    }
+
+    .meta {
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .verdict {
+      display: grid;
+      grid-template-columns: minmax(0, 1.7fr) minmax(210px, .7fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .card {
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 18px 20px;
+    }
+
+    .card.blocked { border-top: 3px solid var(--red); }
+
+    .label {
+      color: var(--muted);
+      font: 11px/1.4 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .status {
+      margin: 8px 0 5px;
+      color: var(--red);
+      font-size: 29px;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+
+    .count {
+      margin: 8px 0 0;
+      color: var(--amber);
+      font: 30px/1 var(--mono);
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    .findings {
+      display: grid;
+      gap: 14px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .finding {
+      padding: 18px 20px;
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--amber);
+      border-radius: 7px;
+      background: var(--panel);
+    }
+
+    .finding.high { border-left-color: var(--red); }
+    .finding.low { border-left-color: var(--blue); }
+
+    .severity {
+      display: inline-block;
+      margin-bottom: 7px;
+      color: var(--amber);
+      font: 11px/1.4 var(--mono);
+      letter-spacing: .07em;
+      text-transform: uppercase;
+    }
+
+    .high .severity { color: var(--red); }
+    .low .severity { color: var(--blue); }
+
+    .finding p:last-child,
+    .finding ul:last-child { margin-bottom: 0; }
+
+    .evidence {
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    .good-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .good-grid article {
+      padding: 15px 17px;
+      border: 1px solid var(--rule);
+      border-radius: 7px;
+      background: var(--panel-2);
+    }
+
+    .good-grid h3 { color: var(--green); }
+    .good-grid p { margin-bottom: 0; color: var(--muted); }
+
+    .sequence {
+      counter-reset: phase;
+      display: grid;
+      gap: 12px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .sequence > li {
+      position: relative;
+      margin: 0;
+      padding: 16px 18px 16px 62px;
+      border: 1px solid var(--rule);
+      border-radius: 7px;
+      background: var(--panel);
+    }
+
+    .sequence > li::before {
+      counter-increment: phase;
+      content: counter(phase, decimal-leading-zero);
+      position: absolute;
+      top: 17px;
+      left: 18px;
+      color: var(--blue);
+      font: 14px/1 var(--mono);
+    }
+
+    .sequence h3 { margin-bottom: 5px; }
+    .sequence p { margin-bottom: 0; color: var(--muted); }
+
+    .callout {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border: 1px solid var(--rule);
+      border-left: 3px solid var(--amber);
+      background: var(--panel);
+    }
+
+    .callout p:last-child { margin-bottom: 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    th, td {
+      padding: 9px 12px 9px 0;
+      border-bottom: 1px solid var(--rule);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 650;
+    }
+
+    .sources {
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    @media (max-width: 760px) {
+      main { padding-top: 34px; }
+      .verdict, .good-grid { grid-template-columns: 1fr; }
+      .sequence > li { padding-left: 52px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="eyebrow">TopFans web frontend · plan audit · 18 September 2026</p>
+    <h1>Angular 20 to 21 upgrade plan audit</h1>
+    <p class="lede">The plan has a sound framework strategy, but it is not executable as written. Fix the peer-dependency procedure, pin a supported Node and npm pair, and strengthen the Firebase and build acceptance checks before using it.</p>
+    <p class="meta">Audited file: <code>angular-20-to-21-upgrade-plan.html</code> · branch: <code>feature/release-0.0.23/16-17-18-19-20-21</code> · base: <code>64a1a3d259</code></p>
+
+    <div class="verdict">
+      <div class="card blocked">
+        <span class="label">Verdict</span>
+        <div class="status">Revise before execution</div>
+        <p>Angular targets and most repository facts are right. The failure is operational: one fallback cannot work, the package manager runs on an unsupported Node version, and the current smoke matrix can miss Firebase regressions.</p>
+      </div>
+      <div class="card">
+        <span class="label">Finding count</span>
+        <div class="count">3 / 6 / 4</div>
+        <p class="evidence">3 high, 6 medium, 4 low-priority corrections.</p>
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2>High-priority findings</h2>
+    <ol class="findings">
+      <li class="finding high">
+        <span class="severity">High · command path</span>
+        <h3><code>overrides</code> cannot repair the peer conflicts that may block <code>ng update</code></h3>
+        <p>Phase 2 says to add an <code>overrides</code> block for <code>@cotufa82/ng-ivs</code>, <code>@khajegan/ngx-audio-player</code>, and <code>ngx-stripe</code> instead of using <code>--force</code>. npm overrides change dependency resolution. They do not rewrite a package's declared peer range, and Angular CLI performs its own compatibility check.</p>
+        <p>The Material update has the same issue. <code>@khajegan/ngx-audio-player@17.1.0</code> declares <code>@angular/material ^17.0.4</code>, so <code>ng update @angular/material@21</code> can fail its reverse peer check.</p>
+        <p><strong>Correction:</strong> record the known exceptions, run both Angular update commands with <code>--force</code> when the CLI reports those exact stale peers, and prove runtime compatibility afterward. A fork or patched package manifest is the stricter alternative. npm 12's <code>packageExtensions</code> can change peer metadata for npm resolution, but it ties the repository to npm 12 and does not replace the Angular CLI decision.</p>
+<pre><code>npx ng update @angular/core@^21 @angular/cli@^21 --force
+npx ng update @angular/material@^21 --force</code></pre>
+      </li>
+
+      <li class="finding high">
+        <span class="severity">High · toolchain</span>
+        <h3>npm 12.0.1 does not support the installed Node 24.5.0</h3>
+        <p>Angular 21 accepts Node <code>^24.0.0</code>, but npm 12.0.1 requires <code>^24.15.0</code> on the Node 24 line. Every registry and install command emitted that warning. Calling it unrelated and safe to ignore is the wrong policy for a migration that rewrites <code>package-lock.json</code>.</p>
+        <p><strong>Correction:</strong> make Node <code>24.15.0</code> or newer the Phase 0 prerequisite, or use an npm release that supports Node 24.5. Pin the choice in the repository and CI with the team's normal Node-version file plus <code>engines</code> or <code>packageManager</code>.</p>
+      </li>
+
+      <li class="finding high">
+        <span class="severity">High · Firebase acceptance</span>
+        <h3>The push test only covers a fresh token and can miss a returning-user failure</h3>
+        <p>The plan expects every login to POST a push token and then attach <code>onMessage</code>. Current code only calls <code>setToken()</code>, and therefore <code>onMessage()</code>, when the token differs from <code>fc_token</code> in local storage. A returning user with an unchanged token produces no POST and may get no foreground listener.</p>
+        <p><strong>Correction:</strong> test both states. First clear <code>fc_token</code> and verify registration. Then reload with the saved token, verify that duplicate registration is avoided, and still prove an inbound foreground notification reaches the toast. The Firebase rewrite should attach one listener independently of whether the backend token POST is needed and retain its unsubscribe handle.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Medium-priority findings</h2>
+    <ol class="findings">
+      <li class="finding">
+        <span class="severity">Medium · Firebase</span>
+        <h3>Remote Config needs its own support check</h3>
+        <p>The plan calls <code>isSupported()</code> before Messaging, but the Remote Config Web SDK also exposes <code>isSupported()</code> because IndexedDB can exist yet reject <code>open()</code>, including private browsing contexts. Alias the two imports and check each product before initialization. Browser-only guards alone are insufficient.</p>
+      </li>
+
+      <li class="finding">
+        <span class="severity">Medium · change detection</span>
+        <h3>Zone.js does not prove that raw Firebase callbacks update Angular views</h3>
+        <p>AngularFire wraps SDK callbacks to re-enter Angular and schedule change detection. The plan removes those wrappers, then assumes Zone.js promise patching is enough. That is not a reliable contract for Messaging callbacks or future native async behavior.</p>
+        <p><strong>Correction:</strong> explicitly use <code>NgZone.run()</code> around toast and template-state mutations, or move the state to signals and test updates without an unrelated click or navigation.</p>
+      </li>
+
+      <li class="finding">
+        <span class="severity">Medium · validation</span>
+        <h3>"Every build that ships" does not run every shipping script</h3>
+        <p>Phase 5 runs dev, QA, production, QA prerender, QA serverless, and one white-label build. It skips staging, production and staging full-prerender scripts, and the other serverless configurations present in <code>package.json</code>.</p>
+        <p><strong>Correction:</strong> identify the scripts actually called by CI and deployment, then run those exact commands. At minimum, account for <code>build-stage</code>, <code>prerender-all-staging</code>, <code>prerender-all-production</code>, and each deployed serverless configuration. Keep one generated white-label build in the gate.</p>
+      </li>
+
+      <li class="finding">
+        <span class="severity">Medium · scope</span>
+        <h3>"Bump every library that has a v21 release" is not the plan's real rule</h3>
+        <p>The matrix intentionally retains libraries with open Angular peer ranges. It also leaves <code>ngx-scrollbar@9.0.2</code> even though <code>ngx-scrollbar@19.1.5</code> is its Angular 21 line. That may be the right scope choice because the newer package has API changes, but it contradicts the stated outcome.</p>
+        <p><strong>Correction:</strong> state the actual rule: upgrade Angular-coupled packages whose installed release rejects Angular 21, and explicitly defer broad API migrations. Put <code>ngx-scrollbar</code>, <code>ngx-image-cropper</code>, <code>ngx-sharebuttons</code>, and similar open-range packages in a named deferral table.</p>
+      </li>
+
+      <li class="finding">
+        <span class="severity">Medium · dependency side effect</span>
+        <h3>Font Awesome 4 pulls SVG core 7, but the plan only names the Angular wrapper</h3>
+        <p><code>@fortawesome/angular-fontawesome@4.0.0</code> is the correct Angular 21 line, but it depends on <code>@fortawesome/fontawesome-svg-core ^7.1.0</code>. The project directly declares SVG core and icon packs from version 6. The install may leave duplicate core majors even though the wrapper supports version 6 icon definitions.</p>
+        <p><strong>Correction:</strong> decide whether to deduplicate on SVG core 7 or retain the mixed tree deliberately. Check the two icons registered in <code>SharedModule</code>, <code>faXTwitter</code> and <code>faCommentSms</code>, and compare bundle output.</p>
+      </li>
+
+      <li class="finding">
+        <span class="severity">Medium · deprecation</span>
+        <h3>The legacy server and Karma builders still exist, but Angular 21 deprecates them</h3>
+        <p>The plan correctly says <code>@angular-devkit/build-angular:server</code> and <code>:karma</code> still run in 21.2.24. It omits that Angular 21 marks the Webpack builders deprecated in favor of <code>@angular/build</code>. Keeping them is valid for this branch, but it does not fully clear the path to the next Angular major.</p>
+        <p><strong>Correction:</strong> add a dated follow-up to migrate the serverless target and test builder. Treat warnings from those builders as expected only for this release.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>Low-priority corrections</h2>
+    <ol class="findings">
+      <li class="finding low">
+        <span class="severity">Low · inventory</span>
+        <h3>The host-binding review misses two files</h3>
+        <p>There are eight <code>@HostBinding</code> uses in five files. The checklist omits <code>signup-by-refer.component.ts</code> and <code>profile-skeleton.component.ts</code>. It should also compile-check the dynamic <code>host</code> expressions in <code>video-player-v2</code>, as already noted.</p>
+      </li>
+
+      <li class="finding low">
+        <span class="severity">Low · factual counts</span>
+        <h3>Two repository counts are stale</h3>
+        <p>The working tree has 8 modified files and 12 untracked HTML files, not 11. <code>FirebaseService</code> appears in 14 consumer files, not 15. Neither changes the migration strategy.</p>
+      </li>
+
+      <li class="finding low">
+        <span class="severity">Low · npm evidence</span>
+        <h3>The three stale libraries do not currently fail <code>npm ls --depth=0</code></h3>
+        <p>With the installed npm 12.0.1, both <code>npm ci --dry-run</code> and <code>npm ls --depth=0</code> completed successfully. Their peer declarations are still incompatible and Angular CLI may reject the update, but the plan should not claim an observed <code>npm ls</code> failure.</p>
+      </li>
+
+      <li class="finding low">
+        <span class="severity">Low · version notation</span>
+        <h3>One pin and one package version are described imprecisely</h3>
+        <p><code>firebase: ^11.10.0</code> is a range, not a pin. Use <code>11.10.0</code> if the intent is exact parity. <code>@angular-devkit/architect</code> follows the <code>0.2102.24</code> version scheme, not <code>21.2.24</code>.</p>
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>What the plan gets right</h2>
+    <div class="good-grid">
+      <article>
+        <h3>Angular targets</h3>
+        <p>Core <code>21.2.23</code>, CLI and SSR <code>21.2.24</code>, Material and CDK <code>21.2.14</code>, and TypeScript <code>5.9.3</code> are valid targets.</p>
+      </article>
+      <article>
+        <h3>Zone strategy</h3>
+        <p>Keeping Zone.js is sensible. The repository has exactly 46 TypeScript files referencing <code>NgZone</code>, and Angular 21's migration adds <code>provideZoneChangeDetection()</code> for an NgModule bootstrap.</p>
+      </article>
+      <article>
+        <h3>SSR protection</h3>
+        <p><code>CommonEngine</code> already receives a concrete <code>allowedHosts</code> list, satisfying the patched Angular SSR behavior for GHSA-x288-3778-4hhx.</p>
+      </article>
+      <article>
+        <h3>AngularFire decision</h3>
+        <p>The only Angular 21 AngularFire release is <code>21.0.0-rc.0</code>. It requires Angular 21 and Firebase 12.4. Replacing a four-function use case on Angular 20 first is a defensible isolation strategy.</p>
+      </article>
+      <article>
+        <h3>Deliberate non-goals</h3>
+        <p>Deferring zoneless, standalone conversion, Vitest, Quill 2, Firebase 12, and Stripe's companion major keeps unrelated migrations out of the framework hop.</p>
+      </article>
+      <article>
+        <h3>Repository baseline</h3>
+        <p>The branch, base commit, Angular package versions, zero <code>.spec.ts</code> files, custom SSR setup, and 46-file <code>NgZone</code> count were verified.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Recommended execution order</h2>
+    <ol class="sequence">
+      <li>
+        <h3>Normalize the toolchain and tree</h3>
+        <p>Use Node 24.15 or newer with npm 12, pin both for local and CI use, commit or stash unrelated changes, run a clean install, record current peer exceptions, and capture build sizes.</p>
+      </li>
+      <li>
+        <h3>Replace AngularFire while still on Angular 20</h3>
+        <p>Pin Firebase 11.10.0, initialize lazily in the browser, check Messaging and Remote Config support separately, re-enter Angular for UI mutations, and own the Messaging unsubscribe lifecycle.</p>
+      </li>
+      <li>
+        <h3>Test Firebase in two browser states</h3>
+        <p>Verify first registration with empty storage, then reload with the existing token and prove foreground messages still arrive without a duplicate backend POST. Check Remote Config in normal and restricted storage contexts.</p>
+      </li>
+      <li>
+        <h3>Update Angular core and CLI</h3>
+        <p>Use the latest 21.x patches. Apply <code>--force</code> only for the documented stale peers. Verify <code>provideZoneChangeDetection()</code>, TypeScript 5.9, and generated configuration changes.</p>
+      </li>
+      <li>
+        <h3>Update Material, then Angular-coupled libraries</h3>
+        <p>Update Material with the same peer exception policy. Upgrade the selected library set, account for Font Awesome SVG core 7, and put every retained old package in an explicit deferral table.</p>
+      </li>
+      <li>
+        <h3>Compile and lint</h3>
+        <p>Fix TypeScript and all host-binding errors before library API errors. Run lint with Angular ESLint 21. Avoid the global host-binding escape hatch unless a specific library leaves no local fix.</p>
+      </li>
+      <li>
+        <h3>Run the deployment build matrix</h3>
+        <p>Execute the scripts CI and deployment really use across QA, staging, production, prerender, SSR, serverless, and one generated white-label project. Check rendered HTML and server logs, not only exit codes.</p>
+      </li>
+      <li>
+        <h3>Run focused browser smoke tests</h3>
+        <p>Cover Firebase, Remote Config, routing, service worker, Material/CDK, PrimeNG, Font Awesome, the upgraded form and carousel libraries, plus the deferred audio, IVS, Stripe, editor, cropper, and scrollbar paths.</p>
+      </li>
+    </ol>
+
+    <div class="callout">
+      <p><strong>Merge gate:</strong> a supported Node and npm pair, reproducible <code>npm ci</code>, known peer exceptions documented, every deployed build path green, SSR host validation working, and Firebase proven for first-time and returning users.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Verified package facts</h2>
+    <table>
+      <thead>
+        <tr><th>Item</th><th>Verified result</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Angular 21 compatibility</td><td>Node <code>^20.19.0 || ^22.12.0 || ^24.0.0</code>; TypeScript <code>&gt;=5.9 &lt;6.0</code>; RxJS <code>^6.5.3 || ^7.4.0</code>.</td></tr>
+        <tr><td>Angular core 21.2.23</td><td>Peers Zone.js <code>~0.15.0 || ~0.16.0</code>; current <code>0.15.1</code> remains valid.</td></tr>
+        <tr><td>AngularFire 21</td><td>Only <code>21.0.0-rc.0</code>; peers Angular 21; depends on Firebase <code>^12.4.0</code>.</td></tr>
+        <tr><td>Angular ESLint 21.4.0</td><td>Accepts ESLint <code>^8.57 || ^9 || ^10</code>; retaining ESLint 8.57 is valid.</td></tr>
+        <tr><td>Legacy builders</td><td><code>@angular-devkit/build-angular:server</code> and <code>:karma</code> exist in 21.2.24 and are deprecated.</td></tr>
+        <tr><td>Angular Font Awesome 4</td><td>Correct Angular 21 wrapper; depends on SVG core <code>^7.1.0</code>.</td></tr>
+        <tr><td>ngx-scrollbar</td><td>Installed 9.0.2 has open Angular peers; 19.1.5 is the package's Angular 21 release and includes API changes.</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="sources">
+    <h2>Primary sources</h2>
+    <ul>
+      <li><a href="https://github.com/angular/angular/releases/tag/21.0.0">Angular 21.0.0 release notes and breaking changes</a></li>
+      <li><a href="https://angular.dev/reference/versions">Angular version compatibility</a></li>
+      <li><a href="https://angular.dev/reference/releases">Angular support schedule</a></li>
+      <li><a href="https://angular.dev/guide/zoneless">Angular zoneless and Zone.js migration guidance</a></li>
+      <li><a href="https://github.com/angular/angular-cli/security/advisories/GHSA-x288-3778-4hhx">Angular SSR SSRF advisory</a></li>
+      <li><a href="https://docs.npmjs.com/cli/v12/configuring-npm/package-json/">npm package metadata, overrides, and package extensions</a></li>
+      <li><a href="https://firebase.google.com/docs/reference/js/messaging_">Firebase Messaging Web API</a></li>
+      <li><a href="https://firebase.google.com/docs/reference/js/remote-config">Firebase Remote Config Web API</a></li>
+      <li><a href="https://github.com/FortAwesome/angular-fontawesome/blob/HEAD/docs/guide/compatibility.md">Angular Font Awesome compatibility table</a></li>
+      <li><a href="https://github.com/MurhafSousli/ngx-scrollbar/blob/master/CHANGELOG.md">ngx-scrollbar changelog</a></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

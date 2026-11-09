@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Why every marketing page ships 54 layouts</title>
+  <meta name="description" content="A marketing page is a stack of section types. Today the public renderer downloads every type, even the ones that page does not use. What that costs, what we would gain, and how to check a fix.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, h4, p, ul, ol, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); line-height: 1.55; }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1.05rem; color: var(--text); }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + * { padding-top: 0; }
+
+    section > h3 { padding-top: 1.35rem; }
+
+    section > * + .table-wrap { padding-top: 0; margin-top: 0.75rem; }
+
+    section > .table-wrap + * { margin-top: 0.75rem; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Why every marketing page ships 54 layouts</h1>
+      <p>This leftover is done. The public preview now loads only the layout ids a page shows. Measured sizes, the header exception, and the checklist for the change are in <a href="lazy-marketing-layouts.html">public marketing pages load only the layouts they use</a>. The three files are in <a href="lazy-marketing-layouts-code.html">how the marketing preview loads a layout</a>. The rest of this page is the problem as it existed after PR 10847.</p>
+      <div class="meta">
+        <span>leftover from <a href="standalone-leftovers.html">after the SharedModule work</a></span>
+        <span>implemented in <a href="lazy-marketing-layouts.html">the layout split notes</a></span>
+        <span>25 Sep 2026</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What a layout is</h2>
+        <p>Think of a printed magazine page. One page might have a big title photo, a quote, and a list of products. Those are different templates. In this app they are Angular components with names like hero, testimonials, store-items-grid, and comparison-full-table.</p>
+        <p>There are 55 layout ids in the catalog. The public preview has a component for 54 of them. <code>pro-contact-form</code> is the missing one. Creators pick from this list when they build a marketing page, a comparison page, a pro page, or a white-label cover.</p>
+      </section>
+
+      <section>
+        <h2>What happens today</h2>
+        <p>One component draws every public marketing page. <code>MarketingPageFullPreviewComponent</code>. It loops the page's sections. For each section it reads a layout id and switches to that component.</p>
+        <p>Angular only lets a template use a component that the parent imported. So the preview file imports all 54 classes and lists all 54 in its <code>imports</code> array. The switch can then render any of them. The bundler sees 54 static imports, so it puts all 54 in the same JavaScript the page downloads.</p>
+        <p>A page that uses a header, a hero, and a footer still pays for the passion grid, the portfolio album block, and the comparison table. Those files run no code on that visit. They still travel over the wire.</p>
+      </section>
+
+      <section>
+        <h2>Which pages pay</h2>
+        <p>Anything that renders through that preview component:</p>
+        <ul>
+          <li>The main site's <code>/</code></li>
+          <li><code>/marketing</code></li>
+          <li>The comparison pages</li>
+          <li>The pro pages</li>
+          <li>Creators-home</li>
+          <li>A white-label cover page</li>
+        </ul>
+        <p>The editor that lets a creator add a section also imports the full list. That is the right call. A creator opening the picker needs every type. The waste is the public pages using the same graph.</p>
+      </section>
+
+      <section>
+        <h2>What it cost after 10847</h2>
+        <p>First-visit JavaScript after the initial bundle, from the QA build after PR 10847. MB means a million bytes, before compression. After the layout split these entries are 1.76, 0.03 to 0.86, and 0.11 to 0.21 MB. See <a href="lazy-marketing-layouts.html">the notes</a>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Page</th><th class="num">After 10847</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Main site <code>/</code></td><td class="num">2.79 MB</td></tr>
+              <tr><td>Marketing</td><td class="num">1.23 MB</td></tr>
+              <tr><td>Comparison</td><td class="num">1.23 MB</td></tr>
+              <tr><td>Pro</td><td class="num">2.05 MB</td></tr>
+              <tr><td>Creators-home</td><td class="num">1.30 MB</td></tr>
+              <tr><td>Sub-page view</td><td class="num">1.36 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Those numbers are the whole route, not layouts alone. Shared chrome sits in there too. The layouts are why the numbers stayed this high after we already took SharedModule and Profile off the home chunk.</p>
+      </section>
+
+      <section>
+        <h2>What we would gain</h2>
+        <p>The visitor would download only the layout types that page actually uses. Six types on the page means six layout files, plus the preview shell. The other 48 stay on the server until some other page needs them.</p>
+        <p>I will not invent a megabyte number. We have not split the files yet, so we have not measured the leftover. The direction is clear.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Win</th><th>Who feels it</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>A thin page stops paying for layouts it never shows</td>
+                <td>First visit to home, marketing, comparison, pro, creators-home, and a cover page</td>
+              </tr>
+              <tr>
+                <td>A second marketing URL can reuse layouts the first page already fetched</td>
+                <td>Someone who goes from home to a comparison page that shares a hero and a header</td>
+              </tr>
+              <tr>
+                <td>A kitchen-sink page that uses 20 types shrinks less</td>
+                <td>Demo pages that stacked most of the catalog. That is expected.</td>
+              </tr>
+              <tr>
+                <td>The editor can keep all 54</td>
+                <td>Creators. Their first open of the CMS still has every block in the picker.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The win is first-visit JS. It is not a new feature and it is not a visual redesign. If a page looks different, the change is wrong.</p>
+      </section>
+
+      <section>
+        <h2>How the fix would work</h2>
+        <p>Stop importing the 54 classes at the top of the preview file. Keep a map from layout id to a dynamic <code>import()</code>. When the page knows its sections, start those imports together. Render each finished class with <code>ngComponentOutlet</code>.</p>
+        <p>The server has to wait for those imports before it writes HTML. We already did this for the white-label profile fallback, with <code>PendingTasks</code>. Skip that and the first HTML is missing <code>&lt;app-hero-layout&gt;</code>. The browser then fills it in. Search engines and the first paint see a hole. <code>@defer</code> has the same hole. It is the wrong tool on these public pages.</p>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>After a change, the page must look the same and the unused layout files must stay off the wire. Keep the network panel and the console open. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> The page still looks like itself</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="look-home"><span>On the main site, open <code>/</code>. The same sections show, in the same order. No blank bands where a hero or footer should be.</span></label></li>
+              <li><label><input type="checkbox" data-id="look-market"><span>Open a marketing page, a comparison page, a pro page, and creators-home. Each still matches the page before the change.</span></label></li>
+              <li><label><input type="checkbox" data-id="look-cover"><span>On a white-label site with a published cover, open <code>/</code>. The cover still renders. It does not fall back to an empty page.</span></label></li>
+              <li><label><input type="checkbox" data-id="look-refresh"><span>Refresh each of those URLs. View source, or the first document in the network panel, still contains the section tags. A late fill-in after load means the server did not wait.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> The unused layouts stay off the wire</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="net-home"><span>On main <code>/</code>, note which layout files the page fetched. A layout the homepage does not use should not appear.</span></label></li>
+              <li><label><input type="checkbox" data-id="net-thin"><span>Open a thin marketing page. Count the layout files. It should be close to the number of distinct types on that page, not 54.</span></label></li>
+              <li><label><input type="checkbox" data-id="net-console"><span>Console stays clean. No missing component, and no hydration error that names a layout tag.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Clicks still work</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="click-hero"><span>A hero or banner button still goes to the same place.</span></label></li>
+              <li><label><input type="checkbox" data-id="click-store"><span>A store or event block still opens the item it pointed at. Do not buy anything.</span></label></li>
+              <li><label><input type="checkbox" data-id="click-news"><span>A newsletter block still shows its form. Do not subscribe.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag low">Low</span> The editor is unchanged</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="edit-picker"><span>In the cover or marketing editor, the add-section picker still lists every layout.</span></label></li>
+              <li><label><input type="checkbox" data-id="edit-preview"><span>Preview a draft section in the editor. It still matches the public component for that type. Do not publish.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const storageKey = "marketing-layouts-every-page-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

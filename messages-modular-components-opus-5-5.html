@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A plan to split the TopFans message-container component into stores, a shared send pipeline and small components, in steps that each ship without changing behavior.">
+<title>Split message-container into pieces you can change safely (opus-5-5)</title>
+<style>
+:root{color-scheme:dark;--bg:#131A24;--panel:#1A2331;--text:#E8EDF4;--muted:#8593A6;--dim:#4E5B6E;--line:#2A3546;--red:#F0776F;--green:#5FCF8F;--blue:#8FB4FF}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--muted);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+h1,h2,h3,p,ul,ol,table{margin:0}
+h1,h2,h3,strong,th{color:var(--text)}
+h1{padding-bottom:.75rem;line-height:1.2;letter-spacing:-.01em}
+h2{padding-bottom:.75rem;line-height:1.3}
+h3{padding-bottom:.4rem;line-height:1.4;font-size:1rem}
+.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}
+main{padding-top:3rem}
+section+section{padding-top:2.5rem}
+.stack{display:grid;gap:1rem}
+.items{display:grid;gap:1.75rem}
+ul,ol{padding-left:1.4rem}
+li+li{padding-top:.5rem}
+li::marker{color:currentColor}
+a{color:var(--blue);text-underline-offset:3px}
+code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88em;background:var(--panel);color:var(--blue);padding:.1em .35em;border-radius:.3rem;overflow-wrap:anywhere}
+.meta{padding-top:1rem;font-size:.875rem;color:var(--dim)}
+.new{color:var(--green)}
+.bad{color:var(--red)}
+.focus{color:var(--blue)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:.6rem}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:.7rem .8rem}
+thead{background:var(--panel)}
+th{font-weight:600}
+tbody tr+tr{border-top:1px solid var(--line)}
+td.n{color:var(--text);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tree{background:var(--panel);border:1px solid var(--line);border-radius:.6rem;padding:1.25rem;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.88rem;line-height:1.5;color:var(--text);overflow-x:auto}
+.tree ul{list-style:none;padding-left:1.5rem}
+.tree>ul{padding-left:0}
+.tree li+li{padding-top:.1rem}
+.tree .d{color:var(--blue)}
+.tree .c{color:var(--dim);font-family:Inter,system-ui,sans-serif;font-size:.85rem;padding-left:.75rem}
+.step h3 .tag{color:var(--dim);font-weight:400;font-size:.875rem;padding-left:.5rem}
+.done{padding-top:.4rem;font-size:.93rem}
+.done strong{color:var(--green);font-weight:600}
+@media(max-width:720px){.page{padding-block:3rem}th,td{padding:.55rem}}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+  <h1>Split message-container into pieces you can change safely</h1>
+  <p>The whole messages page lives in one component with 138 fields and 199 methods. This plan moves its state into stores and send jobs, shares the upload and attachment code with automated messages, and cuts the template into 16 components, in ten steps. Nothing a user sees or does changes. Bugs whose fix someone would notice are written down for a separate decision and left alone here.</p>
+  <p class="meta">Read from <code>hotfix/release-0.0.23/messages-revamp</code> at 61843a4e3b, 7 Oct 2026.</p>
+</header>
+
+<main>
+<section>
+  <h2>What "no UX change" means here</h2>
+  <div class="stack">
+    <p>Every PR in this plan has to pass one test. A user who uses the page before and after the PR can't tell which build they're on. That rules out more than redesigns.</p>
+    <ul>
+      <li>Same DOM classes and nesting, so <code>_messages.scss</code>, <code>_theme.scss</code>, <code>_white-label-theme.scss</code> and the white-label themes keep matching. A new component either uses an attribute selector on the element that's already there, like <code>&lt;div app-inbox-row&gt;</code>, or sets <code>:host { display: contents }</code>. An extra inline host element between a flex parent and its children is enough to move pixels.</li>
+      <li>The <code>app-message-container</code> selector stays, because <code>_page.scss</code> line 18 styles it. The route, the guard and the route-level <code>AudioRecordingService</code> stay as they are.</li>
+      <li>Same copy, byte for byte, even when it moves into <code>messages.constant.ts</code>, and even where today's wording looks wrong.</li>
+      <li>Same prompts and guards. <code>canDeactivate</code> blocks leaving in exactly the cases it blocks today, and a thread switch is refused in exactly the cases <code>getUserMsgDetails</code> refuses it today.</li>
+      <li>Same loaders, at the same moments. Same scroll position after sending, after loading older pages, and after switching threads.</li>
+      <li>Same composer contents at the same moments. On Send, the text and paid items clear right away. The price chip and the free-preview tray stay on screen until the paid uploads finish, because <code>price</code> and <code>freePreviewList</code> are only reset then (TS lines 2376 and 2468).</li>
+      <li>Same network traffic, as seen from the user's side. Same requests in the same order, same payment payloads, and a message that is delivered today is still delivered, including after the user leaves mid-upload.</li>
+      <li>Same state on return. Today every visit starts from an empty inbox and reloads. Text and files in the DM composer survive switching to the automated tab and back.</li>
+    </ul>
+    <p>A bug fix fits this plan only if it changes nothing on that list. Each PR is checked against screenshots and network logs captured from today's build in step 1.</p>
+  </div>
+</section>
+
+<section>
+  <h2>What one file holds today</h2>
+  <div class="stack">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>File or measure</th><th>Count</th></tr></thead>
+        <tbody>
+          <tr><td><code>message-container.component.ts</code></td><td class="n">4,746 lines</td></tr>
+          <tr><td><code>message-container.component.html</code></td><td class="n">3,180 lines</td></tr>
+          <tr><td><code>message-container.component.scss</code></td><td class="n">1,228 lines</td></tr>
+          <tr><td>Class fields</td><td class="n">138</td></tr>
+          <tr><td>Methods and getters</td><td class="n">199</td></tr>
+          <tr><td>Entries in the standalone <code>imports</code> array</td><td class="n">40</td></tr>
+          <tr><td>Reads of <code>chatLogsList[0|1|2]</code> by index</td><td class="n">48</td></tr>
+          <tr><td><code>.spec.ts</code> files in the whole repo</td><td class="n bad">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Line count is the visible symptom. The thing that makes every change risky is that the open conversation has no single home. About a dozen loose fields describe it: <code>sid</code>, <code>broadCastId</code>, <code>groupId</code>, <code>gsi4pk</code>, <code>email</code>, <code>username</code>, <code>currentUsername</code>, <code>profile</code>, <code>selectedType</code>, <code>selectedUserName</code>, <code>usersProfileList</code> and <code>groupIcon</code>. Each way of opening a thread writes a different subset of them.</p>
+    <p><code>getUserMsgDetails</code> sets eleven of them. <code>requestParamsofBroadcast</code> sets nine, and blanks <code>sid</code> while doing it. <code>getUserChatMessage</code> then writes the same group id into both <code>sid</code> and <code>broadCastId</code>. <code>onBroadcast</code> has four branches, and two of them differ only in where they read the user from. If a field gets missed on one path, the bug shows up two screens later, and nobody can tell which path left it stale.</p>
+    <p>The inbox has the same problem in a smaller form. Its three tabs sit in an array, and the code picks a tab by position, so <code>chatLogsList[2]</code> means "general" for creators and "everything" for fans, via <code>getChatTypeIndex</code>.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Code that already exists twice</h2>
+  <div class="stack">
+    <p>The split shares the logic behind each copy. Where both copies render the same markup, one component replaces them. Where they render differently today, both templates stay, so the automated-message tray keeps its own markup and both price modals stay as they are.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Copy</th><th>Where</th><th>How close</th></tr></thead>
+        <tbody>
+          <tr><td>Free media vs paid media inside a message</td><td>Template lines 895 to 1180 and 1335 to 1845</td><td>286 and 511 lines. The paid copy adds the lock overlay and the unlock footer.</td></tr>
+          <tr><td>Free vs paid drag-and-drop trays in the composer</td><td>Template lines 2018 to 2230 and 2301 to 2530</td><td>213 and 230 lines, 81 lines differ</td></tr>
+          <tr><td>Upload queue, thumbnails and the "all uploaded?" check</td><td><code>message-container</code> and <code>automated-message-modal</code></td><td>111 of the modal's 165 lines match the container</td></tr>
+          <tr><td>Media compression</td><td><code>message-container</code> and <code>image-audio-message</code></td><td>60 of 68 lines match</td></tr>
+          <tr><td>Attachment tray, audio recording, drop rules</td><td><code>message-container</code> and <code>image-audio-message</code></td><td>Same method names and the same logic. <code>image-audio-message</code> is the automated-message composer.</td></tr>
+          <tr><td>Price modal</td><td><code>message-price-model</code> and <code>message-price-model-v2</code></td><td>The container opens v1 through <code>BsModalService</code>. <code>image-audio-message</code> embeds v2.</td></tr>
+          <tr><td>Payment payloads</td><td><code>sendTip</code>, <code>payForMessage</code>, <code>payForMessageAndTip</code></td><td>Three builders that differ in about eight keys. Each one pops the queue and navigates to <code>dashboard/make-payment</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Bugs found along the way</h2>
+  <div class="stack">
+    <p>I found these while tracing where each piece would go. Each one gets one of two treatments. If fixing it changes nothing a user can see, it's fixed in its own small PR, never inside a move. If a user could notice the fix, this plan keeps today's behavior on purpose and the bug goes on the follow-up list at the end.</p>
+
+    <h3>Fixed in this plan, because nobody can see the difference</h3>
+    <ul>
+      <li><span class="bad">Broadcast sends leak subscriptions.</span> <code>sliceMessageFromMessageQueue</code> subscribes to <code>chatService.receiveMessage</code> on every broadcast or followers send. After five sends, each incoming event refetches the inbox five times. Each refetch cancels the one before it through <code>inboxCancel$</code>, so the screen shows one load either way. One subscription, installed on the first such send, gives the same screen with one request.</li>
+      <li><span class="bad">The queue lookup matches by accident.</span> <code>messsageQueue.findIndex(x =&gt; x.id === queue.id)</code> compares two <code>undefined</code> values, because queue entries have no <code>id</code>, so it always returns 0. Giving entries an id picks the same entry in every case that occurs today.</li>
+      <li><span class="bad">Change detection runs on every check.</span> <code>ngAfterViewChecked</code> calls <code>detectChanges()</code>, and there are ten more manual calls. Thread messages also get view flags like <code>profileStatus</code> and <code>messageDay</code> mutated in place, which is why <code>OnPush</code> can't be switched on today. Done right, the screen is identical.</li>
+      <li><span class="bad">Dead abort code.</span> <code>ngOnDestroy</code> calls <code>this.awsRequest?.abort?.bind(this.awsRequest)</code>, which creates a bound function and throws it away. Delete the line. Don't make it work. The first item in the next list explains why that would be a visible change.</li>
+      <li>The template hardcodes strings like "Messages", "+ New Message List", "Block User", "Custom Amount" and "In progress", against the repo's constants rule. Moving them changes nothing on screen as long as the text stays identical.</li>
+    </ul>
+
+    <h3>Left as they are, because a fix would be visible</h3>
+    <ul>
+      <li><span class="bad">The shared <code>destroy$</code> dies on the first socket event.</span> <code>userIdleState()</code> calls <code>destroy$.next()</code> and <code>complete()</code> right after it subscribes. After that, every <code>takeUntil(this.destroy$)</code> in the file is a no-op, and video and audio uploads go through an S3 XHR with no cancel at all. The result is that a user who leaves mid-upload still gets the message delivered. Wiring teardown up properly would quietly drop those messages, so in-flight sends have to keep running after the page closes, exactly as today. There's one narrow exception. If the user leaves before any socket event has arrived, <code>destroy$</code> is still alive, and leaving does cancel image uploads and the credit call. The send queue copies that rule too.</li>
+      <li><span class="bad">A media send can go to the thread that's open when the upload finishes.</span> <code>uploadPriceItemsGeneric</code> removes the queue entry before the upload starts, one <code>splice</code> per media item. Once the queue is empty, <code>getUserMsgDetails</code> allows opening another thread and <code>canDeactivate</code> allows leaving. When the upload finishes, <code>sendMessageApiCall</code> reads <code>this.sid</code>, <code>this.gsi4pk</code> and <code>this.selectedType</code> from whichever thread is open, and <code>getResItems</code> flips the loader on the last bubble of the current list. I traced this in the code but haven't reproduced it in a browser. Fixing it changes where a message lands and adds a leave prompt, so it needs a product decision.</li>
+      <li><span class="bad">The presence timers pile up.</span> Every socket event after the first one starts another two-minute timer that runs until the page closes. The inner <code>interval</code> restarts on every outer tick, so I can't say whether <code>setUserOnline()</code> fires on schedule. Changing it could change when other people see this user as online, so it moves into <code>presence.service</code> intact, with its own subject that completes at the same moment <code>destroy$</code> does today.</li>
+      <li><span class="bad">Two rules decide whether messages are duplicates.</span> Older pages dedupe on <code>sk || timeStamp</code>. The live merge uses <code>sk || message_id || uinqueId || id</code>. Unifying them could show or hide a message, so both rules move into <code>utils/</code> unchanged.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Target layout</h2>
+  <div class="stack">
+    <div class="tree" role="img" aria-label="Proposed folder layout for the messages module">
+      <ul>
+        <li><span class="d">messages/</span>
+          <ul>
+            <li>messages.routes.ts<span class="c">unchanged: same route, guard and AudioRecordingService</span></li>
+            <li><span class="d">state/</span>
+              <ul>
+                <li>inbox.store.ts<span class="c">tabs by name, cursor, search, counts, row online flags</span></li>
+                <li>thread.store.ts<span class="c">ActiveThread, history cursor, messages, live merge, dmValidations</span></li>
+                <li>composer.store.ts<span class="c">one per composer, in memory only: text, attachments, price, free previews, tip</span></li>
+                <li>chat-events.service.ts<span class="c">parses each socket envelope once, then calls the stores</span></li>
+                <li>presence.service.ts<span class="c">open-thread online poll and the members list</span></li>
+                <li>send-queue.service.ts<span class="c">providedIn root, so sends outlive the page as they do today</span></li>
+                <li>media-upload.service.ts<span class="c">image upload with blur, S3 XHR, thumbnails, compression</span></li>
+              </ul>
+            </li>
+            <li><span class="d">utils/</span><span class="c">pure functions, each with a spec</span>
+              <ul>
+                <li>conversation-id.ts · live-merge.ts · thread-decorations.ts</li>
+                <li>send-path.ts · payment-payloads.ts · share-urls.ts · initial-thread.ts</li>
+              </ul>
+            </li>
+            <li><span class="d">components/</span>
+              <ul>
+                <li><span class="d">message-container/</span><span class="c">the existing route component, kept as the shell, provides the page stores</span></li>
+                <li><span class="d">inbox/</span> inbox-panel · inbox-row · broadcast-row</li>
+                <li><span class="d">thread/</span> thread-panel · thread-header · message-list · message-bubble · media-grid · share-card</li>
+                <li><span class="d">composer/</span> composer · attachment-tray · audio-recorder · tip-popover · dm-gate</li>
+                <li><span class="d">automated/</span> automated-messages-tab<span class="c">also hosts the editor modal and its own delete confirmation</span></li>
+                <li><span class="d">dialogs/</span> delete-list · tip-required · reply-fulfilled<span class="c">the same app-alert-modal markup they use today</span></li>
+                <li>the existing modals stay where they are</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <div class="items">
+      <div>
+        <h3>State lives in stores, and stores use signals</h3>
+        <p>The inbox, thread, socket and presence stores are plain <code>@Injectable()</code> classes listed in the <code>providers</code> of <code>MessageContainerComponent</code>. They're created and destroyed with the page, exactly like today's fields. Don't put them in the route's <code>providers</code>. This app doesn't enable <code>withExperimentalAutoCleanupInjectors</code>, so route injectors outlive navigation, and a route-provided store would show the previous visit's inbox when the user comes back.</p>
+        <p>Two services are the exception. <code>SendQueueService</code> is <code>providedIn: 'root'</code>, because sends finish after the user leaves today and must keep doing so. <code>ComposerStore</code> is provided by <code>composer</code> and separately by the automated-message editor, so each gets its own instance. Today the DM composer keeps its message in fields on the container, and the automated editor keeps its own in <code>image-audio-message</code>. One shared store would let a file or price from one show up in the other. Nothing in the store is saved anywhere. It holds what the user is writing until Send, and it's gone on reload or leave, as today.</p>
+        <p>The recorder is the one piece of state the two composers share, and it stays shared. <code>messages.routes.ts</code> lists <code>AudioRecordingService</code> in the route's <code>providers</code>, so the messages route has one instance holding the mic stream, the recorder, the timer and the subject that emits the finished clip. Only one recording can run at a time, because <code>startRecording()</code> returns early if a recorder exists. Both composers subscribe to <code>getRecordedBlob()</code> and get every clip. The container ignores it on the automated tab (TS line 483), and <code>image-audio-message</code> ignores it when its editor is closed (its line 124). Once a composer accepts a clip, the clip goes into that composer's own store. Both checks move as they are.</p>
+        <p>Panels inject stores. Leaf components take inputs and emit outputs.</p>
+        <p>I'd skip a separate page coordinator. The page component already sits where inbox, thread and send meet, and it's small once the stores exist. Another layer would just pass calls through.</p>
+      </div>
+      <div>
+        <h3>One ActiveThread object replaces twelve fields</h3>
+        <p>It looks like <code>{ kind, groupId, peer?, recipients?, listName?, listIcon? }</code>, where <code>kind</code> is one of <code>dm</code>, <code>broadcast</code>, <code>followers</code> or <code>mailingList</code> from a const map. Each entry point builds a whole new object and calls <code>thread.open(next)</code>. One catch: today some paths leave old values in place, and if the header or a link shows one of them, that stale value is part of today's UX. The baseline captures decide. Wherever a stale value is visible, the builder for that path copies it forward on purpose and the case goes on the follow-up list.</p>
+      </div>
+      <div>
+        <h3>The inbox is keyed by tab name</h3>
+        <p><code>rows: Record&lt;InboxTab, InboxRow[]&gt;</code> replaces the 48 index reads. The fan case becomes one line in the store instead of a <code>getChatTypeIndex</code> call at every site.</p>
+      </div>
+      <div>
+        <h3>Free and paid are one component with an input</h3>
+        <p><code>media-grid</code> takes <code>access: 'free' | 'paid'</code> plus the lock state, and renders exactly the markup each copy renders today, lock overlay and unlock footer included. <code>attachment-tray</code> does the same for the DM composer's two trays. <code>image-audio-message</code> has different classes and structure, such as <code>media-scroll-container</code>, <code>free-upload-icon</code> and its own audio row. It keeps its template and its <code>app-image-audio-message</code> selector, which <code>_white-label-theme.scss</code> styles, and shares only the logic: <code>ComposerStore</code>, drop rules and compression. Both price modals stay.</p>
+      </div>
+      <div>
+        <h3>Don't split past the point where a piece owns something</h3>
+        <p>A component earns its own folder when it owns state, appears twice, or has a template longer than one screen. Sixteen components with twenty inputs each would be worse than what's there now. The tree above is the ceiling, not the floor. If <code>thread-header</code> ends up as forty lines, fold it back into <code>thread-panel</code>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>What each component gets and emits</h2>
+  <div class="stack">
+    <p>Write these types in <code>interfaces/</code> before moving any markup. Children never receive the parent component, a callback bag, or an array they can mutate.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Component</th><th>Gets</th><th>Emits</th></tr></thead>
+        <tbody>
+          <tr><td><code>inbox-panel</code></td><td>Injects <code>InboxStore</code></td><td><code>open(thread)</code>, <code>newMessage</code>, <code>editList</code>, <code>deleteList</code></td></tr>
+          <tr><td><code>inbox-row</code>, <code>broadcast-row</code></td><td>Row, selected flag, online flag</td><td><code>select</code>, menu action</td></tr>
+          <tr><td><code>thread-header</code></td><td><code>ActiveThread</code>, presence, allowed actions</td><td><code>back</code>, <code>block</code>, <code>report</code>, <code>editParticipants</code></td></tr>
+          <tr><td><code>message-list</code></td><td>Decorated messages, <code>hasMore</code>, loading state</td><td><code>loadOlder</code>, <code>previewMedia</code>, <code>unlock</code></td></tr>
+          <tr><td><code>message-bubble</code></td><td>One message, <code>isMine</code>, tenant flag</td><td><code>previewMedia</code>, <code>unlock</code>, <code>playVideo</code>, <code>openShare</code></td></tr>
+          <tr><td><code>media-grid</code></td><td>Items, <code>access</code>, lock state, price</td><td><code>preview</code>, <code>unlock</code>, <code>download</code></td></tr>
+          <tr><td><code>composer</code></td><td>Provides its own <code>ComposerStore</code>, reads <code>dmValidations</code> from <code>ThreadStore</code></td><td><code>submit</code>, which hands the store to <code>SendQueueService</code></td></tr>
+          <tr><td><code>attachment-tray</code></td><td>Ordered items, <code>access</code>, limits, allowed media kinds</td><td><code>add</code>, <code>remove</code>, <code>move</code>, <code>priceChange</code></td></tr>
+          <tr><td><code>tip-popover</code></td><td>Minimum tip, presets, currency</td><td><code>tipChange</code></td></tr>
+          <tr><td><code>dm-gate</code></td><td>Permission state, age, tenant rules</td><td><code>retry</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Treat each send as a job</h2>
+  <div class="stack">
+    <p>This is the riskiest part of the page. Today every step after an async hop reads the component's current fields, so the job has to reproduce those reads exactly, including the ones that look wrong.</p>
+    <p>A job is a message the user pressed Send on that hasn't been delivered yet. Today there are two kinds. A text message sent while an earlier one is still going out waits, because <code>getResItems</code> only sends when the queue has exactly one entry (TS line 2268), and <code>afterSendChatLogic</code> sends the rest once the earlier one finishes. A media message uploads every file, builds thumbnails, uploads the free previews after the paid items, maybe goes through the guaranteed-reply tip step, and only then goes out on the socket. That second kind is slow, and it's the one that keeps running after the user leaves.</p>
+    <p>Reordering the inbox isn't a job. It's a step that runs after a job is delivered, in <code>sliceMessageFromMessageQueue</code>. For a DM it moves the thread to the top of the tabs. For a broadcast it reloads the inbox. Then it clears the textarea. In the plan, the queue reports that the job is done, and <code>InboxStore</code> does the reorder if the page is still open.</p>
+    <ul>
+      <li>A <code>SendJob</code> holds a client id and what today's code copies at the moment of Send: the text, the paid items, and the payload <code>sendMessage</code> builds, which already carries the price as <code>amount</code> and the international prices. It also holds the <code>dmValidations</code> it was checked against.</li>
+      <li>The job does not copy the free previews. Today <code>checkAllMediaFiles</code> reads the live <code>freePreviewList</code> when the paid uploads finish, so the job reads them from the composer's <code>ComposerStore</code> at that same moment. The composer clears the text and paid items on Send, and clears the price and free previews only when the paid uploads finish, matching TS lines 2240, 2376 and 2468. Copying everything at Send time is on the follow-up list.</li>
+      <li>Everything that today reads the current thread after an await goes through one function, <code>resolveDeliveryTarget(job)</code>. In this plan it returns the thread that is open at that moment, as the code does now. The spinner keeps flipping on the last bubble of the current list. If product signs off on the wrong-thread fix, that function changes to return a snapshot taken at send time, and nothing else has to move.</li>
+      <li>The queue entry is removed at the moment it's removed today, when the upload starts. So <code>canDeactivate</code> and the thread-switch check behave exactly as they do now. The job's own bookkeeping lives in a separate list that no guard reads.</li>
+      <li><code>SendQueueService</code> lives at root, so a job still finishes after the user leaves the page. The steps after delivery that only touch the page, reordering the inbox and clearing the textarea, are skipped when the page is gone. Nothing is lost, because the inbox loads fresh when the user comes back. Today those steps throw on a null <code>#editable</code> after delivery, and nobody sees it.</li>
+      <li><code>decideSendPath(job)</code> picks the path. The three payment paths hand a payload to <code>cs.subscriptionPaymentData</code> and navigate to <code>dashboard/make-payment</code>, and <code>post-payment.component.ts</code> sends the socket message after payment. That payload is a contract with another module. Keep its keys identical and diff them against the step 1 baseline.</li>
+      <li><code>ChatService</code> stays a root singleton. The header opens the connection, and the messages page subscribes but never disconnects.</li>
+      <li>Today a socket send counts as done right after <code>chatService.send()</code>. Keep that meaning. There's no server acknowledgement to wait for, and inventing one is a product change.</li>
+      <li>Move the existing branches intact. The three payment builders merge into one only if the merged builder produces the same keys and values for every flow in the baseline.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <h2>Styles and dialogs move with their markup</h2>
+  <ul>
+    <li>The container's SCSS uses emulated encapsulation, so a selector like <code>.messages-left .messages-item</code> stops matching as soon as that markup moves into a child. Move the selectors in the same PR as the markup.</li>
+    <li>Global files style this page too. <code>src/assets/scss/_messages.scss</code> is 1,932 lines, and <code>_theme.scss</code> matches chains like <code>.messages-container .messages-left .singleImage</code>. Keep class names and nesting the same, or update those files in the same PR.</li>
+    <li>Moving a rule from the container's SCSS into a child's SCSS changes its specificity, because Angular adds a different attribute selector. A rule that used to beat a global one can start losing. Compare screenshots at desktop and phone widths, on the main theme and one white-label theme, before merging.</li>
+    <li><code>_white-label-theme.scss</code> targets the <code>app-image-audio-message</code> element, so that component keeps its selector.</li>
+    <li>The inline delete-list, tip-required and reply-fulfilled dialogs are already <code>app-alert-modal</code>. They move into small wrapper components with the same inputs and copy, so they look identical. Each one takes typed data and emits a result, and the store does the work after confirmation.</li>
+    <li>There's a fourth inline dialog, <code>#deleteAutoMessage</code> at template lines 3102 to 3117, which confirms deleting an automated message. It moves into <code>automated-messages-tab</code> with the same markup, together with the <code>app-automated-message-modal</code> host above it, because that tab owns both actions.</li>
+    <li><code>AudioRecordingService</code> also hosts <code>generateCommonGroupId</code>, which has nothing to do with audio. The thread store calls it where it is. Moving it is a cleanup for later, not part of this plan.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Where today's code goes</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>New home</th><th>Takes over</th><th>From today</th></tr></thead>
+      <tbody>
+        <tr><td><code>inbox.store</code></td><td>Paged inbox load, search debounce, tab switching, counts and badges, picking the first thread on load, the reorder after a send is delivered</td><td>TS 712 to 1100, 3895 to 3962, 4029 to 4050, 4668 to 4678</td></tr>
+        <tr><td><code>thread.store</code></td><td>History paging, the live-message stash and merge, guaranteed-reply pending state, opening a thread</td><td>TS 2914 to 3053, 3174 to 3205, 3326 to 3560, 3865 to 3893</td></tr>
+        <tr><td><code>chat-events.service</code></td><td>Socket subscription, envelope parsing, routing to the inbox or the open thread</td><td>TS 2722 to 2742, 2810 to 2912</td></tr>
+        <tr><td><code>presence.service</code></td><td>Online poll for the open thread, the members list, the heartbeat if it stays</td><td>TS 1479 to 1534, 2744 to 2808</td></tr>
+        <tr><td><code>composer.store</code> and <code>attachment-tray</code></td><td>File pick, drop rules, removal, price, audio capture, first-name insert, emoji</td><td>TS 531 to 559, 1104 to 1141, 1535 to 1765, 1856 to 1892, 4144 to 4249. Template 1945 to 2545.</td></tr>
+        <tr><td><code>send-queue.service</code></td><td>Queue, upload fan-out, the four-way payment decision, socket send, the "job done" signal the inbox reorders on</td><td>TS 2068 to 2717, 3692 to 3863</td></tr>
+        <tr><td><code>tip-popover</code></td><td>Predefined amounts, custom amount, min and max checks</td><td>TS 3620 to 3690. Template 2573 to 2720.</td></tr>
+        <tr><td><code>share-urls</code> and the share modals' handlers</td><td>Store, portfolio and event-ticket share links</td><td>TS 4383 to 4666</td></tr>
+        <tr><td><code>inbox-panel</code>, <code>inbox-row</code>, <code>broadcast-row</code></td><td>Search box, tab pills, infinite scroll, both row types and the row menu</td><td>Template 28 to 533</td></tr>
+        <tr><td><code>thread-header</code></td><td>Avatar, name, recipients, badges, block and report menu, mobile close</td><td>Template 540 to 745</td></tr>
+        <tr><td><code>message-list</code>, <code>message-bubble</code>, <code>media-grid</code>, <code>share-card</code></td><td>Day separators, upward paging, every bubble type, both media copies</td><td>Template 746 to 1872</td></tr>
+        <tr><td><code>dm-gate</code></td><td>Permission retry, price-for-DM notice, under-18, white-label exclusive, tip required</td><td>Template 1885 to 1944, 3010 to 3040</td></tr>
+        <tr><td><code>automated-messages-tab</code></td><td>The table and its row actions, the add button, the editor modal host, the delete confirmation</td><td>TS 376, 390 to 404, 634 to 660, 4318 to 4392. Template 3050 to 3117.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>Order of work</h2>
+  <div class="stack">
+    <p>The order matters. Pure functions come first because they're the only thing I can test without the component. The automated tab is the first component because nothing else depends on it. Stores come before the rest of the template split, because a template split on top of today's fields just spreads the twelve-field problem across sixteen files. <code>OnPush</code> comes last because it only works once nothing mutates in place.</p>
+    <ol class="items">
+      <li class="step">
+        <h3>Get a test runner working and pin today's behavior<span class="tag">1 PR</span></h3>
+        <p><code>karma.conf.js</code> and <code>src/test.ts</code> exist, but the repo has no specs, so nobody knows whether <code>ng test</code> still runs on Angular 21. Get it running, or switch the messages specs to the Vitest-based unit-test builder. Then write a short manual script for the flows in the test matrix below. Run it on the current build and save three things per flow: screenshots at desktop and phone widths on the main theme and one white-label theme, a HAR file of the network traffic including payment payloads, and a screen recording for anything with timing, like loaders and scroll position.</p>
+        <p class="done"><strong>Done when</strong> one trivial spec passes in CI and the baseline captures are saved where every later PR can compare against them.</p>
+      </li>
+      <li class="step">
+        <h3>Pull the pure logic out into functions<span class="tag">2 or 3 PRs</span></h3>
+        <p>Move <code>sameConversationId</code>, <code>matchesInboxRow</code>, <code>messageBelongsToThread</code> and <code>getThreadMessageKey</code> into <code>conversation-id.ts</code>. Move <code>mergeHistoryWithLiveMessages</code> into <code>live-merge.ts</code>, taking the stash as an argument. Turn <code>getDayDateProfile</code> and <code>onsetreceive</code> into one <code>decorateThread(messages)</code> that returns new objects with the same <code>profileStatus</code>, <code>messageDay</code> and <code>updatedDate</code> values the two methods produce today. Write <code>decideSendPath(dmValidations, tip)</code>, which returns <code>consumeCredits</code>, <code>payForMessage</code>, <code>payForMessageAndTip</code>, <code>tip</code> or <code>free</code>. Add the three payment payload builders, <code>buildStoreShareUrl</code>, and <code>resolveInitialThread</code>, which folds route id, <code>history.state.user_key</code>, <code>?user=</code>, <code>history.state.groupId</code>, <code>showBulkMessagesOnLoad</code> and the white-label owner default into one decision, with the same precedence the scattered checks have today.</p>
+        <p>The component keeps calling these from the same places. The commits in the last two weeks, like keeping live messages across a history load and keeping an incoming guaranteed-reply tip across permission checks, each get a spec named after the bug.</p>
+        <p class="done"><strong>Done when</strong> each function has specs covering the cases those commits fixed, and the component diff is only call-site swaps.</p>
+      </li>
+      <li class="step">
+        <h3>Fix only the invisible bugs<span class="tag">3 small PRs</span></h3>
+        <p>Keep a single post-broadcast <code>receiveMessage</code> subscription instead of one per send. Delete the dead <code>abort.bind</code> line. Split today's <code>destroy$</code> users into two groups without changing what either group does. Page-only streams, like history, inbox, the online poll and shorten-URL, move to <code>takeUntilDestroyed</code>, which cancels them on leave. Today they're either cancelled on leave already or their result lands on a destroyed component, so nobody sees a difference. Send streams, meaning uploads, the blurred image and the credit call, keep today's rule: they run to completion unless the user leaves before the first socket event. The heartbeat keeps its own copy of today's subject so its timing doesn't move.</p>
+        <p class="done"><strong>Done when</strong> five broadcast sends followed by one incoming message produce one inbox load on screen, as before, and the HAR from leaving mid-upload matches the baseline, with the message still delivered.</p>
+      </li>
+      <li class="step">
+        <h3>Extract the automated messages tab<span class="tag">1 PR</span></h3>
+        <p>It's the most self-contained part of the page: a table, an add button, a delete confirmation and a list fetch, with no thread or inbox state. That makes it the right first component. It sets the folder, constants, SCSS and dialog pattern before the risky moves. The <code>#deleteAutoMessage</code> dialog and the <code>app-automated-message-modal</code> host move with it. Keep <code>AutomatedMessageModalComponent</code> itself as it is for now.</p>
+        <p class="done"><strong>Done when</strong> the tab's screenshots match the baseline, create, edit and delete behave as before, and the container no longer imports <code>TableComponent</code> or <code>AutomatedMessageModalComponent</code>.</p>
+      </li>
+      <li class="step">
+        <h3>Inbox store and one socket entry point<span class="tag">1 or 2 PRs</span></h3>
+        <p>Create <code>InboxStore</code> with rows keyed by tab and <code>ChatEventsService</code>. The container reads <code>inbox.rows()</code> and the template binds to it. The <code>ngAfterViewInit</code> socket subscription moves out.</p>
+        <p class="done"><strong>Done when</strong> <code>chatLogsList</code> no longer exists and there are no index reads left.</p>
+      </li>
+      <li class="step">
+        <h3>Thread store with ActiveThread<span class="tag">2 PRs</span></h3>
+        <p>Move history, the stash, <code>dmValidations</code> and the guaranteed-reply flag into <code>ThreadStore</code>. Rewrite <code>getUserMsgDetails</code>, <code>requestParamsofBroadcast</code>, the four <code>onBroadcast</code> branches, <code>matchWithEmail</code>, <code>setNewUser</code> and <code>onSendTipBack</code> so each builds an <code>ActiveThread</code> and calls <code>thread.open()</code>. Opening a thread cancels that store's in-flight history and presence requests, as <code>historyCancel$</code> does today. This step changes the most code, and it's the one that pays for the rest.</p>
+        <p class="done"><strong>Done when</strong> the twelve thread fields are gone from the component, and every entry point in the matrix opens the same thread with the same header, links and composer state as the baseline.</p>
+      </li>
+      <li class="step">
+        <h3>Shared leaf components<span class="tag">3 or 4 PRs</span></h3>
+        <p>Extract <code>media-grid</code> first, since it removes the biggest copy. Then do <code>attachment-tray</code> for the DM composer's free and paid trays, backed by <code>ComposerStore</code>. Point <code>image-audio-message</code> at its own <code>ComposerStore</code> instance and the same drop rules and compression code, and leave its template alone. After that come <code>message-bubble</code>, <code>share-card</code>, <code>inbox-row</code> and <code>broadcast-row</code>.</p>
+        <p class="done"><strong>Done when</strong> the DM template has one media block and one tray, the automated composer uses the shared logic, and every screenshot matches the baseline.</p>
+      </li>
+      <li class="step">
+        <h3>Send jobs<span class="tag">2 PRs</span></h3>
+        <p>Build <code>MediaUploadService</code> so each upload returns an observable of progress plus the final item, which drops the shared <code>percent</code> and <code>resItems</code> fields. Build <code>SendQueueService</code> around the <code>SendJob</code> described above. Move the existing branches across unchanged. Move <code>automated-message-modal</code> onto the same upload code in the second PR.</p>
+        <p class="done"><strong>Done when</strong> <code>uploadPriceItemsGeneric</code> exists in neither file, and the payment payloads match the baseline key for key in every money flow.</p>
+      </li>
+      <li class="step">
+        <h3>Panels, page shell, dialogs and strings<span class="tag">3 PRs</span></h3>
+        <p>Build <code>inbox-panel</code>, <code>thread-panel</code> with <code>thread-header</code> and <code>message-list</code>, and <code>composer</code> with <code>tip-popover</code>, <code>audio-recorder</code> and <code>dm-gate</code>. Turn the inline alert modals into the three dialog components. <code>MessageContainerComponent</code> keeps its name, selector, route and guard, and becomes the shell. Every hardcoded string moves into <code>messages.constant.ts</code> under grouped keys as its block moves, with identical text.</p>
+        <p class="done"><strong>Done when</strong> the shell is under 200 lines of TS, no template is over about 400 lines, screenshots and HARs match the baseline, and <code>npm run build-dev</code> shows the messages chunk no bigger than before. Moving statically imported children won't make it smaller. Lazy-loading anything would add loading states, so it's out of scope.</p>
+      </li>
+      <li class="step">
+        <h3>OnPush and the end of ngAfterViewChecked<span class="tag">1 PR</span></h3>
+        <p>Turn on <code>ChangeDetectionStrategy.OnPush</code> from the leaves up. Delete <code>ngAfterViewChecked</code> and the ten manual <code>detectChanges()</code> calls. Wherever something stops updating, a store is still mutating in place, so fix the store, not the component. Watch the timing-sensitive spots: the recording timer, upload percent, the tip popover's padding calculation and scroll after send.</p>
+        <p class="done"><strong>Done when</strong> no <code>detectChanges</code> is left in the messages module and the screen recordings match the baseline frame for frame at the moments that matter.</p>
+      </li>
+    </ol>
+  </div>
+</section>
+
+<section>
+  <h2>What to test on every PR</h2>
+  <div class="stack">
+    <p>Every flow is compared against the baseline from step 1, not against what seems right. If today's build does something odd, the PR has to do the same odd thing. Run each flow as four users: a creator on the main site, a fan on the main site, a white-label owner, and a white-label fan. The white-label fan never sees the inbox and lands on the owner's thread. Run the upload flows once more inside the mobile app, where file picking goes through <code>MobileBridgeFileInputDirective</code>. Build one generated white-label project as well as TopFans, since its theme file reaches into these components by selector.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Area</th><th>Flows</th></tr></thead>
+        <tbody>
+          <tr><td>Opening a thread</td><td>Cold load, tip-back route id, <code>history.state.user_key</code> from a profile, <code>?user=</code>, bulk tab on load, New Message to an existing user and to a new user, a mailing list, followers</td></tr>
+          <tr><td>Reading</td><td>Scroll up through older pages, a live message arriving while history is still loading, a live message for a thread that isn't open, unread counts and tab pills</td></tr>
+          <tr><td>Sending</td><td>Text, free media, paid media with blur, free and paid together, audio, store and portfolio and event shares, a broadcast, a followers send, a restricted image, a video upload while switching to another thread, which must land in the same thread it lands in today. On a paid send with free previews, check the price chip and the free-preview tray stay in the composer until the paid upload finishes, then clear.</td></tr>
+          <tr><td>Money</td><td>Tip, guaranteed reply requested and fulfilled, pay per message with no free credits, pay per message plus tip, unlock a paid item</td></tr>
+          <tr><td>Inbox</td><td>Search, infinite scroll on each tab, edit list details, edit participants, delete a list, block, report</td></tr>
+          <tr><td>Automated messages</td><td>Create with media and audio, edit, delete. Type a DM message and attach a file, switch to the automated tab and back, and check the text and file are still there, as they are today. Record audio on the automated tab and check it doesn't show up in the DM composer.</td></tr>
+          <tr><td>Leaving and coming back</td><td>Leave mid-upload and check the message is still delivered. Come back and check the inbox starts empty and reloads, the composer is empty, and the socket still works on other pages.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Decide before starting</h2>
+  <ul>
+    <li><strong>Can feature work on message-container pause during steps 5 to 9?</strong> The pagination and socket-envelope fixes are still landing on this branch. Any parallel edit to the container will conflict with a store move. My preference is a short freeze with each step merged within a day, rather than a long-lived refactor branch.</li>
+    <li><strong>Karma or Vitest?</strong> If karma runs today, keep it and don't fight two battles at once. If it's broken, I'd move to Vitest instead of repairing karma.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Follow-ups that change UX and need a product decision</h2>
+  <div class="stack">
+    <p>None of these are in the plan. Each one is a separate ticket after the refactor lands, and the refactor makes each one small.</p>
+    <ul>
+      <li><strong>Deliver a media send to the thread it was written in.</strong> Today it goes to whichever thread is open when the upload finishes, and the spinner flips on the wrong bubble. After the refactor, the fix is one change inside <code>resolveDeliveryTarget</code>. I'd do this first. A message going to the wrong person is worse than any layout bug.</li>
+      <li><strong>Clear the whole composer on Send.</strong> Today the price chip and the free previews stay in the composer until the paid uploads finish, and the job reads the free previews only at that point. So a free preview the user adds during the upload goes out with the earlier message. I traced this in the code but haven't reproduced it in a browser. The fix is to copy the free previews into the job at Send and clear everything at once.</li>
+      <li><strong>Warn before leaving or switching threads mid-upload.</strong> Today both are allowed once the upload has started.</li>
+      <li><strong>Cancel uploads when the user leaves.</strong> Today the message is still delivered. Whether that's a bug or a feature is a product call.</li>
+      <li><strong>The two-minute presence heartbeat.</strong> As written it doesn't run reliably. The backend team should say whether presence needs it and how often.</li>
+      <li><strong>One rule for duplicate messages.</strong> The backend should confirm which of <code>sk</code>, <code>message_id</code> and <code>client_msg_id</code> every history item and every socket event carries.</li>
+      <li><strong>One price modal and one tray look.</strong> v1 and v2 of the price modal, and the automated composer's own tray markup, could be unified. Users would see it.</li>
+      <li><strong>Stale header values.</strong> These are any values that step 6 had to copy forward because today's UX shows them.</li>
+      <li><strong>Lazy-loading the automated tab, players or emoji picker.</strong> It may shrink the route chunk, and it adds loading states.</li>
+    </ul>
+  </div>
+</section>
+</main>
+</div>
+</body>
+</html>

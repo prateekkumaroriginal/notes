@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A code-based recommendation for splitting the TopFans messages page, improving loading, and adopting Angular 21 source patterns in separate, reviewable changes.">
+  <title>Messages modularization and performance | sol-6-1</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--muted); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; line-height: 1.65; }
+    h1, h2, h3, p, ul, ol, figure, table { margin: 0; }
+    h1, h2, h3, th, strong { color: var(--text); }
+    h1 { padding-bottom: .75rem; line-height: 1.2; }
+    h2 { padding-bottom: .75rem; line-height: 1.3; }
+    h3 { padding-bottom: .5rem; line-height: 1.4; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .stack { display: grid; gap: 1rem; }
+    .items { display: grid; gap: 1.75rem; }
+    ul, ol { padding-left: 1.4rem; }
+    li + li { padding-top: .5rem; }
+    a { color: var(--blue); text-underline-offset: .2em; border-radius: .3rem; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .88em; background: var(--surface); color: var(--blue); padding: .12em .35em; border-radius: .35rem; overflow-wrap: anywhere; }
+    .meta, .small { font-size: .875rem; }
+    .meta { padding-top: 1rem; }
+    .speed { color: var(--green); }
+    .architecture { color: var(--blue); }
+    .angular { color: var(--violet); }
+    .caution { color: var(--amber); }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .65rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; vertical-align: top; padding: .8rem; }
+    th { background: var(--surface); }
+    tbody tr + tr { border-top: 1px solid var(--line); }
+    .tree { list-style: none; padding: 0; }
+    .tree ul { list-style: none; padding: .55rem 0 0 1.2rem; border-left: 1px solid var(--line); border-radius: .35rem; }
+    .tree li { padding-left: .7rem; }
+    .tree > li { padding-left: 0; }
+    .node { color: var(--text); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap: anywhere; font-size: .9em; }
+    .node-note { display: block; font-size: .875rem; }
+    .answers { display: grid; gap: 1.75rem; }
+    .answers > li + li { padding-top: 0; }
+    .answers h3 { font-size: 1rem; }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } th, td { padding: .6rem; } .tree ul { padding-left: .75rem; } .tree li { padding-left: .45rem; } }
+    @media print { :root { color-scheme: light; --bg: #fff; --surface: #f4f4f4; --text: #111; --muted: #333; --line: #ccc; --blue: #165c77; --green: #245e32; --violet: #603e80; --amber: #775817; } .page { padding-block: 1rem; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Break up the messages page and make it faster</h1>
+    <p>Ship the loading fix first. Then split the page around inbox, thread, composer, and automated messages. Use Angular 21 patterns in each extracted component, with separate changes for app-wide migrations.</p>
+    <p class="meta">Recommendation by sol-6-1, 1 Oct 2026. Audited frontend <code>b4eecd4a60</code> and the current source against the <a href="https://notes.prateekkumar.site/messages-page-load-fast-opus-5-5">Opus speed investigation</a>. This document proposes the work. It does not implement or benchmark it.</p>
+  </header>
+  <main>
+    <section class="stack">
+      <h2>Why I would start with the loading fix</h2>
+      <p><code>MessageContainerComponent</code> has <span class="caution">4,283 lines of TypeScript, 3,118 lines of HTML, and 1,218 lines of SCSS</span>. Splitting it will make changes easier to review. File count alone will not remove a network wait or keep an emoji library out of the first download.</p>
+      <p>The speed report identifies a smaller change that can ship before the extraction. I checked these findings in the current source:</p>
+      <ul>
+        <li><code>getUserEmail()</code> waits 1,000 ms before validation, even when the selected participant is available.</li>
+        <li><code>getUserChatMessage()</code> and <code>checkNewUserValidation()</code> both emit to <code>userValidationCancel$</code>. Parallelizing them without changing cancellation would cancel one request.</li>
+        <li><code>msgrightLoader</code> hides history and the composer together. The inbox request also clears it in its completion handler.</li>
+        <li><code>scrollToBottom()</code> waits another 500 ms. <code>ngAfterViewChecked()</code> calls <code>detectChanges()</code> on every view check.</li>
+        <li>The container eagerly imports the picker, audio player, table, and share dialogs. <code>receiveMessage()</code> also refetches the inbox.</li>
+      </ul>
+      <p>The first change should establish a reliable selected-thread flow. That gives the extraction a clearer contract. A full component rewrite first would leave users waiting while we move the same problems between files.</p>
+      <p class="small">The report's timing and bundle estimates are hypotheses from an earlier build. Its author had no authenticated timing session. I confirmed the source patterns above, not the proposed 0.6 s load time or 450 KB saving.</p>
+    </section>
+
+    <section class="stack">
+      <h2>The order I recommend</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Order</th><th scope="col">Change</th><th scope="col">Ready to move on when</th></tr></thead>
+          <tbody>
+            <tr><td>1. Establish a baseline</td><td>Capture production route-to-history and route-to-composer timings, request order, and loaded chunks. Record the existing selection and payment behavior.</td><td>We can repeat the same scenarios and compare changes.</td></tr>
+            <tr><td>2. Fix thread loading</td><td>Separate history and permission cancellation, loading, and errors. Use the selected participant instead of the 1 s timer. Start both requests together. Render authorized history independently.</td><td>Fast A-to-B switching never displays A in B. Permission failure leaves actions disabled and history readable.</td></tr>
+            <tr><td>3. Extract optional UI</td><td>Move automated messages into its own panel. Load its table and editor on tab selection. Load dialogs on demand. Keep behavior changes limited to loading.</td><td>A normal thread visit does not download automated-message or unused dialog code.</td></tr>
+            <tr><td>4. Extract inbox and thread</td><td>Move list selection, timeline, header, and rendering into their owners. Sort once, track stable IDs, and replace repeated template filtering. Fix view updates before removing the repeated detection hook.</td><td>Unread counts, default selection, mobile layout, and existing message types still behave correctly.</td></tr>
+            <tr><td>5. Extract the composer</td><td>Move draft, attachments, recording, tip UI, and send coordination. Defer the picker and recorder. Preserve payment rules and the current send queue.</td><td>Paid DM, free credits, guaranteed reply, upload failure, and optimistic sends pass regression checks.</td></tr>
+            <tr><td>6. Address remaining costs</td><td>Add bounded caching, pagination, websocket deltas, and backend changes where measurements justify them.</td><td>Each change improves its measured cost without losing messages or corrupting counts.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>These are review boundaries, not a requirement for six large PRs. Split a stage further when it mixes unrelated risks. Add the history and inbox skeletons when their loading states become separate.</p>
+      <p><span class="architecture">One coordinated effort, sequential frontend changes.</span> Research, backend API discussion, and baseline collection can overlap. Two frontend branches editing the same container will create conflicts and make failures harder to attribute. Work in parallel once the extracted components have agreed inputs and outputs.</p>
+    </section>
+
+    <section class="stack">
+      <h2>The proposed final component tree</h2>
+      <p>Keep <code>MessageContainerComponent</code> as the route entry. It owns page layout, feature tabs, route integration, and the existing navigation guard. The children below are proposed components unless marked as existing. Shared buttons, tabs, skeletons, and icons are omitted from the tree.</p>
+      <figure>
+        <ul class="tree" aria-label="Proposed messages component hierarchy">
+          <li><span class="node">MessageContainerComponent</span><span class="node-note">Page shell and route coordination</span>
+            <ul>
+              <li><span class="node">MessagesInboxComponent</span><span class="node-note">Search, Priority / General / Bulk tabs, loading and empty states</span>
+                <ul><li><span class="node">ConversationRowComponent</span><span class="node-note">Direct and mailing-list rows, preview, unread count, row actions</span></li></ul>
+              </li>
+              <li><span class="node">MessageThreadComponent</span><span class="node-note">Selected conversation, independent history and permission states</span>
+                <ul>
+                  <li><span class="node">MessageThreadHeaderComponent</span><span class="node-note">Participant or group, presence, badges, block/report, mobile back</span></li>
+                  <li><span class="node">MessageTimelineComponent</span><span class="node-note">History, day grouping, scroll position, older-page state</span>
+                    <ul><li><span class="node">MessageItemComponent</span><span class="node-note">One incoming or outgoing message, timestamp, optimistic status</span>
+                      <ul>
+                        <li><span class="node">MessageMediaComponent</span><span class="node-note">Images, audio, video and files, with playback code loaded when needed</span></li>
+                        <li><span class="node">PaidMessageContentComponent</span><span class="node-note">Locked content, free previews, price, unlock request</span></li>
+                        <li><span class="node">ShareDetialsPreviewComponent</span><span class="node-note">Existing merchandise, portfolio and event preview component</span></li>
+                      </ul>
+                    </li></ul>
+                  </li>
+                  <li><span class="node">MessageComposerComponent</span><span class="node-note">Draft UI, send state, permission prompts, composing actions</span>
+                    <ul>
+                      <li><span class="node">MessageEditorComponent</span><span class="node-note">Text, cursor, keyboard handling, insert first name</span></li>
+                      <li><span class="node">MessageAttachmentTrayComponent</span><span class="node-note">Paid and free attachment lists, previews, reorder and remove</span></li>
+                      <li><span class="node">MessageTipPanelComponent</span><span class="node-note">Tip amount, currency and guaranteed-reply UI</span></li>
+                      <li><span class="node">MessageEmojiPickerComponent</span><span class="node-note">Load when opened</span></li>
+                      <li><span class="node">MessageAudioRecorderComponent</span><span class="node-note">Load when opened, with waveform and recording controls</span></li>
+                    </ul>
+                  </li>
+                </ul>
+              </li>
+              <li><span class="node">AutomatedMessagesPanelComponent</span><span class="node-note">Load on tab selection, own fetch/edit/delete state</span>
+                <ul><li><span class="node">TableComponent</span><span class="node-note">Existing shared table</span></li></ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+        <figcaption class="small">The picker, recorder, automation panel, and heavy players are code-loading boundaries. Inbox, thread header, and readable history stay on the initial path.</figcaption>
+      </figure>
+      <p>Dialogs sit outside this permanent tree. A lightweight <code>MessagesDialogService</code> loads the existing new-message, participants, price, share, image-preview, and video dialogs when requested. Extract the container's inline delete and tip/guaranteed-reply dialogs into dedicated components based on <code>AlertModalComponent</code>.</p>
+      <p>Do not make a component for every icon or conditional branch. The useful boundary is a part with its own behavior, a repeated renderer, or an expensive dependency. The first extraction can be coarser than this tree.</p>
+      <p>There is already an <code>ImageAudioMessageComponent</code> used by the automated-message editor. It duplicates attachment and recording behavior and owns mutable state. Keep it working during the first extraction. Share the new attachment and recording pieces after both consumers have a compatible draft contract.</p>
+    </section>
+
+    <section class="stack">
+      <h2>Moving the template is only half the work</h2>
+      <p>The container should stop owning API calls, upload steps, payment branches, and message formatting. Copying all 4,283 TS lines into a single service would leave the maintenance problem intact.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Owner</th><th scope="col">Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td><code>MessagesFacade</code></td><td>Page-session coordination, route targets, white-label default target, and a small read-only page model. Delegate domain work below.</td></tr>
+            <tr><td><code>MessagesInboxStore</code></td><td>Inbox data, search, classification, sorting, unread totals, selection rules and row updates.</td></tr>
+            <tr><td><code>MessageThreadStore</code></td><td>History and permission request state for a selection, retries, pagination, deduplication and optimistic-message reconciliation.</td></tr>
+            <tr><td><code>MessageComposerStore</code></td><td>Draft and attachment state, upload/send queue and busy state. Keep destination and permission context attached to each queued send.</td></tr>
+            <tr><td><code>MessageActionsService</code></td><td>Paid DM credit consumption, tips, guaranteed replies, unlocks and existing payment flows. Reuse current application payment services.</td></tr>
+            <tr><td><code>MessagesApiService</code></td><td>Typed adapters over existing endpoints. GET uses <code>ApiCacheService</code>, initially <code>ALWAYS_FRESH</code>. Existing history and validation POSTs keep using <code>ApiCallService</code>.</td></tr>
+            <tr><td><code>MessagesRealtimeService</code></td><td>One messages-page subscription to existing <code>ChatService</code>. Map events to stores. Rows and message items never subscribe separately.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Keep page-session state with the container and draft state with its owning composer. Do not assume a route provider is destroyed on every navigation; define session reset and subscription cleanup explicitly. Stateless adapters can be root singletons. A later root cache should retain only bounded, intentional data and clear it on account or tenant changes.</p>
+      <p>Components receive typed, read-only models and emit actions such as select, retry, send, remove attachment, and unlock. Do not pass the parent component to a child or let children mutate its arrays. Keep temporary forwarding methods while extracting, then remove them.</p>
+      <p>The thread selection includes <code>groupId</code>, participant ID, conversation kind, and account/tenant context. History and permission streams independently cancel old selections. Late responses and their cleanup must check the selection generation before updating state. A shared <code>forkJoin</code> would wait for both responses and hide the benefit of early history.</p>
+      <p>Normalize API responses once into message and conversation models. Give an optimistic send a stable render ID that survives the server response; preserve the existing <code>uinqueId</code> matching until that adapter is tested. Replacing an optimistic ID with a server ID can otherwise recreate the row and interrupt media.</p>
+    </section>
+
+    <section class="stack">
+      <h2>Where I would adjust the speed report</h2>
+      <div class="items">
+        <div>
+          <h3>Accept the loading changes, keep selection rules explicit</h3>
+          <p>Start history and permissions together when the participant is known. Handle direct links, new groups, broadcasts, and white-label owner targeting separately. Clear the previous thread's permission state immediately. Unknown or failed validation must never fall through to free sending.</p>
+        </div>
+        <div>
+          <h3>Pair code splitting with extraction</h3>
+          <p>A smaller component remains eager if the shell still imports it eagerly. Use deferred standalone wrappers for the picker, players, and automation panel, and dynamic imports for dialogs. A child class referenced outside its defer block or in a component query can remain eager. Making a query optional does not fix that reference. Verify the actual chunks. <a href="https://angular.dev/guide/templates/defer">Angular documents these defer conditions</a>.</p>
+        </div>
+        <div>
+          <h3>Move scrolling to the timeline, then remove timing guesses</h3>
+          <p>The timeline owns scrolling. Use a browser render callback such as <code>afterNextRender</code> to wait for the view. Give media reserved dimensions and account for later media sizing. Keep the reader's position when older history arrives or a new message arrives while they read above the bottom. <a href="https://angular.dev/guide/components/lifecycle">Angular's render callback guidance</a> explains when callbacks run and why SSR needs separate handling.</p>
+        </div>
+        <div>
+          <h3>Defer cache and backend work until the frontend contracts settle</h3>
+          <p>The proposed paginated inbox, thread bootstrap, and websocket row deltas are sensible API discussions. They do not block the first loading fix or component split. Keep the full-inbox fallback until event payloads can maintain classification and unread totals. Decide on virtualization after profiling large inboxes. Variable-height message media makes timeline virtualization a separate task.</p>
+          <p>Early prefetch must not pull the whole messages dependency tree into the app shell. Keep any prefetch adapter small and browser-only. Private cache keys need account, tenant, permission context, tab, search and conversation identity. The current GET cache keys come from the endpoint, so do not assume they provide that isolation.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack">
+      <h2>Angular 21 source changes belong in the extraction</h2>
+      <p><code>package.json</code> already targets Angular <span class="angular">21.2.x</span> and TypeScript 5.9. The messages route already loads lazily, the container is standalone, its template uses <code>@if</code> and <code>@for</code>, and its queries use <code>viewChild()</code>. A new package-upgrade phase is unnecessary for this checkout. Most remaining work is state ownership and update behavior.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Do as we extract</th><th scope="col">Keep as a separate task</th></tr></thead>
+          <tbody>
+            <tr><td>Use <code>input()</code> and <code>output()</code> for typed child contracts. Use signals for owned UI state and <code>computed()</code> for derived state.</td><td>A repository-wide signals or NgRx rewrite. Keep the existing user-profile store and <code>ChatService</code>.</td></tr>
+            <tr><td>Set <code>OnPush</code> on new components. Publish immutable model changes and fix missed updates at their source.</td><td>Switching the entire app's change-detection scheduler. <code>app.config.ts</code> explicitly retains <code>provideZoneChangeDetection()</code>.</td></tr>
+            <tr><td>Use <code>takeUntilDestroyed()</code> with the correct owner. Keep <code>switchMap</code> for request cancellation; destruction cleanup does not replace it.</td><td>New signal-form or <code>httpResource</code> migrations. Keep existing request wrappers and follow the dynamic-form guide for supported fields.</td></tr>
+            <tr><td>Keep built-in control flow. Track stable IDs and use standalone deferred children for optional dependencies.</td><td>An app-shell dependency cleanup or media-library replacement. Either can affect many other routes.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Signals and RxJS have different jobs here. Signals expose current state to the template. RxJS handles asynchronous selection, cancellation, and events. There is no need to replace a working request stream just to make the code look newer.</p>
+      <p class="small">These choices follow Angular's guidance on <a href="https://angular.dev/guide/components/inputs">signal inputs</a>, <a href="https://angular.dev/guide/components/outputs">outputs</a>, <a href="https://angular.dev/best-practices/skipping-subtrees">OnPush</a>, and <a href="https://angular.dev/ecosystem/rxjs-interop/take-until-destroyed">subscription cleanup</a>. Angular 21 defaults to zoneless, but this app opts into Zone. Evaluate an app-wide switch later, after the websocket, modal, upload, and SSR updates have explicit notifications. See <a href="https://angular.dev/guide/zoneless">Angular's zoneless migration guide</a>.</p>
+      <p>Keep all extracted component styles in SCSS. Move each layout rule to its owning component and check encapsulation, mobile widths, and themed colors. Reuse <code>src/app/components/</code> UI elements. Put labels in grouped <code>as const</code> files and keep endpoint and tenant URLs in existing configuration. Do not copy the current hardcoded labels or document-wide element lookups into the new components.</p>
+    </section>
+
+    <section class="stack">
+      <h2>What each stage must prove</h2>
+      <ul>
+        <li>Measure cold route entry separately from warm return. Record route activation, inbox paint, history paint and composer enabled. Compare production builds on the same network and device profile, with repeated runs and p75/p95 results.</li>
+        <li>Check fast thread switches, overlapping searches, incoming messages during loading, empty history, failed validation, and retries. History remains readable; stale permission state never enables an action.</li>
+        <li>Preserve Priority / General / Bulk default selection, unread totals, direct links through <code>?user=</code>, tip-back <code>id</code>, and <code>history.state</code>. Test creator, fan and delegate access.</li>
+        <li>Cover paid DM, remaining free credits, tip-required and guaranteed replies, locked media, shared items, mailing lists, recording, failed uploads and optimistic sends. Keep <code>canDeactivate()</code> attached to the queue owner; the existing guard blocks navigation when queued messages remain.</li>
+        <li>Compare main TopFans and one generated white-label project, including hidden inbox, owner targeting, <code>WLSAllowDMs</code>, tenant themes and mobile bridge file picking. Check SSR/hydration without browser globals running on the server.</li>
+        <li>Use <code>--stats-json</code> and the browser network trace to verify optional libraries load only when used. Check typing and scrolling after removing the repeated <code>detectChanges()</code> hook.</li>
+      </ul>
+      <p>Build with the required <code>--max_old_space_size=10048</code>. <code>npm run build-dev</code> already supplies it. Use equivalent memory settings for production and white-label validation. Keep data-ordering and cancellation tests where behavior changes; component-count tests do not tell us whether chat still works.</p>
+      <p>The app-shell bundle cost reported by Opus can still limit cold entry after the messages route improves. Measure it separately. Do not promise a total page-load target from component-start estimates.</p>
+    </section>
+
+    <section class="stack">
+      <h2>Code checked for this recommendation</h2>
+      <p class="small">Line references describe this audit snapshot. MC below means <code>src/app/modules/messages/components/message-container/message-container.component</code>.</p>
+      <ul class="small">
+        <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/src/app/modules/messages/components/message-container/message-container.component.ts#L3008">MC.ts, lines 3008 to 3144</a>, history, shared cancellation, participant timer, and validation.</li>
+        <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/src/app/modules/messages/components/message-container/message-container.component.ts#L672">MC.ts, lines 672 to 808</a>, inbox completion and repeated sorting.</li>
+        <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/src/app/modules/messages/components/message-container/message-container.component.ts#L2647">MC.ts, lines 2647 to 2776</a>, view checks and realtime inbox refetch.</li>
+        <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/src/app/modules/messages/components/message-container/message-container.component.html#L725">MC.html, lines 725, 1836, and 2988 onward</a>, history/composer gating, automated tab, and always-mounted dialogs.</li>
+        <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/src/app/modules/messages/messages.routes.ts">messages.routes.ts</a>, route component, guard and recorder provider. <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/src/app/app.config.ts#L48">app.config.ts</a> retains Zone. <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/b4eecd4a60/package.json">package.json</a> targets Angular 21.</li>
+      </ul>
+      <p class="small">Two implementation questions remain for the later stages. Can current websocket payloads update all inbox classifications and counts without a refetch? What are the existing history page limits and cursor rules? Confirm these before replacing the fallback or enabling pagination.</p>
+    </section>
+
+    <section class="stack">
+      <h2>Answers to the four questions</h2>
+      <ol class="answers">
+        <li><h3>Which should we do first, breakdown or speedup?</h3><p><span class="speed">The small thread-loading speedup first</span>, after a baseline. Fix cancellation and independent history/permission state, then remove the participant timer. Component extraction follows. The broader speed work continues through and after that extraction.</p></li>
+        <li><h3>What will the final message component tree look like?</h3><p><span class="architecture">A thin MessageContainer with inbox, thread, composer, and an optional automated panel.</span> The thread contains a header and timeline, the timeline renders message items, and the composer owns draft UI. Optional players, picker, recorder, and dialogs load when needed. The full tree and non-UI owners are above.</p></li>
+        <li><h3>Should we do both simultaneously or one by one?</h3><p><span class="architecture">One effort with sequential, independently testable changes.</span> Pair each component extraction with the optimization its boundary enables. Avoid a single rewrite PR and avoid concurrent edits to the monolith. Backend investigation can continue alongside the frontend work.</p></li>
+        <li><h3>Should Angular 21 source modernization happen now, before, or later?</h3><p><span class="angular">Do local modernization during extraction.</span> Angular 21 packages and several syntax migrations are already in place. Write each new component with typed signal contracts, OnPush, stable tracking and owned cleanup. Keep zoneless, app-wide migrations and library replacements for separate work after the messages changes are stable.</p></li>
+      </ol>
+    </section>
+  </main>
+</div>
+</body>
+</html>

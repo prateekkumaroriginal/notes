@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Standalone routes: the 15 one-component pages</title>
+  <meta name="description" content="What changed when 15 public pages dropped their NgModules, how it was tested, and a checklist to verify it.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--green); }
+    pre .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > p + .pair { margin-top: 0.75rem; }
+
+    section > * + .table-wrap,
+    section > * + pre,
+    section > * + .pair { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .pair figure { display: grid; gap: 0.5rem; align-content: start; }
+
+    .pair figcaption {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .pair { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Standalone routes: the 15 one-component pages</h1>
+      <p>This is the first PR from the <a href="standalone-routes-whats-left-plain.html">what's left</a> plan. Fifteen public pages now load their component straight from the app routes, with no NgModule in between. I also deleted two modules that nothing loaded. The server renders the same HTML for all 20 URLs I checked.</p>
+      <div class="meta">
+        <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10830">topfan/TopFansLite-WebFrontend#10830</a>
+        <span>base hotfix/release-0.0.23/21-code-refactors</span>
+        <span>42 files, +154 &minus;3016</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Each of these modules declared one component and had one inline route with an empty path. The component now lists its own imports, and the app route points at it with <code>loadComponent</code>. The 15 <code>*.module.ts</code> files are gone.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Page</th><th>URLs</th><th>Component imports</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>about</code></td><td><code>/about</code></td><td><code>CommonModule</code>, <code>SharedModule</code>, <code>RouterLink</code></td></tr>
+              <tr><td><code>pricing</code></td><td><code>/pricing</code></td><td><code>CommonModule</code>, <code>SharedModule</code>, <code>RouterLink</code></td></tr>
+              <tr><td><code>privacy-policy</code></td><td><code>/privacy-policy</code></td><td><code>SharedModule</code>, <code>RouterLink</code></td></tr>
+              <tr><td><code>terms-condition</code></td><td><code>/terms-conditions</code>, <code>/terms-of-service</code></td><td><code>SharedModule</code>, <code>RouterLink</code></td></tr>
+              <tr><td><code>contact-us</code></td><td><code>/contact-us</code></td><td><code>CommonModule</code>, <code>SharedModule</code>, <code>NgSelectModule</code></td></tr>
+              <tr><td><code>contact-v1</code></td><td><code>/request-demo</code>, <code>/schedule-a-demo</code></td><td><code>CommonModule</code>, <code>SharedModule</code>, <code>DynamicFormBuilderModule</code></td></tr>
+              <tr><td><code>help-faq</code></td><td><code>/help-faq</code></td><td><code>CommonModule</code>, <code>SharedModule</code>, <code>FaqComponent</code>, <code>RouterLink</code></td></tr>
+              <tr><td><code>calendar-connect</code></td><td><code>/calendar-connect</code></td><td><code>CommonModule</code>, <code>SharedModule</code></td></tr>
+              <tr><td><code>shopify-connect</code></td><td><code>/shopify-connect</code></td><td><code>CommonModule</code>, <code>SharedModule</code></td></tr>
+              <tr><td><code>imported-opt-out</code></td><td><code>/imported/opt-out</code></td><td><code>CommonModule</code>, <code>SharedModule</code></td></tr>
+              <tr><td><code>unsubscribe-newsletter</code></td><td><code>/unsubscribe/newsletter</code></td><td><code>CommonModule</code>, <code>SharedModule</code></td></tr>
+              <tr><td><code>unsubscribe-instruction</code></td><td><code>/unsubscribe-instruction</code></td><td><code>CommonModule</code>, <code>SharedModule</code></td></tr>
+              <tr><td><code>not-found</code></td><td><code>/not-found</code>, the wildcard, <code>/bio/**</code></td><td><code>CommonModule</code>, <code>SharedModule</code></td></tr>
+              <tr><td><code>shortend-url</code></td><td><code>/share/:shortend-url</code></td><td>none</td></tr>
+              <tr><td><code>access-user-account</code></td><td><code>/access-user</code></td><td>none</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The guards on each app route didn't move. <code>/about</code> and <code>/pricing</code> keep the white-label and PWA guards, and the contact, demo, and FAQ routes keep the PWA guard. <code>link-in-bio-fan-preview.routes.ts</code> now loads the standalone not-found component for its wildcard.</p>
+      </section>
+
+      <section>
+        <h2>The breadcrumbs needed <code>RouterLink</code></h2>
+        <p>Five templates use <code>routerLink</code> for the "Home" breadcrumb or a "contact us" link. They worked because each module imported <code>RouterModule.forChild(routes)</code>, and that re-exports the router directives. <code>SharedModule</code> doesn't export <code>RouterModule</code>.</p>
+        <p>So with the module gone, the component has to import <code>RouterLink</code> itself. Without it, the build still passes. Angular treats <code>routerLink="/"</code> on an <code>&lt;a&gt;</code> as a plain HTML attribute, and the link renders with <span class="bad">no <code>href</code></span>. about, pricing, privacy-policy, terms-condition, and help-faq import it now. The server output has <code>href="/"</code> on the breadcrumb for all five, same as the base build.</p>
+      </section>
+
+      <section>
+        <h2>Route titles and descriptions moved to a constants file</h2>
+        <p>Six modules put a <code>title</code> and <code>description</code> in their child route's <code>data</code>. That data now sits on the app route. The strings live in <code>src/app/constants/public-page-route-data.ts</code>, so the routing file has no inline text.</p>
+<pre><code>{
+  path: ROUTE_PATHS.ABOUT,
+  loadComponent: () =&gt;
+    import('./modules/public/about/about.component').then((m) =&gt; m.AboutComponent),
+  canActivate: marketingSurfaceGuards,
+  data: PUBLIC_PAGE_ROUTE_DATA.data.ABOUT
+}</code></pre>
+        <p>I only noticed this while moving it, but <span class="warn">nothing reads that data</span>. <code>CommonService.getTitle</code> and <code>getDescription</code> walk the route tree for it, but neither has a caller. Each page sets its real title and meta description through <code>SeoService</code>. I kept the data anyway because the plan said to. It costs <span class="warn">752 bytes</span> in the initial bundle, since the strings moved out of lazy chunks into <code>main</code>. Dropping the data and those two methods would be a small follow-up.</p>
+        <p>terms-condition is different. It used the route's <code>title</code> property, and Angular's default title strategy does apply that to <code>document.title</code>. Both terms routes keep it.</p>
+      </section>
+
+      <section>
+        <h2>Imports I dropped</h2>
+        <ul>
+          <li><strong><code>CarouselModule</code> from help-faq.</strong> The template has no carousel.</li>
+          <li><strong><code>NgSelectModule</code> from contact-v1.</strong> The form comes from the dynamic form builder, which imports its own select.</li>
+          <li><strong><code>AlertModalComponent</code> from imported-opt-out.</strong> The class uses it as the type of a <code>@ViewChild</code>, but the template never renders one.</li>
+          <li><strong><code>CUSTOM_ELEMENTS_SCHEMA</code> from pricing, calendar-connect, and shopify-connect.</strong> Without the schema, an unknown tag fails the build, and the build passed.</li>
+          <li><strong><code>SharedModule</code> from shortend-url and access-user-account.</strong> Both have an empty template, and every service they inject is <code>providedIn: 'root'</code>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Two dead modules deleted</h2>
+        <p><code>modules/public/advertise</code> and <code>modules/public/comparison</code> had no route pointing at them and no importer. They're gone, 9 files and 2,564 lines. The live <code>/advertise</code> page is <code>advertisement-home</code>, and the live comparison pages are <code>comparison-page</code>. Neither shares code with the deleted folders.</p>
+      </section>
+
+      <section>
+        <h2>How it was tested</h2>
+        <p>I built the base commit in a separate worktree and this branch in the main checkout, both with <code>ng build --configuration=qa --prerender=false</code>. Both builds passed. ESLint on the 18 changed TypeScript files reports no errors. The 4 warnings it prints are on lines this change doesn't touch.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Initial bundle</th><th>Base</th><th>This branch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Reported total</td><td>12.30 MB</td><td class="ok">12.30 MB</td></tr>
+              <tr><td>Exact raw bytes</td><td>12,295,379</td><td class="warn">12,296,131, +752</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Then I started the SSR server from each build and requested the same 20 URLs. I stripped out the hashed chunk names and Angular's per-component style IDs, then diffed the full HTML. The rendered markup was identical on every URL. The only other difference was the same style ID inside the hydration data.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>URL</th><th>Base</th><th>This branch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/about</code>, <code>/pricing</code>, <code>/privacy-policy</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/terms-conditions</code>, <code>/terms-of-service</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/contact-us</code>, <code>/request-demo</code>, <code>/schedule-a-demo</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/help-faq</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/calendar-connect</code>, <code>/shopify-connect</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/imported/opt-out</code>, <code>/unsubscribe/newsletter</code>, <code>/unsubscribe-instruction</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/share/abc123</code>, <code>/access-user</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/not-found</code>, <code>/this-page-does-not-exist-xyz/a/b</code></td><td>404</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/bio/someuser/extra/segment</code></td><td>404</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/about/extra-segment</code></td><td>200, falls through to the sub-page view</td><td class="ok">same HTML</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Last, I opened the branch build in a browser. <code>/pricing</code> hydrated, and clicking its "Home" breadcrumb navigated to <code>/</code> without a reload. From there I navigated in the app to each converted URL, which loads the new lazy chunks in the browser. Every page rendered, and the console logged no errors.</p>
+        <p>Two things looked wrong at first and turned out to be the same on the base build:</p>
+        <ul>
+          <li><strong>Going from <code>/calendar-connect</code> to <code>/shopify-connect</code> bounces back.</strong> shopify-connect calls <code>location.back()</code> when the URL has no <code>code</code> or <code>shop</code> params.</li>
+          <li><strong><code>document.title</code> goes stale after in-app navigation.</strong> The terms title "TopFan - Terms &amp; Conditions" stays after you leave the terms page. The route <code>title</code> sets it, and the next page never replaces it on the client.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Affected areas</h2>
+        <p>Every page here is public, so you can test them without logging in. The callback pages need real query params from an email, an OAuth flow, or an admin link.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Risk</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Not-found and the wildcard</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Every unknown URL on the site lands here, and the SSR response has to stay a 404.</td>
+              </tr>
+              <tr>
+                <td>Contact and demo forms</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>They have reCAPTCHA, a phone input, and a select. contact-v1 lost an import. I didn't submit either form.</td>
+              </tr>
+              <tr>
+                <td>OAuth and email callbacks</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>calendar-connect, shopify-connect, imported-opt-out, unsubscribe-newsletter, shortend-url, and access-user all act on query params. I only loaded them without params.</td>
+              </tr>
+              <tr>
+                <td>About, pricing, privacy, terms, help</td>
+                <td><span class="tag low">Low</span></td>
+                <td>Static content. The breadcrumb links were the one real risk, and they render with <code>href</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Test each page two ways. Load the URL directly, which renders on the server and then hydrates. Then reach it from another page, so the browser fetches the lazy chunk. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Not-found</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="nf-direct"><span>A made-up URL like <code>/zzz/1/2</code> shows the not-found page, and the network tab shows a <code>404</code> for the document.</span></label></li>
+              <li><label><input type="checkbox" data-id="nf-page"><span><code>/not-found</code> shows the same page with a 404.</span></label></li>
+              <li><label><input type="checkbox" data-id="nf-bio"><span><code>/bio/someuser/extra</code> shows the not-found page.</span></label></li>
+              <li><label><input type="checkbox" data-id="nf-home"><span>The "go to home" button on the not-found page works.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Contact and demo forms</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="cu-render"><span><code>/contact-us</code> shows the form with the country phone input and both dropdowns.</span></label></li>
+              <li><label><input type="checkbox" data-id="cu-select"><span>Both dropdowns open and keep a selection.</span></label></li>
+              <li><label><input type="checkbox" data-id="cu-submit"><span>The form passes reCAPTCHA and submits.</span></label></li>
+              <li><label><input type="checkbox" data-id="cv-render"><span><code>/request-demo</code> and <code>/schedule-a-demo</code> render the dynamic form.</span></label></li>
+              <li><label><input type="checkbox" data-id="cv-submit"><span>The demo form validates required fields and submits.</span></label></li>
+              <li><label><input type="checkbox" data-id="cf-pwa"><span>In the installed PWA, these routes still redirect the way they did before.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Callback pages</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="cb-calendar"><span>Connecting Google Calendar from a creator account returns to <code>/calendar-connect</code> and shows the success state. Try Outlook too.</span></label></li>
+              <li><label><input type="checkbox" data-id="cb-shopify"><span>Connecting a Shopify store returns to <code>/shopify-connect</code> and shows the connected state.</span></label></li>
+              <li><label><input type="checkbox" data-id="cb-optout"><span>An opt-out link from an imported-fan email opens <code>/imported/opt-out</code>, and the opt-out button works.</span></label></li>
+              <li><label><input type="checkbox" data-id="cb-unsub"><span>A newsletter unsubscribe link opens <code>/unsubscribe/newsletter</code> and confirms.</span></label></li>
+              <li><label><input type="checkbox" data-id="cb-share"><span>A real <code>/share/...</code> short link redirects to its post or profile.</span></label></li>
+              <li><label><input type="checkbox" data-id="cb-access"><span>An admin "access user" link logs in as that user.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag low">Low</span> Static pages</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="st-about"><span><code>/about</code> renders its icon rows, and the "revenue sharing" link goes to pricing.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-pricing"><span><code>/pricing</code> renders every plan row.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-terms"><span><code>/terms-conditions</code> and <code>/terms-of-service</code> both show the terms, with "TopFan - Terms &amp; Conditions" as the tab title.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-privacy"><span><code>/privacy-policy</code> renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-faq"><span><code>/help-faq</code> loads its questions, and they expand. "Still have questions?" goes to <code>/contact-us</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-crumb"><span>The "Home" breadcrumb on about, pricing, privacy, terms, and help goes to <code>/</code> without a full page reload.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-unsub"><span><code>/unsubscribe-instruction</code> renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="st-wl"><span>On a white-label domain, <code>/about</code> and <code>/pricing</code> still redirect to the white-label home.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3>On every page</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="all-console"><span>The console has no <code>NG05xx</code> hydration errors and no "is not a known element" errors.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-source"><span>View source shows the page content, not an empty shell.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-nav"><span>Reaching the page by an in-app link works the same as loading it directly.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-wl"><span>At least one generated white-label project builds.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Not tested</h2>
+        <ul>
+          <li>No form submissions and no callback with real params. Those need a QA account and real emails or OAuth flows.</li>
+          <li>No white-label build. <code>angular.json</code> only has the <code>TopFans</code> project right now, since white-label projects are generated.</li>
+          <li>No prerender run. The pages are the same, but <code>npm run prerender-qa</code> would confirm it.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What's next</h2>
+        <p>PR 2 in the plan covers fulfillment-order, creators, setup-profile, and forum. Nothing imports those four, and they don't import any routed module, so no extra URLs disappear. Forum is the one to click through, because it calls <code>NgCircleProgressModule.forRoot</code> and provides <code>BsModalService</code> at the module level.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "standalone-one-component-pages-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Do the cheap messages speedup first, then split message-container. Angular 21 APIs land on the new files, not as a third project.">
+<title>Speed the messages page first, then split it (grok-4-6)</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1015;--surface:#121923;--text:#e8edf3;--muted:#99a6b5;--line:#2b3745;--blue:#68d7ff;--green:#8ee6a2;--violet:#d5a6ff;--amber:#f1c66d;--pink:#ff91b8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--muted);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}
+h1,h2,h3,p,ul,ol,figure,table,pre{margin:0}
+h1,h2,h3,strong,th{color:var(--text)}
+h1{padding-bottom:.75rem;line-height:1.2}
+h2{padding-bottom:.75rem;line-height:1.3}
+h3{padding-bottom:.5rem;line-height:1.4}
+.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}
+main{padding-top:3rem}
+section+section{padding-top:2.5rem}
+.stack{display:grid;gap:1rem}
+.items{display:grid;gap:1.75rem}
+ul,ol{padding-left:1.4rem}
+li+li{padding-top:.5rem}
+a{color:var(--blue);text-underline-offset:3px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.88em;background:var(--surface);color:var(--blue);padding:.12em .35em;border-radius:.35rem;overflow-wrap:anywhere}
+pre{background:var(--surface);padding:1.25rem;overflow-x:auto;border-radius:.65rem;border:1px solid var(--line)}
+pre code{display:block;background:none;padding:0;color:var(--muted);font-size:.88rem;line-height:1.5}
+.meta{padding-top:1rem;font-size:.875rem}
+.num{color:var(--amber)}
+.good{color:var(--green)}
+.bad{color:var(--pink)}
+.split{color:var(--violet)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:.65rem}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:.8rem}
+thead{background:var(--surface)}
+tbody tr+tr{border-top:1px solid var(--line)}
+.flow{display:grid;gap:.45rem;padding:1.25rem;background:var(--surface);border-radius:.65rem;counter-reset:step}
+.flow p{color:var(--text)}
+.flow p::before{counter-increment:step;content:counter(step) ". ";color:var(--muted)}
+.item h3 span{color:var(--muted);font-weight:400;font-size:.9rem}
+@media(max-width:720px){.page{padding-block:3rem}th,td{padding:.6rem}}
+</style>
+</head>
+<body><div class="page">
+<header>
+<h1>Speed the messages page first, then split it</h1>
+<p><code>message-container</code> is <span class="num">4,283</span> lines of TypeScript, <span class="num">3,118</span> of template, <span class="num">1,218</span> of SCSS. The <a href="/messages-page-load-fast-opus-5-5">speed note</a> is right about the wait. I still would not start by carving that file into a dozen components. Delete the timers and run history plus validation in parallel while the mess is still in one class. Split after that. Put Angular 21 APIs on the new files as they appear, not as a third project and not as a rewrite of the pile.</p>
+<p class="meta">Read against <code>hotfix/release-0.0.23/messages-revamp</code> on 1 Oct 2026, plus the opus-5-5 speed note. Package is already Angular <span class="num">21.2.23</span>. <code>bootstrapApplication</code> is in. This template already uses <code>@if</code> / <code>@for</code>.</p>
+</header>
+<main>
+
+<section class="stack">
+<h2>1. Which first?</h2>
+<p><span class="good">Phase 1 of the speed note.</span> The cheap frontend edits. Not the full breakdown, and not the backend inbox rewrite.</p>
+<p>Those edits sit in a few methods today. <code>getUserEmail()</code> waits <span class="num">1000 ms</span> to guess the other participant from <code>messageList[0]</code>, even though the inbox row already has <code>users[0].gsi4pk</code>. History and <code>chat-user-validation</code> share <code>userValidationCancel$</code>, so starting one cancels the other. <code>msgrightLoader</code> hides the thread and the composer together. <code>ngAfterViewChecked()</code> calls <code>detectChanges()</code> on the whole <span class="num">3,118</span>-line template every cycle.</p>
+<p>That is a small, measurable PR. History should show around <span class="num">0.6 s</span> after the component starts instead of <span class="num">1.9 s</span>, on the speed note's <span class="num">300 ms</span> assumption. No new files. No new endpoints.</p>
+<p>Splitting first feels responsible because the file is ugly. It also copies the serial load, the shared cancel subject, and the one loader flag into every new child. Then Phase 1 becomes a cross-file rewrite of a tree we just invented. I have watched that kind of PR sit for weeks because nobody can tell if a missing tip prompt came from the move or from the new request timing.</p>
+<p>The counter is real. Reviewing a behavior change in a 4,000-line class is miserable. Keep the Phase 1 diff tiny on purpose. Delete the timer. Give history and validation their own streams. Split the loader flag. Drop <code>ngAfterViewChecked()</code>. Track rows by <code>groupId</code> and messages by <code>sk</code>. Stop. Do not "clean up" the class in the same PR.</p>
+</section>
+
+<section class="stack">
+<h2>2. What the tree should look like</h2>
+<p>Today the route is one component. Modals already live next to it. <code>ImageAudioMessageComponent</code> is a second composer, not a bubble. Leave it until the main composer is out.</p>
+<pre><code>MessageContainerComponent          route, 8,619 lines
+├── Messages tab
+│   ├── inbox (search, tabs, rows, mailing lists)
+│   └── thread (header, history, composer)
+├── Automated messages tab
+│   └── app-table + AutomatedMessageModalComponent
+└── already separate
+    ├── NewMessageModelComponent
+    ├── MessagePriceModelComponent
+    ├── EditParticipantsModalComponent
+    └── share overlays (merch, portfolio, events)</code></pre>
+<p>The destination is a thin page plus a store. Children stay dumb enough for <code>OnPush</code>. Heavy widgets load when they are used.</p>
+<pre><code>MessagesPageComponent              route shell, tabs, mobile back
+MessagesStore                      inbox, selected thread, permissions, cache
+
+InboxPanelComponent
+├── InboxSearchComponent
+├── ConversationListComponent
+│   ├── ConversationRowComponent   track groupId
+│   └── BroadcastRowComponent      mailing list / bulk
+└── InboxEmptyComponent
+
+ThreadPanelComponent
+├── ThreadHeaderComponent          avatar, name, online, block
+├── MessageListComponent           track sk / uinqueId
+│   └── MessageItemComponent
+│       ├── MediaMessageComponent  @defer on viewport
+│       └── AudioMessageComponent  @defer on viewport
+└── ComposerComponent
+    ├── AttachmentTrayComponent    paid / free drag list
+    ├── TipComposerComponent
+    ├── AudioRecorderComponent
+    └── emoji picker               @defer on interaction
+
+AutomatedMessagesPanelComponent    @defer when that tab is open
+    └── existing table + modal
+
+click-time import()
+├── NewMessageModelComponent
+├── MessagePriceModelComponent
+├── EditParticipantsModalComponent
+└── merch / portfolio / event share</code></pre>
+<p>Stop there. A header title does not need its own component. <code>MessageItemComponent</code> can switch on text, paid lock, share preview, and unlock without five more files. Virtualize the inbox later, and only if a creator's first page is regularly past about <span class="num">100</span> rows. Leave the history list alone until a trace says otherwise. Variable-height media makes that list a bad first virtual-scroll target.</p>
+<p><code>MessagesStore</code> is the real split. Inbox selection, history pages, permissions, optimistic send, and websocket row patches have to leave the route component or the children will pass <span class="num">40</span> inputs around and we will have made the pile worse. The speed note already wants this service for early fetch and a warm cache. Extract it once, use it for both jobs.</p>
+</section>
+
+<section class="stack">
+<h2>3. Both at once, or one after the other?</h2>
+<p><span class="good">One after the other.</span> Four PRs. Not one branch that splits, speeds, and "modernizes."</p>
+<div class="flow">
+<p><span class="good">Phase 1 speedup</span> in the current container. Timers, parallel streams, loader split, identity tracking, no <code>ngAfterViewChecked()</code>. Measure with <code>performance.mark</code> on a production build.</p>
+<p><span class="split">Store, then the first UI cut.</span> <code>MessagesStore</code> first, then inbox / thread / composer as three components. Behavior stays the same. New files use Angular 21 APIs from the start.</p>
+<p><span class="split">Phase 2 deferral.</span> Emoji, audio player, automated tab, share modals, video CSS. This is why the split exists. <code>@defer</code> and <code>import()</code> are awkward while those widgets sit in one <code>imports</code> array.</p>
+<p>Phase 3 cache, early start, pagination, websocket row deltas. Pair with backend when those endpoints exist. Do not block Phase 1 on them.</p>
+</div>
+<p>Doing the split and the speedup in the same PR mixes a move with a behavior change. If a paid DM prompt vanishes, you will not know which half did it. The speed note already said each phase should ship and get measured before the next one. I agree with that part even where I disagree with starting on the tree.</p>
+<p>You can discuss Phase 2 file names while Phase 1 is in review. You should not land them together.</p>
+</section>
+
+<section class="stack">
+<h2>4. Angular 21 in this task?</h2>
+<p><span class="good">Ride along from the split.</span> Do not do it before Phase 1. Do not do it as a repo-wide rewrite in this workstream.</p>
+<p>The September 21-practices audit is stale in the places that matter for boot. <code>AppModule</code> is gone. HTTP is <code>provideHttpClient(withFetch())</code>. Hydration and <code>provideRouter</code> are in. The messages route is already standalone. Control flow already landed in this template. What is left is how new code is written, plus a long tail that is not this page's problem.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Work</th><th>When</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Signals, <code>input()</code> / <code>output()</code>, <code>OnPush</code>, <code>inject()</code>, <code>takeUntilDestroyed()</code>, <code>@defer</code> on new messages files</td><td class="good">With the split</td><td>New files should not be born as 2018 Angular</td></tr>
+<tr><td>Rewrite the current container to signals and <code>OnPush</code></td><td class="bad">Do not</td><td><code>OnPush</code> plus <code>detectChanges()</code> in <code>ngAfterViewChecked()</code> on a 3,100-line template will look empty until someone clicks</td></tr>
+<tr><td>Zoneless, <code>NgOptimizedImage</code> everywhere, typed forms everywhere, Vitest</td><td class="num">Later, other work</td><td>None of that unblocks the 1 s timer or the 450 KB of unused route JavaScript</td></tr>
+<tr><td>Another framework bump</td><td class="bad">Already done</td><td>Package is 21.2.23. This is source style, not <code>ng update</code></td></tr>
+</tbody></table></div>
+<p>Phase 1 stays default change detection on the old class. That is ugly and I would still do it. Switching the giant component to <code>OnPush</code> while it still mutates fields from websocket callbacks, <code>setTimeout</code>, and jQuery-adjacent DOM work is a QA trap. The children can be <code>OnPush</code> because they only read store signals.</p>
+</section>
+
+<section class="stack">
+<h2>What I would not do</h2>
+<div class="items">
+<div class="item">
+<h3>Wait for new inbox APIs before deleting the timer</h3>
+<p>The backend questions in the speed note are still open. Typical payload size, whether history is already paged, how slow validation is, Dynamo keys. Fine. None of that is required to stop waiting a full second for <code>messageList[0]</code>.</p>
+</div>
+<div class="item">
+<h3>Extract every toolbar control</h3>
+<p>A 40-line "new message" button component is busywork. Split on load boundaries and on state ownership. Inbox, thread, composer, automated tab, store. That is the cut.</p>
+</div>
+<div class="item">
+<h3>Treat the speed note as a ticket list</h3>
+<p>It says so itself. Phase 1 is a good ticket list. The v2 inbox contract, inline first thread, and summary table are proposals. Argue those with backend after Phase 1 numbers exist.</p>
+</div>
+</div>
+</section>
+
+<section class="stack">
+<h2>Risks if we ignore the order</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Move</th><th>What breaks</th></tr></thead>
+<tbody>
+<tr><td class="bad">Split first</td><td>Paid DM, tip-required, white-label default chat, and optimistic <code>uinqueId</code> sends get rewired twice</td></tr>
+<tr><td class="bad">Speed + split + 21 APIs in one PR</td><td>A review nobody can finish, and a revert that throws away the wait cut with the file move</td></tr>
+<tr><td class="bad">OnPush on the current container</td><td>History, typing, and incoming websocket rows stop painting</td></tr>
+<tr><td class="num">Phase 3 before Phase 1</td><td>We design cache keys on top of a load path that still sleeps for 1.5 s</td></tr>
+</tbody></table></div>
+<p>Things that still must not break after any of these PRs. Paid DM and tip-required stay disabled until permissions arrive, never default to free. White-label fans still open the owner chat when the user list is hidden. <code>setInitalDisplay()</code> still prefers Priority, then General, then Bulk. Header unread counts still match. Optimistic sends still match on <code>uinqueId</code>.</p>
+</section>
+
+<section class="stack">
+<h2>Still open</h2>
+<ul>
+<li>The four backend questions in the <a href="/messages-page-load-fast-opus-5-5">speed note</a> are unanswered. Do not block Phase 1 on them.</li>
+<li>I have no logged-in timings either. Replace the <span class="num">0.6 s</span> / <span class="num">1.9 s</span> guesses after Phase 1 ships.</li>
+<li><code>ImageAudioMessageComponent</code> duplicates composer logic. Fold it after the main composer is a component, not before.</li>
+<li>App-shell JavaScript is still about <span class="num">1.74 MB</span> gzipped. A cold load of <code>/messages</code> pays for that no matter how small this route gets. Separate task.</li>
+</ul>
+</section>
+
+</main>
+</div></body>
+</html>

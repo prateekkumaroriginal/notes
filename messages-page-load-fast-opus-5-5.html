@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Why the TopFans messages page is slow to show a conversation, and the frontend and backend changes that make it fast.">
+<title>Make the messages page load fast (opus-5-5)</title>
+<style>
+:root{color-scheme:dark;--bg:#0c1015;--surface:#121923;--text:#e8edf3;--muted:#99a6b5;--line:#2b3745;--blue:#68d7ff;--green:#8ee6a2;--violet:#d5a6ff;--amber:#f1c66d;--pink:#ff91b8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--muted);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}
+h1,h2,h3,p,ul,ol,figure,table{margin:0}
+h1,h2,h3,strong,th{color:var(--text)}
+h1{padding-bottom:.75rem;line-height:1.2}
+h2{padding-bottom:.75rem;line-height:1.3}
+h3{padding-bottom:.5rem;line-height:1.4}
+.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}
+main{padding-top:3rem}
+section+section{padding-top:2.5rem}
+.stack{display:grid;gap:1rem}
+.items{display:grid;gap:1.75rem}
+ul,ol{padding-left:1.4rem}
+li+li{padding-top:.5rem}
+a{color:var(--blue);text-underline-offset:3px}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.88em;background:var(--surface);color:var(--blue);padding:.12em .35em;border-radius:.35rem;overflow-wrap:anywhere}
+.meta{padding-top:1rem;font-size:.875rem}
+.num{color:var(--amber)}
+.good{color:var(--green)}
+.bad{color:var(--pink)}
+.be{color:var(--violet)}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:.65rem}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:.8rem}
+thead{background:var(--surface)}
+tbody tr+tr{border-top:1px solid var(--line)}
+td:first-child{min-width:150px}
+.flow{display:grid;gap:.45rem;padding:1.25rem;background:var(--surface);border-radius:.65rem;counter-reset:step}
+.flow p{color:var(--text)}
+.flow p::before{counter-increment:step;content:counter(step) ". ";color:var(--muted)}
+.flow .wait{color:var(--amber)}
+.item h3 span{color:var(--muted);font-weight:400;font-size:.9rem}
+.small{font-size:.875rem}
+@media(max-width:720px){.page{padding-block:3rem}th,td{padding:.6rem}}
+</style>
+</head>
+<body><div class="page">
+<header>
+<h1>Make the messages page load fast</h1>
+<p>Opening <code>/messages</code> today waits on three API calls one after another plus <span class="num">1.5 s</span> of fixed timers before a conversation is readable. Removing the timers and running the calls in parallel is a small frontend change and should cut the wait by more than half. Deferring about <span class="num">450 KB</span> gzipped of unused JavaScript and adding two backend endpoints gets the page to one round trip.</p>
+<p class="meta">Code audit of <code>c36ff481f5</code> plus working tree, 30 Sep 2026. Bundle numbers come from the <code>dist/TopFans</code> production build of 29 Sep. I had no logged-in session, so there are no live timings. The backend repo wasn't reachable, so backend items are API contract proposals based on how the frontend calls it. Time estimates assume <span class="num">300 ms</span> per API call and are illustrative.</p>
+</header>
+<main>
+
+<section class="stack">
+<h2>What happens when you open the page</h2>
+<p>This is the normal entry path for a creator with existing conversations, after the route chunk has loaded and the user profile is in the store.</p>
+<div class="flow">
+<p>The constructor waits for the profile in the NgRx store, then calls <code>fetchInitialData()</code>.</p>
+<p><code>GET api/get-chatGroups-and-users</code> fetches the whole inbox with no limit, behind the full-screen global loader. <span class="wait">~300 ms</span></p>
+<p><code>searchResults()</code> sorts each tab again after every single push, then picks the first conversation.</p>
+<p><code>POST api/getpreviousMessagesFromHttp</code> fetches that conversation's history. <code>JSON.parse</code> runs on each message's <code>message</code> string, and moment.js formats every date. <span class="wait">~300 ms</span></p>
+<p><code>getUserEmail()</code> sets <code>msgrightLoader = true</code> and waits in a <code>setTimeout</code> for no reason. <span class="wait">1000 ms</span></p>
+<p><code>POST api/chat-user-validation</code> fetches send permissions (paid DM, tip required, guaranteed reply). <span class="wait">~300 ms</span></p>
+<p>Only now does <code>msgrightLoader</code> go false. The template hides both the history and the composer until then.</p>
+<p><code>scrollToBottom()</code> jumps to the latest message after another timer. <span class="wait">500 ms</span></p>
+</div>
+<p>That comes to roughly <span class="num">1.9 s</span> until the history shows and <span class="num">2.4 s</span> until it settles, measured from the moment the component starts. Chunk download, guards and the profile request all come before that. The 1.5 s of timers is there on every network, even a fast one.</p>
+<p>Direct links (<code>?user=</code>, <code>history.state.user_key</code>, tip-back <code>id</code>) add a <code>GET user/:name</code> lookup and sometimes a group-creation call on top of this.</p>
+</section>
+
+<section class="stack">
+<h2>The biggest costs, ranked</h2>
+<div class="items">
+
+<div class="item">
+<h3>1. Fixed timers on the critical path <span>frontend, small</span></h3>
+<p>The <span class="num">1000 ms</span> <code>setTimeout</code> in <code>getUserEmail()</code> exists only to read <code>messageList[0]</code> and work out who the other participant is. We already know the answer: the inbox row we clicked carries <code>users[0].gsi4pk</code>. The <span class="num">500 ms</span> scroll timer covers the case where the list hasn't rendered yet. <code>afterNextRender</code> does that job exactly.</p>
+</div>
+
+<div class="item">
+<h3>2. Three serial round trips where one or two would do <span>frontend + backend</span></h3>
+<p>History and permissions both depend only on the selected conversation, so they can run in parallel. The code can't do that today because <code>getUserChatMessage()</code> and <code>checkNewUserValidation()</code> share one cancel subject, <code>userValidationCancel$</code>. Starting either one cancels the other one in flight. With a combined backend endpoint, the inbox response could also carry the first thread, which leaves a single round trip.</p>
+</div>
+
+<div class="item">
+<h3>3. One loader flag gates everything <span>frontend, small</span></h3>
+<p><code>@if (messageList?.length &amp;&amp; !msgrightLoader)</code> hides history and <code>!msgrightLoader</code> hides the composer. Ten places in the component set that flag, and <code>getUserChatLogs</code>'s <code>complete</code> handler clears it while history can still be loading. Reading messages doesn't need permissions. Only sending, tipping and unlocking do.</p>
+</div>
+
+<div class="item">
+<h3>4. About 630 KB gzipped of route JavaScript, most of it unused at first paint <span>frontend, medium</span></h3>
+<p>The messages chunk (<code>chunk-ASVT5GJH.js</code>, <span class="num">71 KB</span> gz) statically pulls in <span class="num">56</span> more chunks that the app shell hasn't loaded yet. That's <span class="num">2.7 MB</span> raw and <span class="num">630 KB</span> gzipped. The big pieces:</p>
+<div class="table-wrap"><table>
+<thead><tr><th>What</th><th>Gzipped</th><th>Needed when</th></tr></thead>
+<tbody>
+<tr><td>Emoji picker (<code>@ctrl/ngx-emoji-mart</code>)</td><td class="num">92 KB</td><td>User clicks the emoji button</td></tr>
+<tr><td>Angular Material, pulled in by <code>ngx-audio-player</code></td><td class="num">71 KB</td><td>An audio message scrolls into view</td></tr>
+<tr><td>Dynamic form builder, circle progress, CDK drag</td><td class="num">61 KB</td><td>Automated messages tab, upload progress, reordering attachments</td></tr>
+<tr><td>ngx-bootstrap datepicker and timepicker</td><td class="num">57 KB</td><td>Automated message and new message modals</td></tr>
+<tr><td>PrimeNG components</td><td class="num">47 KB</td><td>Modals and multiselects</td></tr>
+<tr><td>Merchandise, portfolio and event share modals, <code>app-table</code></td><td class="num">~125 KB</td><td>User opens a share dialog or the automated tab</td></tr>
+</tbody></table></div>
+<p>All of this sits in the component's <code>imports</code> array or gets opened through a static class reference (<code>modalService.show(NewMessageModelComponent)</code>). Up to <span class="num">~450 KB</span> looks deferrable. Shared chunks can keep code eager, so confirm against <code>--stats-json</code> before claiming the saving.</p>
+<p>A separate problem affects every page: <code>main</code> statically imports <span class="num">146</span> chunks, about <span class="num">1.74 MB</span> gzipped. Fingerprints suggest the video player (IVS/video.js) and upload code are in there. A hard refresh on <code>/messages</code> pays for all of it. That belongs in its own app-shell task, but it caps how fast a cold load of this page can get.</p>
+</div>
+
+<div class="item">
+<h3>5. Every incoming message reloads the whole inbox <span>frontend + backend</span></h3>
+<p><code>receiveMessage()</code> calls <code>getUserChatLogs(false, '')</code> for every websocket <code>privateMessage</code>. That refetches every conversation. The response handler also fires <code>chat-user-validation</code> again, which cancels any history request in flight through the shared subject. Rows get rebuilt as new objects, and <code>track</code> uses object identity (<code>trackItem</code> returns the item), so Angular destroys and recreates every row's DOM. A busy creator's inbox keeps churning after load.</p>
+</div>
+
+<div class="item">
+<h3>6. Change detection runs twice per cycle <span>frontend, small to medium</span></h3>
+<p><code>ngAfterViewChecked()</code> calls <code>detectChanges()</code>, so every cycle re-checks the 3,100-line template a second time. That includes <code>getCurrentMessages()</code> allocating a new filtered array per tab, and <code>getTimeDiff()</code> running moment.js for every row. Timers, websocket pings and typing all trigger cycles. After the initial render this costs main-thread time rather than network time, and it shows up as slow typing and slow switching on low-end phones.</p>
+</div>
+
+</div>
+</section>
+
+<section class="stack">
+<h2>Frontend changes</h2>
+<p>Ordered so each phase ships on its own and gets measured before the next.</p>
+
+<h3>Phase 1. Stop waiting <span class="small">(1 to 2 days, no backend)</span></h3>
+<ol>
+<li>Delete the timer in <code>getUserEmail()</code>. When a conversation is selected, take the participant from the inbox row and start history and validation in two independent streams. Render each result when it arrives.</li>
+<li>Give history and validation their own <code>switchMap</code> streams keyed by <code>groupId</code>. Switching from A to B cancels A's requests only, and a response for A can never overwrite B.</li>
+<li>Split <code>msgrightLoader</code> into <code>historyLoading</code> and <code>permissionsLoading</code>. Show history as soon as it arrives. Render the composer with send, tip and unlock disabled until permissions arrive. If validation fails, keep authorized history readable, leave actions disabled, and offer retry. The server still enforces payment rules.</li>
+<li>Stop calling <code>checkNewUserValidation()</code> from the inbox response handler. Permissions belong to the selected thread, not the list.</li>
+<li>Replace the full-screen loader on the first inbox call with a list skeleton built from <code>app-skeleton</code>, following <code>.guides/skeleton-guide.md</code>. Replace the <span class="num">500 ms</span> scroll timer with <code>afterNextRender</code>.</li>
+<li>Remove <code>ngAfterViewChecked()</code>. Anything that relied on it is a missed update that needs a targeted <code>markForCheck()</code>.</li>
+<li>In <code>searchResults()</code>, partition first and sort each tab once. Track conversations by <code>groupId</code> and messages by <code>sk</code>, or by <code>uinqueId</code> for optimistic sends.</li>
+<li>Give search a stream with <code>debounceTime</code>, <code>distinctUntilChanged</code> and <code>switchMap</code>, so a slow old query can't overwrite a newer one.</li>
+</ol>
+<p class="good">Expected: history readable at about <span class="num">0.6 s</span> after component start instead of <span class="num">1.9 s</span>, with no backend change.</p>
+
+<h3>Phase 2. Load less code <span class="small">(2 to 4 days)</span></h3>
+<ol>
+<li>Wrap the emoji picker in <code>@defer (on interaction)</code> behind a small placeholder button.</li>
+<li>Render audio messages with a native <code>&lt;audio&gt;</code> placeholder and <code>@defer (on viewport)</code> for <code>ngx-audio-player</code>. Better still, replace it, since it drags in Angular Material for one slider.</li>
+<li>Put the automated messages tab (<code>app-table</code>, <code>AutomatedMessageModalComponent</code>, dynamic forms) behind <code>@defer (when active === SET_UP_AUTOMATED_MESSAGE)</code>.</li>
+<li>Open <code>NewMessageModelComponent</code>, <code>EditParticipantsModalComponent</code>, <code>MessagePriceModelComponent</code>, the share modals and the image overlay with <code>await import(...)</code> at click time. Remove them from <code>imports</code>, and change the <code>viewChild.required</code> queries that point at them to optional ones.</li>
+<li>Stop calling <code>lazyCssLoader.loadForVideoPlayer()</code> in the constructor. Load it when the first video renders. Use posters for offscreen videos and instantiate playback on demand; current video elements preload metadata. Many photos already use lazy loading, so check actual requests before changing them.</li>
+<li>Prefetch the messages chunk when the sidebar Messages link is hovered or focused, or during idle time after login. <code>NoPreloading</code> stays for every other route.</li>
+</ol>
+<p class="good">Expected: route JavaScript beyond the shell drops from <span class="num">630 KB</span> to around <span class="num">200 KB</span> gzipped. That helps first visits and phones most.</p>
+
+<h3>Phase 3. Start earlier and remember <span class="small">(3 to 5 days, pairs with backend)</span></h3>
+<ol>
+<li>Move inbox and thread state into a <code>providedIn: 'root'</code> <code>MessagesStore</code> service. Kick off the inbox request when navigation to <code>/messages</code> starts or the link is pressed, so the request runs while the chunk downloads.</li>
+<li>Keep a bounded cache of the inbox and recent threads in <code>MessagesStore</code>. Scope entries to account, tenant, permission context, tab, search, and conversation. Paint cached history, then revalidate and merge. Clear on logout, account switch, or tenant change; reconcile edits, deletions, read receipts, and permission changes.</li>
+<li>Patch a single row on each websocket message instead of refetching the inbox. This needs the event payload described in the backend section below.</li>
+<li>Turn history pagination back on. <code>onUp()</code> is commented out, although requests accept <code>timeStamp</code>. Add loading, end-of-history, error/retry, and duplicate-page guards. Preserve the first visible message when prepending. Scroll to the bottom only on initial open or when the reader is already near it.</li>
+<li>If inboxes regularly exceed about 100 rows, virtualize the conversation list with CDK virtual scroll. Leave the message list alone until profiling says otherwise, because variable-height media makes virtualization tricky there.</li>
+</ol>
+</section>
+
+<section class="stack">
+<h2>Backend changes</h2>
+<p>These give the biggest gain for large inboxes and busy creators, and they unlock the one-round-trip path. Each one can ship behind a new version while the old endpoint keeps working.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Change</th><th>Proposal</th><th>What it removes</th></tr></thead>
+<tbody>
+<tr><td class="be">Paginated inbox</td><td><code>GET api/v2/inbox?tab=featured|general|bulk&amp;limit=30&amp;cursor=</code>. Returns slim rows (group ID, display name, avatar thumbnail, last message preview, timestamp, unread count, featured or tip flags) plus unread totals for each tab, independent of loaded rows. Page boundaries must not change default-thread selection. Broadcast and mailing-list rows return a member count, not the member list.</td><td>Downloading every conversation and every mailing-list member on each visit. Client-side sorting and classification.</td></tr>
+<tr><td class="be">Thread bootstrap</td><td><code>POST api/v2/thread</code> with <code>groupId</code>. Returns the newest 30 to 50 messages with <code>body</code> as structured JSON, an older-page cursor, the participant, and the same data <code>chat-user-validation</code> returns today.</td><td>One round trip, the per-message <code>JSON.parse</code>, and the participant guesswork that led to the timer.</td></tr>
+<tr><td class="be">First thread inline</td><td>Optional <code>include=firstThread</code> on the inbox call. The server picks the default conversation using the same rules as <code>setInitalDisplay()</code> and embeds its bootstrap. Use this only when measured round-trip savings justify the extra work; optional enrichment must not delay the inbox.</td><td>A second round trip on normal entry. Direct links skip it and call the thread endpoint directly.</td></tr>
+<tr><td class="be">Row deltas over websocket</td><td>Each <code>privateMessage</code> event carries the updated conversation summary (last message, timestamp, unread count, classification) plus a sequence number. On reconnect, ask for changes since the last acknowledged sequence. If it has expired, fetch a fresh first page. Deduplicate replayed events and history pages by message ID.</td><td>The full inbox refetch and the extra validation call on every incoming message.</td></tr>
+<tr><td class="be">Members on demand</td><td><code>GET api/v2/groups/:id/members?cursor=</code> for the edit-participants modal and the broadcast header.</td><td>Mailing lists with thousands of fans bloating the inbox payload.</td></tr>
+<tr><td class="be">Cheap revalidation</td><td>An <code>ETag</code> on inbox and thread responses so a warm return gets <span class="num">304</span>. Confirm brotli or gzip is on at API Gateway or CloudFront for these JSON routes. Mark them <code>Cache-Control: private</code>, never shared.</td><td>Re-downloading unchanged data on every visit.</td></tr>
+<tr><td class="be">Server-side query work</td><td>Look at traces for <code>get-chatGroups-and-users</code>. If the handler rebuilds the inbox from message records or looks up each participant per row, keep a per-user conversation summary table updated on send, read, tip and membership changes, and batch the user lookups.</td><td>Server time that grows with inbox size. This is the part the frontend can't fix.</td></tr>
+</tbody></table></div>
+<p>Keep enforcing send, tip and unlock permissions server-side at action time. The permissions in the thread response are a UI hint that can go stale.</p>
+<ul>
+<li>Use stable, opaque cursors. Order history by timestamp plus unique message ID, and inbox summaries by activity plus conversation ID. Equal timestamps must not skip or repeat records. If DynamoDB is confirmed, use its query continuation keys.</li>
+<li>Remove duplicate backend work and run independent reads concurrently. Combining existing serial queries into one endpoint does not make them fast. Keep optional enrichment outside the first-paint path.</li>
+</ul>
+</section>
+
+<section class="stack">
+<h2>Expected effect</h2>
+<p>Estimates from the component starting to a readable conversation, with <span class="num">300 ms</span> per API call. Replace them with measured numbers after Phase 1.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Stage</th><th>History readable</th><th>Composer usable</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Today</td><td class="bad">~1.9 s</td><td class="bad">~1.9 s</td><td>3 serial calls, a 1 s timer, one shared loader</td></tr>
+<tr><td>Phase 1</td><td class="good">~0.6 s</td><td class="good">~0.6 s</td><td>Inbox, then history and validation in parallel</td></tr>
+<tr><td>Phase 1 + thread bootstrap</td><td class="good">~0.6 s</td><td class="good">~0.6 s</td><td>Same wait, fewer requests, no client parsing</td></tr>
+<tr><td>+ first thread inline</td><td class="good">~0.3 s</td><td class="good">~0.3 s</td><td>One round trip</td></tr>
+<tr><td>+ early start and memory cache, warm return</td><td class="good">&lt; 100 ms</td><td class="good">&lt; 100 ms</td><td>Paint from memory, revalidate in background</td></tr>
+</tbody></table></div>
+<p>Phase 2 doesn't show up in this table because it happens before the component starts. It shortens chunk download and parse on the first visit to the page.</p>
+</section>
+
+<section class="stack">
+<h2>How to verify</h2>
+<ul>
+<li>Add <code>performance.mark</code> calls at route activation, inbox painted, history painted and composer enabled. Log them from a production build, not the dev server. Build with <code>--max_old_space_size=10048</code>.</li>
+<li>Compare <code>ng build --stats-json</code> before and after Phase 2, and check that no emoji, Material, datepicker or share-modal chunk loads until it's used.</li>
+<li>Record Chrome traces on a mid-range Android profile with a throttled network, at least 10 runs per build, for an empty inbox, a 20-row inbox and a 500-row inbox.</li>
+<li>Test fast switching between conversations, overlapping searches, incoming messages during load, reconnects and direct links (<code>?user=</code>, tip-back <code>id</code>, <code>history.state.user_key</code>).</li>
+<li>Cover fan, creator, delegate, paid DM, tip-required, guaranteed reply, broadcasts and mailing lists, on TopFans and on one generated white-label project.</li>
+<li>Also test failed validation, pagination retries, equal timestamps, duplicate events, expired reconnect cursors, and account/tenant switches. Assert disabled actions, correct-thread history, stable scroll position, and cleared private state.</li>
+<li>Trace p50/p95 handler and query time, database reads, and compressed response bytes alongside browser timing. Keep message content and credentials out of captures.</li>
+</ul>
+</section>
+
+<section class="stack">
+<h2>Things that must not break</h2>
+<ul>
+<li>Paid DM and tip-required prompts. While permissions are loading, the send, tip and unlock buttons stay disabled rather than defaulting to "free".</li>
+<li>White-label behavior. <code>applyDefaultWhiteLabelChatTarget()</code> opens the owner's chat for fans when the user list is hidden, and <code>WLSAllowDMs</code> controls the list.</li>
+<li>Default conversation choice. <code>setInitalDisplay()</code> prefers Priority, then General, then Bulk for creators, and Bulk when <code>history.state.groupId</code> is set. The paginated inbox and the inline first thread must follow the same order.</li>
+<li>Unread counts in the header badge (<code>coreService.messageCount</code>) once pages and deltas replace the full list.</li>
+<li>Optimistic sends and the message queue, which match on <code>uinqueId</code> today.</li>
+</ul>
+</section>
+
+<section class="stack">
+<h2>Roll out without losing messages</h2>
+<ol>
+<li>Feature-flag the new read APIs. Backfill conversation summaries, then compare old and new rows, counts, and default selections before moving clients.</li>
+<li>Release to a small cohort first. Watch p75/p95 load times, missing-message reports, send failures, duplicate events, unread-count mismatches, and backend load.</li>
+<li>Keep the old read path available during migration. Expand after TopFans and white-label checks pass; roll back if correctness or latency worsens.</li>
+</ol>
+</section>
+
+<section class="stack">
+<h2>Open questions for the backend</h2>
+<ol>
+<li>How big is a typical and a worst-case <code>get-chatGroups-and-users</code> response, and how long does the handler take at p95?</li>
+<li>Does <code>getpreviousMessagesFromHttp</code> already cap the page size? The frontend never asks for more, so either it returns everything or old messages are unreachable.</li>
+<li>Is <code>chat-user-validation</code> slow? It checks subscriptions, free DM quotas and guaranteed replies, and it may be the slowest of the three calls.</li>
+<li>What's the storage model (DynamoDB keys, GSIs) behind conversations and messages? It decides whether a summary table is needed or a query change is enough.</li>
+</ol>
+</section>
+
+<section class="stack">
+<h2>Code references</h2>
+<p class="small"><code>MC</code> is <code>src/app/modules/messages/components/message-container/message-container.component</code>.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Finding</th><th>Where</th></tr></thead>
+<tbody>
+<tr><td>Load sequence</td><td><code>MC.ts</code> 1424 <code>userProfileData</code>, 521 <code>fetchInitialData</code>, 672 <code>getUserChatLogs</code>, 986 <code>checkChatLogs</code>, 3442 <code>getUserMsgDetails</code>, 3008 <code>getUserChatMessage</code></td></tr>
+<tr><td>1 s timer</td><td><code>MC.ts</code> 3081 to 3117 <code>getUserEmail</code></td></tr>
+<tr><td>Shared cancel subject</td><td><code>MC.ts</code> 306, 3031, 3122</td></tr>
+<tr><td>Loader gating</td><td><code>MC.html</code> 725 to 729 (history), 1836 to 1841 (composer); <code>MC.ts</code> 724 clears it early</td></tr>
+<tr><td>Validation on every inbox fetch</td><td><code>MC.ts</code> 686 to 694</td></tr>
+<tr><td>Inbox refetch per message</td><td><code>MC.ts</code> 2740 <code>receiveMessage</code>, 2593 <code>updateUserList</code></td></tr>
+<tr><td>Double change detection</td><td><code>MC.ts</code> 2647 <code>ngAfterViewChecked</code></td></tr>
+<tr><td>Sort per push, identity tracking</td><td><code>MC.ts</code> 759 to 808, 2898; <code>MC.html</code> 265 to 267, 745 to 748</td></tr>
+<tr><td>Template work per row</td><td><code>MC.ts</code> 3882 <code>getCurrentMessages</code>, 3153 <code>getTimeDiff</code></td></tr>
+<tr><td>Scroll timers, pagination off</td><td><code>MC.ts</code> 3492 to 3516</td></tr>
+<tr><td>Eager imports</td><td><code>MC.ts</code> 127 to 157 and 164 to 206 (<code>imports</code>), 55 to 56 and 97 (modal classes), 431 (video CSS)</td></tr>
+<tr><td>Endpoints</td><td><code>src/app/core/api-url.enum.ts</code> 149, 158, 166</td></tr>
+<tr><td>Bundle</td><td><code>dist/TopFans/browser/chunk-ASVT5GJH.js</code> (route), <code>main-OAYPDOTP.js</code> (shell)</td></tr>
+</tbody></table></div>
+</section>
+
+</main></div></body></html>

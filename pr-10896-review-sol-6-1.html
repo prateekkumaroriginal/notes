@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PR 10896 review at 425977eec067. Merge recommendation is yes. Search and live history are fixed. Socket tab movement is deferred, and fan count assumptions need backend verification.">
+  <title>PR 10896 review-sol-6-1</title>
+  <link rel="canonical" href="https://notes.prateekkumar.site/pr-10896-review-sol-6-1">
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,figure { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header,.stack { display: grid; gap: 1rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    h3 { padding-bottom: .5rem; }
+    p,li,td,figcaption,.meta { color: var(--muted); }
+    a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--text); }
+    .ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); } .bad { color: var(--pink); }
+    .meta,nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .items { display: grid; gap: 1.75rem; }
+    .item { display: grid; gap: 1rem; }
+    ul,ol { padding-left: 1.25rem; } li + li { padding-top: .6rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    table { border-collapse: collapse; width: 100%; min-width: 540px; }
+    th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); } tbody th { font-weight: 500; }
+    tr + tr td,tr + tr th { border-top: 1px solid var(--line); }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a href="/">All notes</a>
+    <div><h1>PR 10896 review-sol-6-1</h1><p>Search and live history are fixed. Socket tab movement is follow-up work, and the fan count concern needs backend verification. Merge recommendation is yes.</p></div>
+    <div class="meta"><span>Re-reviewed 6 October 2026</span><span>6 commits</span><span>7 files</span><span>1018 additions, 373 deletions</span></div>
+    <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10896">Use server tabs, unread counts, and cursors for messages</a></p>
+    <p>Base <code>91dd0ed2c5487d0740707e676f79f90e3d432eb7</code><br>Head <code>425977eec0679bc54da19b6756da0dd882b3e2ea</code><br>Target branch <code>hotfix/release-0.0.23/messages-revamp</code></p>
+    <nav aria-label="Review sections"><a href="#decision">Merge decision</a><a href="#follow-up">Follow-up work</a><a href="#resolved">Resolved findings</a><a href="#fixed">Earlier fixes</a><a href="#evidence">Checks and limits</a><a href="#next">Later investigation</a></nav>
+  </header>
+  <main>
+    <section id="decision" class="stack">
+      <h2>Should I merge it now? Yes.</h2>
+      <p class="ok">No remaining merge blocker within the agreed scope.</p>
+      <p>I would merge <code>425977eec067</code>. The search and live-history repairs passed the focused checks. The user has deferred socket tab movement to a later investigation. The fan count concern depends on a response shape that I have not verified on a live fan account, so it should not block this merge.</p>
+      <p>This pass reviews the complete one-file update from <code>5c5c2c0990de</code> to <code>425977eec067</code>. It adds 121 lines and removes 8. I reran all four reported scenarios and checked the history repair for duplicate IDs, request failure, and conversation changes. I found no new blocker in that update.</p>
+      <p>GitHub reports the PR open, ready for review, and mergeable with a clean merge state. It lists no status checks and no submitted reviews. This recommendation reflects the agreed scope and the checks recorded below.</p>
+    </section>
+
+    <section id="follow-up" class="stack">
+      <h2>Follow-up work</h2>
+      <p>The implementation is unchanged in these areas. Socket tab movement is deferred by the user. The fan count example remains a conditional concern, not a confirmed product defect.</p>
+      <div class="items">
+<article class="item" id="membership">
+          <div><h3>Socket tab movement is deferred</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/425977eec0679bc54da19b6756da0dd882b3e2ea/src/app/modules/messages/components/message-container/message-container.component.ts#L2854">message-container.component.ts, lines 2854 to 2874</a></p></div>
+          <p class="warn">The user has accepted this as follow-up work. It does not block this merge.</p>
+          <p>The handler first searches the tab named by the socket event. If it cannot find the row there, it searches every loaded tab and updates whichever copy it finds. It never moves that row to the server's tab and does not refresh after finding it in a different tab.</p>
+          <ol><li>Load a conversation in General.</li><li>Deliver an event for that conversation with <code>tab=featured</code>.</li><li>The handler finds the General copy and updates it there. Priority still has no copy.</li></ol>
+          <p>The fixture ended with zero Priority rows and one General row. This matters whenever the server changes membership, such as a conversation moving into Priority. The event's server tab and its counts can disagree with the visible list until another inbox request repairs it.</p>
+          <p>Handle a tab mismatch explicitly. Remove the stale copy and refresh the relevant tab, or move the row with the server's membership and ordering. Do not reuse the old tab index as the destination.</p>
+        </article>
+<article class="item" id="fan-counts">
+          <div><h3>Verify the fan count response before treating it as a defect</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/425977eec0679bc54da19b6756da0dd882b3e2ea/src/app/modules/messages/components/message-container/message-container.component.ts#L3898">message-container.component.ts, lines 3898 to 3917</a></p></div>
+          <p>Fans have one combined inbox and no creator tab badges. The component stores <code>tab=all</code> at index 2, then uses that index to subtract read counts from General. This matters to the sidebar total only if the fan API distributes unread counts across multiple categories.</p>
+          <p>The fixture supplied Featured 3, General 2, and Broadcast 0. Reading a conversation with 3 Featured unread messages left the sidebar at 3 instead of 2. That proves the calculation under those inputs. It does not prove that the live fan API returns those inputs.</p>
+          <p>If the fan API aggregates all unread messages into General, this case does not apply. I have not verified a live fan response and should not have classified this as a confirmed merge blocker. Check the backend contract during the later investigation.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="resolved" class="stack">
+      <h2>Search and live history are fixed</h2>
+      <div class="items">
+        <article class="item">
+          <div><h3 class="ok">Returning to the previous search keeps the list usable</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/425977eec0679bc54da19b6756da0dd882b3e2ea/src/app/modules/messages/components/message-container/message-container.component.ts#L4022">message-container.component.ts, lines 4022 to 4040</a></p></div>
+          <p>The input handler now emits the search value without cancelling requests or changing loading state. The debounced subscriber starts the request when the value changes. Typing <code>alicex</code> and returning to <code>alice</code> within 500 ms leaves the existing result and cursor intact.</p>
+          <p>The repeated fixture made one request, left <code>isLoadingChatLogList</code> false, and retained the next-page cursor. The old stuck-loader finding is resolved.</p>
+        </article>
+        <article class="item">
+          <div><h3 class="ok">Live messages survive the first history response</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/425977eec0679bc54da19b6756da0dd882b3e2ea/src/app/modules/messages/components/message-container/message-container.component.ts#L3013">History merge at lines 3013 to 3044</a> and <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/425977eec0679bc54da19b6756da0dd882b3e2ea/src/app/modules/messages/components/message-container/message-container.component.ts#L3418">first-page handling at lines 3418 to 3428</a></p></div>
+          <p>The component records the requested conversation and buffers its live messages while history loads. It merges those messages into the first page, rejects entries belonging to another thread, and skips stable IDs already in the response.</p>
+          <p>The original race fixture now keeps its live message after an empty history snapshot arrives. Further checks confirmed that a matching stable ID appears once, a live message survives a failed request, switching threads cancels the old request and drops its buffer, and the merge excludes an unrelated conversation.</p>
+          <p>These checks use the exact updated methods. The deduplication check uses the same stable ID in history and the socket entry. It does not claim to cover every backend ID format.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="fixed" class="stack">
+      <h2>Several earlier issues are fixed</h2>
+      <p>The current diff deserves a fresh review. I would not block it on these old claims.</p>
+      <ul>
+        <li>Opening a direct-message history page no longer refetches the inbox. The list, search, and loaded pages stay in place.</li>
+        <li>Broadcast and followers history skip <code>include_validation</code>. Broadcast requests keep <code>from</code> on both pages.</li>
+        <li>Inbox append and older-history prepend filter IDs already present in their existing lists.</li>
+        <li>The sidebar inbox GET and the report files are absent from the current PR diff.</li>
+        <li>The inbox uses <code>infiniteScroll</code> on <code>scrollViewport</code>. Search uses the input event. The current code also writes badge counts onto the field that renders the tabs.</li>
+      </ul>
+      <p>An earlier commit adds a 30-second presence poll for the open direct-message recipient, support for the new socket envelope, and page-based recipient loading in the New Message modal. Those changes expand the review beyond the original cursor-pagination commit.</p>
+    </section>
+
+    <section id="evidence" class="stack">
+      <h2>Checks and limits</h2>
+      <p>I reviewed the complete latest commit and the surrounding history, socket, search, and count methods. The previous pass covered the full seven-file PR at <code>5c5c2c0990de</code>. This re-review checks the repair at <code>425977eec067</code>.</p>
+      <p>I extracted component methods verbatim with the TypeScript parser and ran them with the repository's TypeScript and RxJS packages. Network calls and Angular rendering side effects used stubs. Search used the real RxJS operators and virtual time.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Check on the updated head</th><th scope="col">Observed result</th></tr></thead>
+        <tbody>
+          <tr><td>Return to the previous search inside the debounce window</td><td class="ok">Fixed. Loader stays false and the next-page cursor remains.</td></tr>
+          <tr><td>Live message before first history response</td><td class="ok">Fixed. One live entry remains after the earlier snapshot arrives.</td></tr>
+          <tr><td>Socket moves a loaded General row to Featured</td><td class="warn">Row stays in General under the test event. Deferred follow-up.</td></tr>
+          <tr><td>Fan opens a Featured row from the all list</td><td class="warn">Fixture shows 3 instead of 2 under split counts. Live fan response shape is unverified.</td></tr>
+          <tr><td>Same stable message ID in history and live buffer</td><td class="ok">One entry remains. Buffer clears.</td></tr>
+          <tr><td>First history request fails after a live message arrives</td><td class="ok">Live message remains. Loading stops and permissions report failure.</td></tr>
+          <tr><td>Switch conversations while the first history request is pending</td><td class="ok">Old request cannot overwrite the new thread. Its buffered entry is excluded.</td></tr>
+          <tr><td>History merge receives an unrelated conversation</td><td class="ok">The unrelated entry is excluded.</td></tr>
+          <tr><td>Ordinary same-tab live preview and unread increment</td><td class="ok">Preview updates. Row unread and total increase by one.</td></tr>
+          <tr><td>Cursor containing plus, slash, and equals</td><td class="ok">URLSearchParams preserves the value through encoding.</td></tr>
+          <tr><td>git diff --check between the recorded base and updated head</td><td class="ok">Passed.</td></tr>
+          <tr><td>GitHub checks and submitted reviews</td><td>None listed when fetched for this re-review.</td></tr>
+          <tr><td>Full Angular builds, main and tenant SSR, signed-in staging flows</td><td>Not rerun in this review.</td></tr>
+        </tbody>
+      </table></div>
+      <p>The fixtures establish state changes under the stated inputs. They do not measure how often staging sends each event or snapshot. I did not verify live non-null cursors, payment behavior, hardware recording, presence responses, or recipient pagination end to end.</p>
+      <p>The PR description reports earlier controlled-response checks, component-method checks, type checking, development compilation, and staging searches. Those are author-reported results. I have not treated them as independent verification of this updated commit.</p>
+    </section>
+
+    <section id="next" class="stack">
+      <h2>Later investigation</h2>
+      <ul>
+        <li>Confirm when the server changes conversation membership through socket events. Decide whether to move the loaded row or refresh the relevant tab.</li>
+        <li>Inspect an authenticated fan inbox response. Confirm whether unread counts span multiple categories or aggregate into General before changing the count logic.</li>
+      </ul>
+      <p>These are follow-up questions. The current merge recommendation is yes for <code>425977eec067</code>.</p>
+    </section>
+  </main>
+  <footer>Recommendation applies to <code>425977eec067</code>. Colours copied from the existing PR 10872 review. Written with the unslop skill.</footer>
+</div>
+</body>
+</html>

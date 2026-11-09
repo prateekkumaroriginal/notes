@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="What Resolve_build_size_19 changed for first-load size, and how that behaves next to the Angular 20 QA build.">
+  <title>What Resolve_build_size_19 did</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    h1, h2, p, ol, code { margin: 0; }
+    h1, h2 { color: var(--text); }
+    a { color: var(--blue); text-underline-offset: 0.2em; }
+    code {
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--green);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      padding: 0.1rem 0.35rem;
+    }
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+    header { display: grid; gap: 0.75rem; }
+    header p { font-size: 1.05rem; }
+    .meta {
+      display: grid;
+      gap: 0.35rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+    .meta span { color: var(--amber); }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; font-size: 1.35rem; }
+    .prose { display: grid; gap: 1.75rem; }
+    .size { color: var(--amber); }
+    .down { color: var(--green); }
+    .focus { color: var(--blue); }
+    .theirs { color: var(--violet); }
+    ol {
+      display: grid;
+      gap: 1.75rem;
+      padding: 0;
+      list-style: none;
+      counter-reset: qa;
+    }
+    ol > li { display: grid; gap: 0.65rem; }
+    ol > li::before {
+      color: var(--text);
+      font-weight: 650;
+      counter-increment: qa;
+      content: counter(qa) ". " attr(data-q);
+    }
+    details summary {
+      width: fit-content;
+      cursor: pointer;
+      border-radius: 0.3rem;
+      color: var(--blue);
+    }
+    details summary:focus-visible {
+      outline: 0.13rem solid var(--blue);
+      outline-offset: 0.25rem;
+    }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>What Resolve_build_size_19 did</h1>
+      <p>You made vendor CSS load later. They stopped heavy JS from being reachable from <code>AppModule</code>. That is why first load looks like a different app and total transfer looks like the same one.</p>
+      <div class="meta" aria-label="Build identity">
+        <div><span>yours</span> feature/release-0.0.23/16-17-18-19-20 f08c71681b</div>
+        <div><span>yours stack</span> Angular 20.3.31, PrimeNG 20.4.0</div>
+        <div><span>theirs</span> Resolve_build_size_19 8041cebafa</div>
+        <div><span>theirs stack</span> Angular 19.2.25, PrimeNG 19.1.4</div>
+        <div><span>tables</span> <a href="angular-20-vs-resolve-build-size-19.html">chunk size comparison</a></div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>The number that matters</h2>
+        <div class="prose">
+          <p>All-chunk transfer went from <span class="size">4.02 MB</span> to <span class="size">4.19 MB</span>. Almost nothing. Initial went from <span class="size">6.80 / 1.14 MB</span> to <span class="size">12.43 / 2.00 MB</span>. Monetize, insights, messages, heic-to, and IVS did not grow. The extra bytes were already in the app. They sat in <span class="theirs">lazy</span> on their branch and sat in <span class="focus">initial</span> on yours.</p>
+          <p>Angular 20 did not blow the budget. The split they built got undone.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>SharedModule is the whole trick</h2>
+        <div class="prose">
+          <p><code>AppModule</code> imports <code>SharedModule</code>. Anything that module imports is first-load JS, even if the template never shows it. They took a pile of vendors and feature widgets out of shared and left them on the routes that actually use them.</p>
+          <p>Gone from their shared module: <code>ngx-intl-tel-input</code> and libphonenumber, <code>@ctrl/ngx-emoji-mart</code>, <code>ngx-color-picker</code>, <code>ngx-material-timepicker</code>, <code>ng-otp-input</code>, <code>NgIvsModule</code>, share-buttons, <code>angular-mentions</code>, the three video players, <code>ProfileComponent</code>, post-submit, mobile-input, custom-multiselect.</p>
+          <p>Yours still imports all of that. That is why initial has <code>chunk-SA2WMUN6.js</code> at <span class="size">675.29 kB</span> and why the top unnamed initial chunks went from <span class="size">4.18 MB</span> to <span class="size">9.31 MB</span>. I would start here. The <code>@defer</code> wrappers are garnish until this graph is smaller.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>What they bolted on after the slim</h2>
+        <div class="prose">
+          <p>You have no <code>@defer</code> in the tree. They hid the leftovers. Phone, timepicker, color picker, mobile-input, custom-multiselect, the welcome-video modal, and the alert-modal carousel wait for <code>on idle</code>. The emoji picker is a tiny wrapper and only loads <code>on immediate</code> when it is open. Feed and profile videos, comments, and sponsored ads wait for <code>on viewport</code>.</p>
+          <p>Lara is the other one. Your <code>AppModule</code> does <code>import * as LaraTheme from '@primeuix/themes/lara'</code> and hands the preset to <code>providePrimeNG</code>. Every first paint pays for it. They register PrimeNG with <code>darkModeSelector: false</code> and nothing else. <code>PrimeNgLoaderService</code> dynamic-imports <code>@primeng/themes/lara</code> the first time image-overlay or custom-multiselect constructs.</p>
+          <p>The header also static-imports three generated marketing files on your side, about <span class="size">906 kB</span> of source. They <code>await import()</code> those same files in <code>ngOnInit</code>. The download still happens soon after boot. It is no longer in the initial graph Angular prints.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Your CSS work is the part I would keep</h2>
+        <div class="prose">
+          <p><code>styles</code> shrank from <span class="size">1.85 MB</span> to <span class="size">1.81 MB</span>, about <span class="down">35 kB</span>. ng-select, datepicker, and toastr are <code>inject: false</code> on yours and still sit in their main stylesheet. <code>LazyVendorCssDirective</code> plus the <code>loadFor*</code> calls on toastr, material, video, and datepicker cover more widgets than their helper list. Their <code>loadForPrimeNG()</code> only pulls primeicons. The theme arrives as JS.</p>
+          <p>That CSS path is why a PrimeNG carousel looks finished on your first paint, and why a prerendered page can already have the vendor <code>&lt;link&gt;</code> if the widget constructed on the server. They skip CSS on the server, then fire material, flags, and primeicons from <code>app.component</code> on a <code>setTimeout(0)</code>. Fine for a SPA. Worse for HTML you already spent 8 minutes prerendering.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>What a user actually sees</h2>
+        <div class="prose">
+          <p>Phone fields on their branch sit empty until the browser is idle, then pop in. Both sides already wrap the control in <code>*ngIf="cs.isBrowser"</code>, so SSR never had a real phone input anyway. You at least show it on the first client render.</p>
+          <p>Emoji is the dishonest one on your side. <code>*ngIf</code> hides the picker. <code>PickerModule</code> is still in the initial bundle. They pay for that JS when the user opens it.</p>
+          <p>Feed video is the one I do not fully trust on their branch. <code>@defer (on viewport)</code> plus a placeholder is the right idea, and taking the players out of <code>SharedModule</code> is why video.js is not in your <span class="size">12.43 MB</span>. I could not find <code>VideoPlayerV2</code> imported into the module that declares post-card. <code>CUSTOM_ELEMENTS_SCHEMA</code> would swallow the compile error. Click a feed video on that branch before you copy the pattern. A missing import would make the size look great and the player never boot.</p>
+          <p>PrimeNG can flash unstyled on theirs until Lara lands. Yours never does. Form widgets on theirs go blank for a beat on idle. Header marketing links on theirs fill a tick late, which is why they added <code>applyAsyncSafe()</code> for SSR change detection. Yours has the data in the same module as the header, so the links are there.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>If you port anything</h2>
+        <div class="prose">
+          <p>Keep the <code>inject: false</code> list and the directive. Do not switch to their CSS loader. Take <code>SharedModule</code> apart the way they did, then add the wrappers and <code>@defer</code> so the leftovers cannot sneak back into initial through a template. Lara can stay eager if you hate the first-widget flash, or move behind <code>PrimeNgLoaderService</code> if you want their initial number more than their FOUC.</p>
+          <p>Server initial follows the same split, <span class="size">5.92 MB</span> against your <span class="size">11.64 MB</span>. Same cause. Same fix.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>Q&amp;A</h2>
+        <ol>
+          <li data-q="Did Angular 20 make the first load worse?">
+            <details>
+              <summary>Show answer</summary>
+              <p>No. Feature lazy modules stayed flat. Total transfer only moved <span class="size">0.17 MB</span>. The Angular 20 QA build put Lara, marketing JSON, intl-tel, emoji, video, IVS, and the rest back on the <code>AppModule</code> graph. Their Angular 19 build had already taken those off it.</p>
+            </details>
+          </li>
+          <li data-q="If I copy their JS splits, do I lose the stylesheet win?">
+            <details>
+              <summary>Show answer</summary>
+              <p>No. Those are independent. <code>inject: false</code> on ng-select, datepicker, and toastr is yours. Their main <code>styles</code> still contains those three. Port the module graph. Keep the CSS loader.</p>
+            </details>
+          </li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

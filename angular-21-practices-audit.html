@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Angular 21 practices audit</title>
+  <style>
+    :root {
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      --sans: "Helvetica Neue", Arial, sans-serif;
+      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    body {
+      margin: 0;
+      font: 16px/1.45 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 48px 28px 80px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 28px;
+      margin-bottom: 36px;
+    }
+
+    .kicker {
+      color: var(--dim);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 620;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px;
+      line-height: 1.2;
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      max-width: 64ch;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 620;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin: 40px 0 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 22px 0 8px;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul, ol {
+      margin: 0 0 14px;
+      padding-left: 1.2em;
+    }
+
+    li { margin: 0 0 7px; }
+
+    li::marker { color: var(--dim); }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 18px;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--dim);
+      font-weight: 550;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    td.num {
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+      white-space: nowrap;
+      color: var(--muted);
+    }
+
+    td.old { color: var(--minus); }
+    td.new { color: var(--plus); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 0 0 12px;
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    .sev {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      padding: 2px 6px;
+      margin-right: 8px;
+      vertical-align: 1px;
+    }
+
+    .sev-crit { color: var(--minus); background: var(--minus-bg); }
+    .sev-warn { color: var(--focus); background: var(--focus-bg); }
+    .sev-ok { color: var(--plus); background: var(--plus-bg); }
+    .sev-info { color: var(--muted); background: rgba(133, 147, 166, 0.13); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+      margin-bottom: 2px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 18px;
+      border-top: 1px solid var(--rule);
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    footer a { color: var(--focus); }
+
+    @media (max-width: 640px) {
+      .wrap { padding: 28px 18px 56px; }
+      .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <article class="wrap">
+    <header>
+      <h1>The build is 21. The source is not.</h1>
+      <p class="lede"><code>package.json</code> says Angular 21.2. The CLI uses the application builder. The app still boots with <code>platformBrowserDynamic().bootstrapModule(AppModule)</code>, the same shape it had on Angular 12.</p>
+    </header>
+
+    <h2>Scoreboard</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Practice</th>
+          <th>This repo</th>
+          <th>Angular 21</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Bootstrap</td>
+          <td class="old"><code>bootstrapModule(AppModule)</code></td>
+          <td class="new"><code>bootstrapApplication</code> + <code>ApplicationConfig</code></td>
+        </tr>
+        <tr>
+          <td>Components</td>
+          <td class="old">533 <code>standalone: false</code>, 17 explicit true</td>
+          <td class="new">Standalone by default</td>
+        </tr>
+        <tr>
+          <td>NgModules</td>
+          <td class="old">73 files</td>
+          <td class="new">Optional, usually gone</td>
+        </tr>
+        <tr>
+          <td>Templates</td>
+          <td class="old">6,148 <code>*ngIf</code>, 763 <code>*ngFor</code>, 249 <code>*ngSwitch</code></td>
+          <td class="new"><code>@if</code> / <code>@for</code> / <code>@switch</code></td>
+        </tr>
+        <tr>
+          <td>New control flow</td>
+          <td class="old">0</td>
+          <td class="new">Default since 17</td>
+        </tr>
+        <tr>
+          <td>Signals</td>
+          <td class="old">0 <code>signal()</code>, 0 <code>computed()</code>, 0 <code>effect()</code></td>
+          <td class="new">Primary state model</td>
+        </tr>
+        <tr>
+          <td>Inputs / outputs / queries</td>
+          <td class="old">1,412 <code>@Input</code>, 400 <code>@Output</code>, 597 <code>@ViewChild</code></td>
+          <td class="new"><code>input()</code>, <code>output()</code>, <code>viewChild()</code></td>
+        </tr>
+        <tr>
+          <td>HTTP</td>
+          <td class="old"><code>HttpClientModule</code> + class interceptors</td>
+          <td class="new"><code>provideHttpClient(withFetch(), withInterceptors())</code></td>
+        </tr>
+        <tr>
+          <td>Router</td>
+          <td class="old"><code>RouterModule.forRoot</code>, class guards</td>
+          <td class="new"><code>provideRouter</code>, <code>CanActivateFn</code>, <code>withComponentInputBinding()</code></td>
+        </tr>
+        <tr>
+          <td>SSR hydration</td>
+          <td class="old"><code>AppServerModule</code> + <code>CommonEngine</code>, no hydration</td>
+          <td class="new"><code>provideClientHydration</code>, <code>withEventReplay</code></td>
+        </tr>
+        <tr>
+          <td>OnPush</td>
+          <td class="old">92 of 666 components</td>
+          <td class="new">OnPush + signals, then zoneless</td>
+        </tr>
+        <tr>
+          <td>Unsubscribe</td>
+          <td class="old">1,142 <code>takeUntil(this.destroy$)</code></td>
+          <td class="new"><code>takeUntilDestroyed()</code></td>
+        </tr>
+        <tr>
+          <td>Forms</td>
+          <td class="old">747 <code>UntypedForm*</code></td>
+          <td class="new">Typed <code>FormGroup</code> / <code>FormControl</code></td>
+        </tr>
+        <tr>
+          <td>Images</td>
+          <td class="old">0 <code>NgOptimizedImage</code></td>
+          <td class="new"><code>ngSrc</code></td>
+        </tr>
+        <tr>
+          <td>Deferral</td>
+          <td class="old">0 <code>@defer</code></td>
+          <td class="new">Lazy heavy blocks in the template</td>
+        </tr>
+        <tr>
+          <td>Tests</td>
+          <td class="old">Karma, zero specs</td>
+          <td class="new">Vitest is the CLI default</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">Counts from <code>src/</code> on 22 Sep 2026. <code>input()</code>, <code>output()</code>, <code>model()</code>, <code>toSignal()</code>, <code>afterNextRender()</code>, and <code>httpResource()</code> do not appear.</p>
+
+    <h2>What already moved</h2>
+    <div class="card">
+      <p><span class="sev sev-ok">Keep</span> The application builder in <code>angular.json</code>. That is the Angular 17+ build. A leftover <code>@angular-devkit/build-angular:server</code> target is still in the file. It only matters if serverless still uses it.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-ok">Keep</span> <code>provideZoneChangeDetection()</code> in <code>app.module.ts</code>. Angular 21 stopped providing the zone scheduler by default. That line is a patch so NgModule bootstrap still works. It is not a modernization. It is how you stay on Zone while the rest of the source catches up.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-ok">Keep</span> <code>promotionalAuthGuard</code> as a function that uses <code>inject()</code>. That is the 21 shape. <code>AuthGuard</code>, <code>PermissionGuard</code>, <code>CreatorApprovalGuard</code>, and the rest are still injectable classes.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Mixed</span> A few newer files omit <code>standalone: false</code>, so Angular 19+ treats them as standalone. <code>FormSelectComponent</code> is one of those. It then imports <code>HttpClientModule</code> into the component. Half migrated, and the deprecated half.</p>
+    </div>
+
+    <h2>Boot and DI</h2>
+    <div class="card">
+      <h3><span class="sev sev-crit">Blocker</span> NgModule bootstrap</h3>
+      <p><code>src/main.ts</code> still calls <code>enableProdMode()</code>, then <code>platformBrowserDynamic().bootstrapModule(AppModule)</code>, after a <code>smoothscroll</code> polyfill and a <code>DOMContentLoaded</code> wait. <code>src/main.server.ts</code> exports <code>AppServerModule</code>.</p>
+      <p>Angular 21 apps start with <code>bootstrapApplication(AppComponent, appConfig)</code> and <code>provideServerRendering()</code>. Production mode comes from the builder. <code>enableProdMode()</code> and the <code>DOMContentLoaded</code> gate go away with that move. Routing and providers need to be standalone first.</p>
+    </div>
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> <code>HttpClientModule</code> is deprecated</h3>
+      <p><code>AppModule</code> imports it. <code>FormSelectComponent</code> imports it again. Class interceptors register through <code>HTTP_INTERCEPTORS</code>.</p>
+      <p>The 21 setup is <code>provideHttpClient(withFetch(), withInterceptors([authInterceptor, errorInterceptor]))</code>. <code>withFetch()</code> matters for SSR. XHR is the old browser path and fights hydration.</p>
+    </div>
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> Router is still a module</h3>
+      <p><code>RouterModule.forRoot</code> sets <code>initialNavigation: 'enabledBlocking'</code>. That flag is leftover. Blocking initial navigation is the default now.</p>
+      <p>Move to <code>provideRouter(routes, withComponentInputBinding())</code>. Route params become <code>input()</code> on the page component. <code>ActivatedRoute.snapshot</code> subscriptions can shrink after that.</p>
+    </div>
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> SSR has no hydration</h3>
+      <p><code>AppServerModule</code> imports <code>AppModule</code> and <code>ServerModule</code>. <code>server.ts</code> uses <code>CommonEngine</code>. There is no <code>provideClientHydration()</code> and no <code>withEventReplay()</code>.</p>
+      <p>You prerender and SSR, then the browser rebuilds the tree. That is Angular 12 SSR. Hydration is the 21 reason to keep SSR.</p>
+    </div>
+
+    <h2>Templates</h2>
+    <div class="grid">
+      <div class="stat"><b>6,148</b><span><code>*ngIf</code> still in templates</span></div>
+      <div class="stat"><b>0</b><span><code>@if</code> / <code>@for</code> / <code>@switch</code></span></div>
+    </div>
+    <p><code>profile.component.html</code> has 320 <code>*ngIf</code>s. <code>message-container</code> has 144. Those two files are why a mechanical control-flow migration is worth doing and why a human has to review it.</p>
+    <p><code>@for</code> requires <code>track</code>. 163 <code>trackBy</code> functions exist. Most lists do not. Start on wallet and feed.</p>
+    <p>997 <code>[ngClass]</code> / <code>[ngStyle]</code> bindings. Angular 21 prefers <code>[class.x]</code> and <code>[style.y]</code>, or a single class string. <code>NgClass</code> on a 300-branch template is how change detection stays expensive.</p>
+    <p>No <code>@defer</code>. Marketing layouts, video players, Stripe, Quill, and Highcharts should not be in the first paint. The lazy CSS split already exists. Defer the components next.</p>
+    <p>No <code>NgOptimizedImage</code>. A white-label site with banners and merch images should be using <code>ngSrc</code>, <code>priority</code>, and <code>sizes</code>.</p>
+
+    <h2>State and change detection</h2>
+    <div class="card">
+      <h3><span class="sev sev-crit">Blocker</span> Signals were never adopted</h3>
+      <p>Zero <code>signal()</code>. Zero <code>computed()</code>. Zero <code>effect()</code>. Zero <code>input()</code> / <code>output()</code> / <code>model()</code> / <code>viewChild()</code>. Zero <code>toSignal()</code>. Zero <code>httpResource()</code>.</p>
+      <p>Component state is fields plus <code>BehaviorSubject</code> plus NgRx <code>Store</code> with immutability checks off. 182 <code>async</code> pipes. 524 <code>detectChanges()</code> calls. 4 <code>ngAfterViewChecked</code> hooks. 231 <code>NgZone</code> mentions. 151 <code>isPlatformBrowser</code> checks.</p>
+      <p>Angular 21's path is signals, then OnPush, then zoneless. This app is still default CD and Zone, with a comment that Angular 21 made them opt back into Zone. Signals on profile, messages, home, and wallet come first.</p>
+    </div>
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> <code>destroy$</code> instead of <code>takeUntilDestroyed()</code></h3>
+      <p>290 components implement <code>OnDestroy</code>. 1,142 <code>takeUntil(this.destroy$)</code> calls. <code>takeUntilDestroyed()</code> is unused.</p>
+      <p>Replace those with <code>takeUntilDestroyed()</code> or <code>toSignal()</code>.</p>
+    </div>
+    <div class="card">
+      <h3><span class="sev sev-warn">High</span> Untyped reactive forms</h3>
+      <p>747 <code>UntypedFormGroup</code> / <code>UntypedFormControl</code> / <code>UntypedFormBuilder</code> uses. That API exists so Angular 14 could ship typed forms without breaking old code. Three major versions later it is still the default here.</p>
+      <p>Convert each form as it is touched. The dynamic form builder stays generic.</p>
+    </div>
+    <div class="card">
+      <h3><span class="sev sev-info">Later</span> NgRx classic</h3>
+      <p><code>StoreModule.forRoot</code> with <code>strictStateImmutability: false</code>. No effects. No <code>@ngrx/signals</code>. If the store stays a user-profile bag, a signal service covers it.</p>
+    </div>
+
+    <h2>Modules, schemas, leftover platform</h2>
+    <div class="card">
+      <p><span class="sev sev-warn">High</span> <code>SharedModule</code> is 650 lines and imported by <code>AppModule</code>. Lazy routes then import it again. Angular 21 standalone components import what they use. Until that split happens, <code>loadChildren</code> is mostly theater.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-warn">High</span> <code>CUSTOM_ELEMENTS_SCHEMA</code> is in 50 files, including <code>AppModule</code>. That hides missing imports. Standalone migration will fail in silence if this stays on the root module.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Cleanup</span> <code>styleUrls: ['...']</code> on 597 components. Angular 17 added <code>styleUrl</code> for the one-file case. Cosmetic. Change it when you touch the decorator.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Cleanup</span> 153 <code>@HostListener</code> decorators. The 21 style is a <code>host</code> object on the decorator, or a host directive. Same for <code>@HostBinding</code>.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Cleanup</span> <code>polyfills.ts</code> still talks about IE11 and Safari 10. It also sets <code>window.global</code> and a fake <code>window.process</code> so <code>aws-sdk</code> v2 can load. <code>css-vars-ponyfill</code> and <code>smoothscroll-polyfill</code> are the same era. Drop the IE story. The Node shims go when S3 uploads leave the browser.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Cleanup</span> <code>tsconfig</code> still has <code>module: es2020</code>, <code>emitDecoratorMetadata</code>, <code>downlevelIteration</code>, <code>newLine: crlf</code>, <code>strict: false</code>, <code>strictTemplates: false</code>. Angular 21 templates can be checked. This repo turned that off. New standalone files should compile under <code>strictTemplates</code> even if the old ones cannot.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Cleanup</span> Tests still target Karma. Angular 21's CLI generates Vitest. There are no specs, so switching costs nothing. Do it before the first real test file lands.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-info">Cleanup</span> <code>@angular/pwa</code> is still on v20. <code>ngx-quill</code> 16 and Quill 1.3.7 are mid-2010s editor stack. <code>ServiceWorkerModule.register</code> should become <code>provideServiceWorker</code> when bootstrap moves. <code>BrowserAnimationsModule</code> should become <code>provideAnimationsAsync()</code>.</p>
+    </div>
+
+    <h2>Order of work</h2>
+    <ol>
+      <li>Replace <code>HttpClientModule</code> with <code>provideHttpClient(withFetch(), withInterceptors(...))</code>. Convert the two interceptors to functions.</li>
+      <li>Add <code>provideClientHydration(withEventReplay())</code>.</li>
+      <li>Replace <code>RouterModule.forRoot</code> with <code>provideRouter(..., withComponentInputBinding())</code>. Convert the class guards to functions.</li>
+      <li>Convert feature modules to standalone routes, starting with a leaf feature.</li>
+      <li>Replace <code>*ngIf</code> / <code>*ngFor</code> / <code>*ngSwitch</code> with <code>@if</code> / <code>@for</code> / <code>@switch</code>.</li>
+      <li>Add <code>@defer</code> around video, Stripe, Quill, Highcharts, and emoji-mart. Switch images to <code>NgOptimizedImage</code>.</li>
+      <li>Replace <code>@Input</code> / <code>@Output</code> / <code>@ViewChild</code> with <code>input()</code> / <code>output()</code> / <code>viewChild()</code>.</li>
+      <li>Replace <code>destroy$</code> / <code>takeUntil</code> with <code>takeUntilDestroyed()</code>. Replace <code>UntypedForm*</code> with typed forms.</li>
+      <li>Add signals and OnPush on profile, messages, home, and wallet.</li>
+      <li>Split <code>SharedModule</code>. Drop <code>CUSTOM_ELEMENTS_SCHEMA</code> from <code>AppModule</code> once imports are explicit.</li>
+      <li>Replace <code>BrowserAnimationsModule</code>, <code>ServiceWorkerModule</code>, and <code>StoreModule.forRoot</code> with <code>provideAnimationsAsync</code>, <code>provideServiceWorker</code>, and <code>provideStore</code>.</li>
+      <li>Replace <code>AppModule</code> bootstrap with <code>bootstrapApplication</code>. Delete <code>AppServerModule</code>.</li>
+      <li>Switch Karma to Vitest. Bump <code>@angular/pwa</code> to 21.</li>
+    </ol>
+
+    <footer>
+      Companion to <a href="https://notes.prateekkumar.site/codebase-audit.html">the frontend audit</a> and <a href="https://notes.prateekkumar.site/angular-21-practices-verification.html">the verification checklist</a> · source counts only · Angular 21.2.23
+    </footer>
+  </article>
+</body>
+</html>

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10918 review-sol-6-1</title>
+<meta name="description" content="Review of PR 10918. Yes, merge it. The backend confirms active is always present. Includes composer and white-label inbox behaviour.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10918-review-sol-6-1">
+<style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,figure { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 1rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    h3 { padding-bottom: .5rem; }
+    p,li,td,figcaption,.meta { color: var(--muted); }
+    a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--text); }
+    .ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); } .bad { color: var(--pink); }
+    .meta,nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .stack { display: grid; gap: 1rem; }
+    .items { display: grid; gap: 1.75rem; }
+    .item p + p { padding-top: 1rem; }
+    ul,ol { padding-left: 1.25rem; } li + li { padding-top: .6rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; }
+    th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); } tbody th { font-weight: 500; }
+    tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+
+.table-wrap table { min-width: 0; } th,td { overflow-wrap: anywhere; }
+@media (max-width: 540px) { th,td { padding: .65rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10918 review-sol-6-1</h1><p>Inactive recipients lose the composer. Creators visiting another owner's white-label site get the fan inbox.</p></div>
+<div class="meta"><span>Reviewed 8 October 2026</span><span>3 files changed</span><span>30 additions, 7 deletions</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10918">Hide inactive composers and give visiting creators a fan inbox</a><br>Base <code>a0eb0d35ec</code> · Head <code>fef2d53dd9</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#finding">Finding</a><a href="#changes">Code review</a><a href="#cases">Behaviour checks</a><a href="#limits">Evidence and limits</a></nav></header>
+<main>
+<section id="verdict" class="stack"><h2>Should I merge it now? Yes.</h2>
+<p class="ok">I found no remaining blocking defect in the reviewed change.</p>
+<p>You confirmed that the backend always includes <code>active</code> in validation responses. That resolves the missing-field concern. The inactive gate matches the confirmed response contract, and the white-label role check gives visiting creators the requested fan inbox.</p>
+<p>GitHub merged this PR on 8 October 2026 at 13:03:53 IST. The merge commit is <code>f8c26bd62d</code>. This recommendation applies to the reviewed head <code>fef2d53dd9</code>.</p></section>
+<section id="finding" class="stack"><h2>The backend contract resolves the account-status concern</h2>
+<p>The backend team confirms that <code>active</code> is always present, as relayed by you on 8 October 2026. I accept that contract confirmation. I did not independently inspect a live response.</p>
+<p>The <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/fef2d53dd98441bf47867c22470951a412144f3f/src/app/modules/messages/components/message-container/message-container.component.ts#L2066">isRecipientInactive getter</a> checks <code>!this.dmValidations.active</code> for direct-message threads. An inactive recipient loses the composer. An active recipient keeps the existing permission and visibility rules.</p>
+<p>The frontend <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/fef2d53dd98441bf47867c22470951a412144f3f/src/app/modules/messages/interfaces/messages.interface.ts#L40">type still marks active as optional</a>. Making the type reflect the backend guarantee would improve clarity, but it is not a merge blocker.</p>
+<p>The inactive check also locks sending, tipping, and paid-message unlocks through <code>areMessageActionsLocked</code>. That broader effect remains part of the reviewed behaviour. Broadcast and Followers threads skip this account-status gate.</p></section>
+<section id="changes" class="stack"><h2>What the rest of the change does</h2><div class="items">
+<div class="item"><h3>The account flag becomes a site-specific inbox role</h3><p>The <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/fef2d53dd98441bf47867c22470951a412144f3f/src/app/modules/messages/components/message-container/message-container.component.ts#L4724">isCreator getter</a> keeps creators in creator mode on TopFans. On a white-label site, it also requires <code>is_host_owner</code> or an owner identity match. A visiting creator gets fan mode. A non-creator stays in fan mode even if an owner flag is set.</p><p>Owner matching already supports the configured owner's <code>gsi4pk</code> and username, compared with the logged-in user's username, referral ID, or <code>gsi4pk</code>. The new role check reuses that existing logic. It agrees with the ownership approach in <code>wls-owner.guard.ts</code>.</p></div>
+<div class="item"><h3>The fan role reaches the request and the layout</h3><p><code>getInboxTab()</code> returns <code>all</code> for a visiting creator. <code>getChatTypeIndex()</code> uses the fan list slot, and <code>updateActiveTab()</code> chooses General. The three changed template classes also use this contextual role, so the visiting creator gets the fan spacing and tab layout.</p><p>The profile callback now filters tab options only for accounts whose stored <code>is_creator</code> is explicitly false. A visiting creator's options remain available internally, while the template hides the creator tab control. This avoids permanently deleting creator options just because the site context temporarily produces fan mode.</p></div>
+<div class="item"><h3>The role change also affects guaranteed replies</h3><p>This getter has consumers outside inbox rendering. For a visiting creator, history handling clears creator pending-reply state and <code>shouldFulfillGuaranteedReply()</code> returns false. That follows the requested fan treatment, but it deserves an account-level smoke check. The change is not limited to hiding Priority and Message Lists.</p></div>
+<div class="item"><h3>Broadcasts retain their composer</h3><p><code>shouldIncludeMessageValidation()</code> excludes both existing forms of Broadcast and Followers. The inactive gate therefore ignores stale direct-message validation in those threads. A confirmed inactive direct-message recipient loses the footer; a recipient with <code>active: true</code> keeps the previous footer rules.</p></div>
+</div></section>
+<section id="cases" class="stack"><h2>Behaviour checks</h2>
+<p>All 17 checks pass. These checks execute methods and getters extracted from the reviewed source. They use plain profile and validation fixtures. They do not call the backend or render the signed-in Angular page.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Scenario</th><th scope="col">Reviewed result</th></tr></thead><tbody>
+<tr><td>Creator on TopFans</td><td>Creator role, Priority inbox available.</td></tr>
+<tr><td>Creator visiting another owner's white-label site</td><td>Fan role, <code>all</code> inbox, fan list slot.</td></tr>
+<tr><td>White-label owner identified by host-owner flag or matching account ID</td><td>Creator role retained.</td></tr>
+<tr><td>Fan account</td><td>Fan role retained.</td></tr>
+<tr><td>Direct-message validation has <code>active: false</code></td><td>Inactive, actions locked.</td></tr>
+<tr><td>Direct-message validation has <code>active: true</code></td><td>Inactive gate stays open. Loading and failure still lock actions.</td></tr>
+<tr><td>Direct-message validation omits <code>active</code></td><td>Inactive, actions locked. Synthetic fixture outside the confirmed backend contract.</td></tr>
+<tr><td>No validation object yet</td><td>Inactive getter returns false. Permission loading still locks actions.</td></tr>
+<tr><td>Broadcast or Followers with stale inactive validation</td><td>Inactive getter returns false.</td></tr>
+<tr><td>Visiting creator with a pending guaranteed reply</td><td>Creator fulfillment is disabled by the fan role.</td></tr>
+</tbody></table></div></section>
+<section id="limits" class="stack"><h2>Evidence and limits</h2>
+<p>I reviewed the complete base-to-head diff, the existing owner guard, inbox selection and indexing, validation handling, guaranteed-reply consumers, and the paid-attachment click guard. The diff passes the whitespace check.</p>
+<p>GitHub lists one approval for this head and no check runs in its PR check summary. You confirmed that build and TypeScript checks ran before committing. I stopped pursuing those checks at your request. An earlier TypeScript and template check had passed locally, but the build I started has no confirmed completion result.</p>
+<p>No live validation response, signed-in creator or fan session, payment, mobile interaction, or generated white-label build was exercised. The reviewed Angular configuration contains only the TopFans project. The fixture checks cover main-site and white-label role logic; they do not prove a deployed tenant behaves correctly.</p>
+<p>After deployment, check active and inactive recipients on TopFans and a white-label site. Check a visiting creator, the host owner, and a fan account. Confirm that the composer and paid-message controls follow the account status.</p></section>
+</main><footer><p>Recommendation applies to <code>fef2d53dd98441bf47867c22470951a412144f3f</code>. <a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/a0eb0d35ec24efca27850faf22e999de6549682c...fef2d53dd98441bf47867c22470951a412144f3f">Reviewed comparison</a>. Colours copied from the existing PR 10910 document. Text edited with the unslop skill.</p></footer>
+</div></body></html>

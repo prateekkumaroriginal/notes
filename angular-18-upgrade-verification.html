@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Verify the Angular 18 upgrade</title>
+  <style>
+    :root {
+      color-scheme: dark only;
+      --page: #0d1117;
+      --ink: #e6edf3;
+      --muted: #8b949e;
+      --line: #30363d;
+      --panel: #161b22;
+      --code: #010409;
+      --accent: #58a6ff;
+      --ok: #3fb950;
+      --warn: #d29922;
+      --bad: #f85149;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      color-scheme: dark;
+      background: var(--page);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font: 14.5px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(960px, calc(100% - 32px));
+      margin: 28px auto 48px;
+      padding: 36px 40px 44px;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    header {
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(26px, 4vw, 36px);
+      line-height: 1.12;
+      letter-spacing: -.03em;
+    }
+
+    header p {
+      margin: 0;
+      max-width: 48rem;
+      color: var(--muted);
+    }
+
+    h2 {
+      margin: 32px 0 12px;
+      font-size: 18px;
+      letter-spacing: -.015em;
+    }
+
+    p { margin: 0 0 12px; }
+    ul { margin: 0 0 12px; padding-left: 1.2rem; }
+    li + li { margin-top: 7px; }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12.5px;
+      padding: .08rem .32rem;
+      color: var(--accent);
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin: 0 0 12px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--code);
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+
+    .note {
+      margin: 14px 0;
+      padding: 12px 14px;
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    footer {
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">QA</p>
+      <h1>What to verify on Angular 18</h1>
+      <p>Walk this list on a QA SSR build before merge. A miss here is an 18 regression unless this page says it is old behavior. Implementation diffs live in <a href="angular-18-upgrade-explained.html">Angular 18 upgrade explained</a>.</p>
+    </header>
+
+    <section>
+      <h2>How to run it</h2>
+      <p>Put nvm Node 20.19.6 first. Serve <code>dist/TopFans/server/server.mjs</code> after <code>npm run prerender-all-qa</code>, or the qa <code>--prerender=false</code> output. Do not use <code>npm run build-dev</code>. Do not use Docker. Do not treat <code>ng lint</code> or <code>ng test</code> as gates.</p>
+      <p>Hit Express URL parse first: trailing slash, unknown route, then <code>?key=</code>. Product clicks come after that. Angular 17 is signed off. Do not reopen 17 bugs on this list.</p>
+    </section>
+
+    <section>
+      <h2>PR shape</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Pass when</th>
+            <th>On this branch</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Source diff</td>
+            <td>Only create-plan radio lines, <code>server.ts</code> CSR shell, DOMPurify import, wallet ngx-mask <code>IConfig</code> drop, <code>angular.json</code> localize polyfill, plus packages.</td>
+            <td class="warn">Prefetch files and <code>environment.ts</code> are still dirty. Restore them before commit.</td>
+          </tr>
+          <tr>
+            <td>Kept on purpose</td>
+            <td>PrimeNG 17.18.15. <code>HttpClientModule</code> still imported. No hydration. No <code>provideHttpClient</code>. Material still <code>indigo-pink</code>.</td>
+            <td class="ok">Matches the tree</td>
+          </tr>
+          <tr>
+            <td><code>prerender-existing</code> script</td>
+            <td>Dropped from <code>package.json</code>, or kept on purpose.</td>
+            <td class="warn">Present. Not required for 18.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>SSR and marketing</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Pass when</th>
+            <th>On this branch</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Client shell</td>
+            <td>After prerender, both <code>dist/TopFans/browser/index.html</code> and <code>index.csr.html</code> exist. Live SSR uses the CSR file as the engine document.</td>
+            <td class="ok">Smoked</td>
+          </tr>
+          <tr>
+            <td>Trailing slash</td>
+            <td><code>/login/</code> or a known public path with a trailing slash returns 301 to the same path without the slash. Query string is kept.</td>
+            <td class="ok">Smoked on Express</td>
+          </tr>
+          <tr>
+            <td>Unknown route</td>
+            <td>A garbage path returns HTTP 404, not a 200 empty shell.</td>
+            <td class="ok">Smoked</td>
+          </tr>
+          <tr>
+            <td>Referral query</td>
+            <td><code>/creators?key=</code> (or <code>/creator?key=</code>) is SSR-rendered, not the static prerender page that drops the key.</td>
+            <td class="ok">Smoked</td>
+          </tr>
+          <tr>
+            <td><code>/music</code></td>
+            <td>Browser lands on <code>/music-artists</code>.</td>
+            <td class="ok">Smoked</td>
+          </tr>
+          <tr>
+            <td>Login and forgot password</td>
+            <td><code>/auth/login</code> and <code>/auth/forgot-password</code> render. Styles and form chrome are present.</td>
+            <td class="ok">Smoked render. Submit success was not the gate.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Logged-in product</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Pass when</th>
+            <th>On this branch</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Wallet bank-details URL</td>
+            <td><code>/wallet/add-bank-details</code> redirects to <code>/wallet/current-balance</code>. Unauthenticated hits still stop on AuthGuard.</td>
+            <td class="ok">Routing smoked. Logged-in wallet UI still needs a session.</td>
+          </tr>
+          <tr>
+            <td>Wallet phone / mask</td>
+            <td>Current-balance and payout fields that use ngx-mask still accept input. ngx-mask 18 dropped <code>IConfig</code>; <code>provideNgxMask()</code> stayed.</td>
+            <td class="warn">Compile only. Type a value in a masked field.</td>
+          </tr>
+          <tr>
+            <td>Toasts</td>
+            <td>Success and error toasts still appear and dismiss. ngx-toastr 19 made the toast OnPush.</td>
+            <td class="warn">Not smoked after the bump</td>
+          </tr>
+          <tr>
+            <td>Overlays</td>
+            <td>Open and close a ngx-bootstrap modal, a Material bottom sheet (share / comments / tip), and an image overlay carousel. Content is current, not empty or from the previous open. Styles survive destroy. Stacked dialogs still work.</td>
+            <td class="warn">Unauthenticated overlay chrome smoked. Stacked logged-in sheets were not.</td>
+          </tr>
+          <tr>
+            <td>Phone inputs</td>
+            <td><code>ngx-intl-tel-input</code> still 15. Country dropdown and number entry work on contact, advertise, personal info, or a dynamic mobile field.</td>
+            <td class="warn">Kept on 15. Needs a human type-in.</td>
+          </tr>
+          <tr>
+            <td>Create Plan radios</td>
+            <td>Add New Plan. Free DMs chips still select. Unlimited maps to <code>-1</code>.</td>
+            <td class="ok">Binding compile-fixed. Re-click on QA.</td>
+          </tr>
+          <tr>
+            <td>Create Plan button</td>
+            <td>Name + Plan Benefit + open 1 Month + Total Price of 1 or more enables Create Plan. Same fill with Total Price empty stays disabled.</td>
+            <td class="warn">Disable-when-empty is old behavior. Enable-when-priced still needs a QA pass.</td>
+          </tr>
+          <tr>
+            <td>Stripe checkout</td>
+            <td>A real payment or connect flow completes. ngx-stripe is 18.1.0.</td>
+            <td class="bad">Not run. Needs a logged-in session.</td>
+          </tr>
+          <tr>
+            <td>Audio player</td>
+            <td>A portfolio / music track plays. Player stayed on 17.1.0.</td>
+            <td class="bad">Compile only. Needs a logged-in session.</td>
+          </tr>
+          <tr>
+            <td>Video</td>
+            <td>A video.js post or welcome modal plays. Close and reopen does not leave a dead player.</td>
+            <td class="bad">Compile only. Needs a logged-in session.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>White-label</h2>
+      <p>Generator copies TopFans build config, then appends the tenant theme. Prove one QA tenant, then restore generator artifacts. Do not commit them.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Pass when</th>
+            <th>On this branch</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>One QA tenant</td>
+            <td>qa <code>--prerender=false</code> build succeeds. SSR title and theme match the tenant. Login stays branded.</td>
+            <td class="ok"><code>doug-h</code> smoked. Theme <code>#8b5cf6</code>. Artifacts restored after that smoke; prefetch files are dirty again from later prerender.</td>
+          </tr>
+          <tr>
+            <td>Cover vs creators</td>
+            <td>Tenant <code>/creators</code> behavior matches 17 (cover page stayed on cover for <code>doug-h</code>).</td>
+            <td class="ok">Smoked once. Re-check if the generator is re-run for sign-off.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Do not file as an 18 bug</h2>
+      <ul>
+        <li>Create Plan disabled when 1 Month is selected but Total Price is empty or still collapsed. That is <code>checkFormDisable</code> from 17.</li>
+        <li><code>ng lint</code> running out of memory. It did that on 17.</li>
+        <li>Missing <code>environment.dev.ts</code> / <code>npm run build-dev</code> failing.</li>
+        <li>PrimeNG still on saga-blue. That stay is the upgrade decision.</li>
+        <li>Prefetch-generated marketing files changing after <code>prerender-all-qa</code>. Restore them. Do not merge them.</li>
+      </ul>
+    </section>
+
+    <div class="note">
+      <p>Still required for sign-off: logged-in wallet mask, a toast, stacked overlays, Create Plan with a filled Total Price, live Stripe, audio, and video. Everything else on this page was smoked once on 15 Sep 2026 and should be re-checked on the build that actually ships.</p>
+    </div>
+
+    <footer>
+      Companion to <a href="angular-18-upgrade-explained.html">Angular 18 upgrade explained</a>. Branch <code>feature/release-0.0.23/version-16-17-18</code>. 15 Sep 2026.
+    </footer>
+  </main>
+</body>
+</html>

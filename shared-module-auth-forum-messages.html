@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Auth, forum, messages and post pages stop loading SharedModule</title>
+  <meta name="description" content="Step 4 of the SharedModule plan: auth, forum, resources, messages, insights and post pages stop loading SharedModule. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Auth, forum, messages and post pages stop loading SharedModule</h1>
+      <p>The login pages fetched <span class="bad">3.52 MB</span> of lazy JavaScript on a first visit. They now fetch <span class="ok">1.00 MB</span>. Forum, resources, messages, insights and the post detail page drop by 1.3 to 2.7 MB each. Of the 45 lazy entry points, 6 still load SharedModule, down from 13.</p>
+      <div class="meta">
+        <span>branch t3code/drop-shared-module-imports</span>
+        <span>on top of 96be9f8389, step 3</span>
+        <span>step 4 of <a href="standalone-routes-whats-left.html">the plan</a></span>
+        <span>1 commit</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lazy JavaScript per route</h2>
+        <p>What a first visit fetches on top of the initial bundle, from the QA build. Before means after step 3. MB means a million bytes.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Login, signup, OTP and the other auth pages</td><td class="num">3.52 MB</td><td class="num">1.00 MB</td></tr>
+              <tr><td><code>/forum</code></td><td class="num">3.46 MB</td><td class="num">0.81 MB</td></tr>
+              <tr><td><code>/resources</code></td><td class="num">3.41 MB</td><td class="num">0.90 MB</td></tr>
+              <tr><td><code>/messages</code></td><td class="num">5.44 MB</td><td class="num">2.71 MB</td></tr>
+              <tr><td><code>/insights</code></td><td class="num">4.80 MB</td><td class="num">2.48 MB</td></tr>
+              <tr><td>Post detail</td><td class="num">3.75 MB</td><td class="num">1.85 MB</td></tr>
+              <tr><td>The music player modal, loaded on demand</td><td class="num">3.40 MB</td><td class="num">0.20 MB</td></tr>
+              <tr><td><code>/edit-preference</code>, still on SharedModule</td><td class="num">7.38 MB</td><td class="num">6.03 MB</td></tr>
+              <tr><td>Link in bio, still on SharedModule</td><td class="num">5.23 MB</td><td class="num">3.82 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Edit preference and link in bio still load SharedModule, but they got smaller. They render the creator profile form and the portfolio music views, which no longer come with SharedModule attached.</p>
+        <p>The six entries that still load SharedModule are dashboard, portfolio, edit preference, link in bio, profile and the white-label cover page. Apart from the two above, they each grew by 15.6 to 17.8 KB. That growth is chunk overhead. Dashboard now pulls 92 chunks where it pulled 52, and the code in them shrank by about 1.5 KB. The initial bundle grew by 1.2 KB for the same reason. Each small shared chunk adds its own wrapper and import lines, and esbuild made many more of them now that fewer components sit in one module.</p>
+      </section>
+
+      <section>
+        <h2>Commit b0114afffd: stop auth, forum, resources, messages, insights and post pages loading SharedModule</h2>
+        <p class="meta">68 files, +995 &minus;213</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>58 components now import what the Angular compiler matched in their templates and nothing else. They cover auth, forum, resources, messages, insights and post detail, plus the filter modal, the music and video player modals, the interests accordion and the creator profile info form in edit preference.</li>
+          <li>Four SharedModule pieces became standalone and moved from its declarations to its imports: the payment intent checkout, the portfolio unlock modal, topic tags selection, and the <code>removeURLS</code> and <code>safeUrl</code> pipes. SharedModule still exports them.</li>
+          <li>The four music components in <code>PortfolioModule</code> became standalone and moved to its imports. Its exports are the same. <code>PortfolioItemPreviewComponent</code> imports the music album and single track views it renders, where it used to import the whole <code>PortfolioModule</code> and, through it, SharedModule.</li>
+          <li>22 components lose ngx-intl-tel-input's <code>NativeElementInjectorDirective</code>. None of their templates has a phone input.</li>
+        </ul>
+        <p>The plan listed this step as import swaps with no conversions. It needed nine: the four SharedModule pieces, the four music components, and the preview component's switch away from <code>PortfolioModule</code>. Without them these routes still pulled SharedModule in.</p>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against step 3</td><td>631 of 653 components match. The other 22 lose only the phone directive and gain nothing.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as base. Development has none.</td></tr>
+              <tr><td>Server rendering, 78 URLs</td><td>All match step 3 once the compare script masks bundle hashes, style scope IDs and the hydration state.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>19 URLs: messages, insights, forum, resources, three real posts, the white-label editor and the profile. Same components and no new page errors. Three reruns matched.</td></tr>
+              <tr><td>Logged-out browser run</td><td>The auth pages and a post page, 9 URLs. All match.</td></tr>
+              <tr><td>Real login</td><td>Email, password and OTP on the new build log in.</td></tr>
+              <tr><td>Messages composer</td><td>The composer and its dropdown behave the same on both builds.</td></tr>
+              <tr><td>Every component on 10 entries resolves in the browser</td><td>Loaded auth, forum, resources, messages, insights, post detail, the music player modal, portfolio, dashboard and edit preference and checked each component's definition. No problems and no page errors.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>25 errors, down from 34. The 9 gone are <code>prefer-standalone</code>. The one <code>prefer-standalone</code> left is <code>BioLinkPipe</code>, which shares a file with the pipes above and isn't touched here.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>/messages</code> sometimes shows "Cannot read properties of undefined (reading 'length')" in the console. It shows on step 3 and on base too, about as often, when the QA API is slow. This commit didn't cause it.</p>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Use a creator account on its white-label site for the logged-in checks, and a private window for the logged-out ones. Keep the console open. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Auth</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c4-login"><span>Log in with email and password, enter the OTP, and land on the dashboard.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-signup"><span>Start a signup as a fan and as a creator. The phone number field shows its country picker.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-forgot"><span>Forgot password sends the reset email and the reset page accepts a new password.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-interests"><span>After signup, the interests accordion lists categories and saves the picks.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag high">High</span> Messages and posts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c4-msg-send"><span>Open a conversation, send a text message and an image. Both show in the thread.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-msg-paid"><span>Send a locked message with a price. As the fan, the unlock opens the payment checkout.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-post"><span>Open a post detail page. Comments load, likes work, and the caption shows the same as before.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-post-locked"><span>Open a locked post as a fan. The portfolio unlock modal and the checkout open.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Forum, resources and insights</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c4-forum"><span>Forum: create a post with topic tags and images. The image carousel on the post detail slides.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-resources"><span>Resources: the list loads and a resource opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-insights"><span>Insights: every tab loads its charts, and the filter modal changes the date range.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Music and portfolio</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c4-music-player"><span>Play a track from a post. The music player modal opens and plays.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-video-player"><span>Play a video from a post. The video player modal opens and plays.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-portfolio-music"><span>A portfolio album and a single track show in the portfolio item preview and on <code>/monetize/portfolio</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-link-in-bio"><span>Link in bio shows the music portfolio items the same as before.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag low">Low</span> Edit preference</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c4-profile-info"><span>Edit the creator profile info, including the phone number, and save.</span></label></li>
+              <li><label><input type="checkbox" data-id="c4-topic-tags"><span>Topic tags selection adds and removes tags wherever it shows.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "shared-module-auth-forum-messages-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review of TopFans web frontend pull request 10830, which converts 15 one-component public pages from NgModules to standalone routes and deletes two dead modules.">
+  <title>PR 10830: standalone routes review</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, figure, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1.25rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .verdict {
+      display: grid;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      background: rgba(142, 230, 162, 0.1);
+    }
+
+    .verdict h2 { color: var(--green); font-size: 1rem; padding: 0; }
+
+    .verdict p { color: var(--text); }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    section > p + p, section > p + ul, section > ul + p, section > p + .table-wrap, section > .table-wrap + p, section > p + pre, section > pre + p { padding-top: 0.75rem; }
+
+    .findings { display: grid; gap: 1.75rem; }
+
+    .finding {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tag {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      background: rgba(104, 215, 255, 0.12);
+      color: var(--blue);
+    }
+
+    .tag.ok { background: rgba(142, 230, 162, 0.12); color: var(--green); }
+    .tag.fix { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.old { background: rgba(213, 166, 255, 0.14); color: var(--violet); }
+
+    .finding-body { display: grid; gap: 0.5rem; }
+
+    .finding-body h3 { color: var(--text); font-size: 1rem; }
+
+    .finding-body ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+
+    .finding-body pre { margin-top: 0.25rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num { font-family: var(--mono); font-size: 0.85rem; white-space: nowrap; }
+
+    .routes { display: grid; gap: 0.35rem; list-style: none; padding: 0; }
+
+    .routes li {
+      display: grid;
+      grid-template-columns: 15rem 3.5rem minmax(0, 1fr);
+      gap: 1rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    .routes .ok { color: var(--green); }
+    .routes .miss { color: var(--amber); }
+
+    ol.qa { padding-left: 1.4rem; display: grid; gap: 0.5rem; }
+
+    .footnote { font-size: 0.9rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .finding { grid-template-columns: 1fr; gap: 0.5rem; }
+      .routes li { grid-template-columns: 1fr; gap: 0.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10830: standalone routes review</h1>
+      <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10830">PR 10830</a> moves the 15 one-component public pages (<code>about</code>, <code>pricing</code>, <code>privacy-policy</code>, <code>terms-condition</code>, <code>contact-us</code>, <code>contact-v1</code>, <code>help-faq</code>, <code>calendar-connect</code>, <code>shopify-connect</code>, <code>imported-opt-out</code>, <code>unsubscribe-newsletter</code>, <code>unsubscribe-instruction</code>, <code>not-found</code>, <code>shortend-url</code>, <code>access-user-account</code>) from <code>loadChildren</code> to <code>loadComponent</code>, deletes their 15 module files, and removes the unrouted <code>advertise</code> and <code>comparison</code> modules. One commit, 42 files, +154 / -3016. I read every changed file, built base and head, and diffed the server output for 22 URLs.</p>
+
+      <div class="verdict">
+        <h2>Verdict</h2>
+        <p>Merge it. Of the three PRs in this series, 15 pages at once is the one I expected to find something in. I did not. Base and head both build to 12.30 MB, ESLint has no errors, and once I ignore chunk hashes the server sends the same bytes for every URL I tried. The one change that goes beyond mechanical conversion, adding <code>RouterLink</code>, fixes a bug the compiler would have let through. Everything I have to say below is about code this PR touches but did not write.</p>
+      </div>
+
+      <div class="meta">
+        <span>reviewed 2026-09-23</span>
+        <span>base ee0c53c5b2</span>
+        <span>head aaa15ec916</span>
+        <span>Angular 21.2.23</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="scope">
+        <h2 id="scope">What changed</h2>
+        <p>Every one of the 15 modules declared a single component and wrapped it in a one-entry <code>RouterModule.forChild</code> with an empty path. That is a lot of ceremony for a component and a route. The PR removes the middle layer. The app route points at the component with <code>loadComponent</code>, and the component's <code>imports</code> array lists what its template uses. Six of those inline routes carried a <code>title</code> and <code>description</code>; the PR moves the strings into <code>src/app/constants/public-page-route-data.ts</code> and attaches them to the app routes. <code>link-in-bio-fan-preview.routes.ts</code> gets the same treatment for its wildcard. The PR also deletes the <code>advertise</code> and <code>comparison</code> directories under <code>modules/public</code>, 2,564 lines that no route loaded.</p>
+      </section>
+
+      <section aria-labelledby="findings">
+        <h2 id="findings">Findings</h2>
+        <div class="findings">
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The <code>RouterLink</code> import fixes a silent break</h3>
+              <p>Five templates (about, pricing, privacy, terms, help-faq) use <code>routerLink</code> for the Home breadcrumb and a couple of in-page links. I read <code>SharedModule</code> to see where that directive came from. It imports <code>RouterModule</code> twice and exports it zero times. So the only thing that ever put <code>routerLink</code> in scope for these pages was the <code>RouterModule.forChild</code> call inside the module this PR deletes. Without the new import, Angular would treat <code>routerLink</code> on an <code>&lt;a&gt;</code> as an ordinary attribute. The build passes, the page renders, the link has no <code>href</code>. Nothing red anywhere. This is the kind of regression that reaches production, and the PR caught it. In the head build every Home breadcrumb renders as <code>&lt;a routerlink="/" href="/"&gt;</code>.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The imports cover the templates</h3>
+              <p>I grepped each template for what it uses and checked it against the component's <code>imports</code> plus <code>SharedModule</code>'s exports. <code>ng-select</code> in contact-us comes from <code>NgSelectModule</code>. <code>app-dynamic-form-builder</code> in contact-v1 comes from <code>DynamicFormBuilderModule</code>. help-faq imports <code>FaqComponent</code> directly for <code>app-faq</code>. <code>[formGroup]</code> and <code>formControlName</code> come from <code>ReactiveFormsModule</code>, which <code>SharedModule</code> exports. Privacy and terms skip <code>CommonModule</code>. Their templates have no structural directives or pipes, so nothing is missing. The AOT build agrees, and this time there is no <code>CUSTOM_ELEMENTS_SCHEMA</code> anywhere to hide a typo.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The dropped imports were unused</h3>
+              <p>help-faq loses <code>CarouselModule</code>. There is no <code>owl-carousel</code> in its template, and <code>SharedModule</code> exports the module anyway. contact-v1 loses <code>NgSelectModule</code>. The dynamic form builder renders its form, so there is no <code>ng-select</code> to match. imported-opt-out loses <code>AlertModalComponent</code>. No <code>app-alert-modal</code> in the template, and again <code>SharedModule</code> exports it. pricing, calendar-connect, and shopify-connect lose <code>CUSTOM_ELEMENTS_SCHEMA</code>. The build passes without it, which means every element in those templates resolves to something real. I would guess someone added the schema years ago to silence an error and nobody removed it once the error went away.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3><code>advertise</code> and <code>comparison</code> were dead</h3>
+              <p>At the base commit, nothing under <code>src</code>, <code>scripts</code>, or the root <code>.mjs</code> files referenced either directory, and no route loaded either module. Only the deleted component imported the 1,097-line <code>comparison/constant.ts</code>. The live pages are <code>advertisement-home</code> and <code>comparison-page</code>, separate directories that this PR does not touch. Two full page implementations sat in the tree that no build ever compiled and no user could ever reach. Deleting them is the part of this PR I like most.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The 404 path still sets a 404</h3>
+              <p><code>NotFoundComponent</code> injects <code>RESPONSE</code> and calls <code>status(404)</code> on the server. That works the same under <code>loadComponent</code>. <code>/not-found</code>, a made-up deep URL, and the link-in-bio wildcard all returned 404 with <code>app-not-found</code> in the body, on both base and head.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>No stale references</h3>
+              <p>I searched the head for the 17 deleted class names and all deleted file paths. Nothing left. No spec files existed for any of them.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag fix">suggest</span>
+            <div class="finding-body">
+              <h3>The moved route data is dead, and now it ships in <code>main</code></h3>
+              <p>The PR says nothing reads <code>data.title</code> or <code>data.description</code>, and that is true. <code>CommonService.getTitle</code> and <code>getDescription</code> have no callers outside their own recursion. Every one of these pages sets its own title and meta in <code>ngOnInit</code> through <code>seoService.setPublicPageSeo()</code>, reading from <code>SEO_TITLE_DESC</code>. The route-level <code>title</code> on the two terms routes loses the same race. The server output says <code>Terms of Service - TopFan</code>, not <code>TopFan - Terms &amp; Conditions</code>, because <code>SeoService</code> writes last. So <code>public-page-route-data.ts</code> preserves strings that never reach a user, and moving them out of lazy chunks and onto the app routes puts them in the initial bundle. I measured <code>main</code> at 285,810 bytes on base and 287,523 on head, +1,713 raw. That number is small. The file still has no reason to exist. I would delete it along with the <code>data</code> and <code>title</code> properties, in this PR or the next. If someone wants route-level SEO later, <code>SEO_TITLE_DESC</code> already holds the real strings, and these are stale copies of them.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag old">pre-existing</span>
+            <div class="finding-body">
+              <h3><code>AboutComponent</code> has the wrong selector</h3>
+              <p>Its decorator says <code>selector: 'app-privacy-policy'</code>, so <code>/about</code> renders an <code>&lt;app-privacy-policy&gt;</code> element. Someone copied the privacy component to start the about page and never renamed the selector. This predates the PR, but the PR edits that exact decorator, and the fix is one word. It also matters a little more now. Two standalone components sharing a selector is harmless until someone imports both into the same template, and standalone makes that kind of import a lot more likely.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag old">pre-existing</span>
+            <div class="finding-body">
+              <h3>Dead <code>ViewChild</code> in imported-opt-out</h3>
+              <p>The component keeps <code>@ViewChild('emailModal') emailModal: AlertModalComponent</code>, but there is no <code>#emailModal</code> in the template. The field is always undefined. The <code>AlertModalComponent</code> import at the top of the file exists only to give it a type. Delete both lines.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>Redundant and oversized imports</h3>
+              <p><code>contact-v1</code> imports <code>DynamicFormBuilderModule</code> directly even though <code>SharedModule</code> already exports it. Harmless. The bigger version of the same thing is that 13 of the 15 components import <code>SharedModule</code>, about a hundred exports, to reach <code>app-button</code>, <code>app-loader</code>, the forms modules, and <code>translate</code>. I said this about 10826 and 10829 and the answer has not changed. Leave it until more of the app is standalone, then narrow each import list to what the template names.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>Lint is clean, with the usual warnings</h3>
+              <p>ESLint on the 18 changed TypeScript files reports 0 errors and 4 warnings. All four are <code>use-lifecycle-interface</code> on methods that existed before this PR, <code>ngOnDestroy</code> in both contact components and <code>ngOnInit</code> plus <code>ngOnDestroy</code> in shopify-connect.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="verification">
+        <h2 id="verification">What I ran</h2>
+        <p>I made two detached worktrees, one at the base <code>ee0c53c5b2</code> and one at the head <code>aaa15ec916</code>, sharing one <code>node_modules</code>, and ran <code>ng build --configuration=qa --prerender=false</code> in each. Both passed in about a minute with the same budget and non-ESM warnings the project always prints.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Measure</th><th>Base</th><th>Head</th><th>Change</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Initial total</td><td class="num">12.30 MB</td><td class="num">12.30 MB</td><td class="num">0</td></tr>
+              <tr><td><code>main</code> raw bytes</td><td class="num">285,810</td><td class="num">287,523</td><td class="num">+1,713</td></tr>
+              <tr><td>All browser JS raw bytes</td><td class="num">23,619,924</td><td class="num">23,616,571</td><td class="num">&minus;3,353</td></tr>
+              <tr><td>Browser output files</td><td class="num">129</td><td class="num">129</td><td class="num">0</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Then I started <code>server.mjs</code> from each build on its own port and fetched 22 URLs from both. I stripped chunk hashes, SRI hashes, and Angular's per-component style ids before diffing. After that, the only difference left in any page was one hydration component id inside <code>ng-state</code>, and that id changes whenever a component's metadata changes, so it is expected here. Status codes and rendered components:</p>
+        <ul class="routes" aria-label="SSR smoke test results">
+          <li><span>/about</span><span class="ok">200</span><span>app-privacy-policy (see above), Home href="/"</span></li>
+          <li><span>/pricing</span><span class="ok">200</span><span>app-pricing, Home href="/"</span></li>
+          <li><span>/privacy-policy</span><span class="ok">200</span><span>app-privacy-policy, Home href="/"</span></li>
+          <li><span>/terms-conditions</span><span class="ok">200</span><span>app-terms-condition, Home href="/"</span></li>
+          <li><span>/terms-of-service</span><span class="ok">200</span><span>app-terms-condition, Home href="/"</span></li>
+          <li><span>/contact-us</span><span class="ok">200</span><span>app-contact-us with reactive form</span></li>
+          <li><span>/request-demo</span><span class="ok">200</span><span>app-contact-v1, dynamic form rendered</span></li>
+          <li><span>/schedule-a-demo</span><span class="ok">200</span><span>app-contact-v1</span></li>
+          <li><span>/help-faq</span><span class="ok">200</span><span>app-help-faq, Home href="/"</span></li>
+          <li><span>/calendar-connect</span><span class="ok">200</span><span>app-calendar-connect</span></li>
+          <li><span>/shopify-connect</span><span class="ok">200</span><span>app-shopify-connect</span></li>
+          <li><span>/imported/opt-out</span><span class="ok">200</span><span>app-imported-opt-out</span></li>
+          <li><span>/unsubscribe/newsletter</span><span class="ok">200</span><span>app-unsubscribe-newsletter</span></li>
+          <li><span>/unsubscribe-instruction</span><span class="ok">200</span><span>app-unsubscribe-instruction</span></li>
+          <li><span>/share/abc123</span><span class="ok">200</span><span>app-shortend-url, empty template</span></li>
+          <li><span>/access-user</span><span class="ok">200</span><span>app-access-user-account, empty template</span></li>
+          <li><span>/not-found</span><span class="miss">404</span><span>app-not-found</span></li>
+          <li><span>/this-page-does-not-exist-xyz/a/b</span><span class="miss">404</span><span>app-not-found via wildcard</span></li>
+          <li><span>/bio/someuser/extra/segment</span><span class="miss">404</span><span>app-not-found via link-in-bio wildcard</span></li>
+          <li><span>/About, /PRICING</span><span class="miss">404</span><span>same as base; case folding only covers marketing routes</span></li>
+          <li><span>/about/extra-segment</span><span class="ok">200</span><span>app-sub-page-view, same as base</span></li>
+        </ul>
+        <p class="footnote">Not run: a browser, form submissions, the OAuth and email callbacks with real query strings, prerender, white-label builds.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">QA after merge</h2>
+        <ol class="qa">
+          <li>Click the Home breadcrumb on about, pricing, privacy, terms, and help-faq. It should navigate to <code>/</code> without a full reload. On help-faq, also click "Still have Questions?".</li>
+          <li>On <code>/contact-us</code>, open both dropdowns, then submit the form with and without errors. On <code>/request-demo</code>, check the dynamic form renders every field and submits.</li>
+          <li>Open a made-up URL and confirm the not-found page with a 404 in the network tab.</li>
+          <li>Complete a Google Calendar connect and a Shopify connect from the creator settings and confirm each callback page lands on the connected state.</li>
+          <li>Follow a real imported-fan opt-out link and a newsletter unsubscribe link from an email.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

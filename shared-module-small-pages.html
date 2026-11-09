@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The 18 small pages stop loading SharedModule</title>
+  <meta name="description" content="Step 1 of the SharedModule plan: the 18 small pages import only what their templates use. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>The 18 small pages stop loading SharedModule</h1>
+      <p>Pages like <code>/about</code> and <code>/pricing</code> use a link and an icon, yet each one fetched <span class="bad">3.3 MB</span> of lazy JavaScript because it imported all of SharedModule. After this change the 18 routes fetch <span class="ok">1.58 MB</span> between them instead of <span class="bad">59.96 MB</span>. Most now fetch under 30 KB.</p>
+      <div class="meta">
+        <span>branch t3code/drop-shared-module-imports</span>
+        <span>base 16a5786e9c, the PR 10833 merge</span>
+        <span>step 1 of <a href="standalone-routes-whats-left.html">the plan</a></span>
+        <span>1 commit</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lazy JavaScript per route</h2>
+        <p>This is what a first visit fetches on top of the initial bundle, from the QA build. MB here means a million bytes, the same unit the plan uses.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/about</code></td><td class="num">3.32 MB</td><td class="num">14 KB</td></tr>
+              <tr><td><code>/pricing</code></td><td class="num">3.32 MB</td><td class="num">8 KB</td></tr>
+              <tr><td><code>/privacy-policy</code></td><td class="num">3.32 MB</td><td class="num">10 KB</td></tr>
+              <tr><td><code>/terms-of-service</code>, <code>/terms-conditions</code></td><td class="num">3.33 MB</td><td class="num">26 KB</td></tr>
+              <tr><td><code>/contact-us</code></td><td class="num">3.32 MB</td><td class="num">15 KB</td></tr>
+              <tr><td><code>/request-demo</code>, <code>/schedule-a-demo</code></td><td class="num">3.32 MB</td><td class="num">806 KB</td></tr>
+              <tr><td><code>/help-faq</code></td><td class="num">3.33 MB</td><td class="num">34 KB</td></tr>
+              <tr><td><code>/advertise</code></td><td class="num">3.34 MB</td><td class="num">54 KB</td></tr>
+              <tr><td><code>/global</code></td><td class="num">3.31 MB</td><td class="num">6 KB</td></tr>
+              <tr><td><code>/order-status</code></td><td class="num">3.32 MB</td><td class="num">16 KB</td></tr>
+              <tr><td><code>/explore-creators</code></td><td class="num">3.35 MB</td><td class="num">98 KB</td></tr>
+              <tr><td><code>/content</code></td><td class="num">3.42 MB</td><td class="num">373 KB</td></tr>
+              <tr><td><code>/not-found</code> and unknown URLs</td><td class="num">3.40 MB</td><td class="num">92 KB</td></tr>
+              <tr><td><code>/calendar-connect</code></td><td class="num">3.31 MB</td><td class="num">11 KB</td></tr>
+              <tr><td><code>/shopify-connect</code></td><td class="num">3.31 MB</td><td class="num">4 KB</td></tr>
+              <tr><td><code>/unsubscribe-instruction</code></td><td class="num">3.31 MB</td><td class="num">1 KB</td></tr>
+              <tr><td><code>/unsubscribe/newsletter</code></td><td class="num">3.31 MB</td><td class="num">3 KB</td></tr>
+              <tr><td><code>/imported/opt-out</code></td><td class="num">3.31 MB</td><td class="num">6 KB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The request demo pages stay at 806 KB because their form is <code>DynamicFormBuilderModule</code>, which is still an NgModule. The 21 routes that still load SharedModule grew by at most 8 KB each. The pieces that became standalone now sit in their own small chunks instead of inside SharedModule's. The initial bundle didn't change.</p>
+      </section>
+
+      <section>
+        <h2>Commit 81797c0569: stop the 18 small pages loading SharedModule</h2>
+        <p class="meta">34 files, +213 &minus;86</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The 24 files on those routes that imported SharedModule now import what their compiled templates use and nothing else. The list comes from what the Angular compiler matched in each template on base, not from reading the HTML by eye.</li>
+          <li>Nine SharedModule pieces those pages need became standalone: <code>RightSidebarComponent</code>, <code>SkyscraperPreviewModalComponent</code>, <code>VideoPlayerV2Component</code>, <code>FilterPipe</code>, <code>BioFormatPipe</code>, <code>ContentLengthHandlerPipe</code>, <code>VideoOption</code>, <code>SharedPhoneMaskDirective</code> and <code>IntersectionObserverDirective</code>. They moved from SharedModule's declarations to its imports. SharedModule still exports them, so the dashboard, profile and every other module that uses them didn't change.</li>
+          <li><code>/request-demo</code> imports <code>DynamicFormBuilderModule</code> directly. That module doesn't import SharedModule.</li>
+          <li>No providers were lost. PR 10832 already moved SharedModule's providers, and those of the libraries it imports, to the root injector.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>One correction to the wallet doc</h3>
+        <p>The wallet PR dropped ngx-intl-tel-input's <code>NativeElementInjectorDirective</code> from four components and said nothing reads what it sets. That's wrong. The library's phone validator reads <code>control.nativeElement</code>, and without the directive <code>&lt;ngx-intl-tel-input [phoneValidation]="true"&gt;</code> accepts any number. None of those four wallet templates has a phone input, so wallet didn't break. From here on I keep the directive wherever a template has <code>&lt;ngx-intl-tel-input&gt;</code>. In this commit that's <code>/contact-us</code>. The FAQ, collaborators and setup profile components lose it, and none of them has a phone input.</p>
+      </section>
+
+      <section>
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against base</td><td>653 of 656 components match. The other 3 lose only <code>NativeElementInjectorDirective</code>, as described above.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as base. Development has none.</td></tr>
+              <tr><td>Lazy JavaScript per route</td><td>The table above. All 18 routes stopped loading SharedModule's chunk.</td></tr>
+              <tr><td>Component definitions in a browser</td><td>I loaded each of the 18 chunks and walked every reachable component. All dependencies resolve, with no page errors.</td></tr>
+              <tr><td>Server rendering, 45 URLs</td><td>All match base once the compare script masks bundle hashes, style scope IDs and the hydration state. That includes every route above, the marketing pages, and the logged-in routes, where the server renders only the shell.</td></tr>
+              <tr><td>Logged-in browser run, main site</td><td>14 routes on base and on this commit. Same components rendered, same text length, no new console errors.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td><code>/explore-creators</code>, <code>/content/setup-profile</code> and five public pages. Same components, no new errors. The collaborators tab opens on both. The only text difference is the random "creators you might like" list in the right sidebar.</td></tr>
+              <tr><td>Phone validation on <code>/contact-us</code></td><td>Typing 12345 marks the field invalid and shows the error message, on base and on this commit.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>4 errors, down from 13. The 9 gone are <code>prefer-standalone</code>. The 4 left exist on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>A note on the white-label run. The test account is a creator, and on the main site every creator screen redirects it to its white-label setup. Creator screens only open on the account's white-label site. The QA environment ships with <code>whiteLabelConfig: null</code>, so I made a second QA build in a throwaway worktree with that site's config filled in, the same way <code>scripts/generate-whitelabel.js</code> does. Nothing in the repo changed for this.</p>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Keep the console open. The creator checks need a creator account on its white-label site. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Forms with phone numbers and dynamic fields</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c1-contact-valid"><span><code>/contact-us</code>: pick a country, type a valid number and submit. It goes through.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-contact-invalid"><span><code>/contact-us</code>: a short or wrong number shows "Please enter a valid mobile phone number" and blocks submit.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-contact-mask"><span><code>/contact-us</code>: the phone field formats digits as you type, the same as on production.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-demo"><span><code>/request-demo</code>: every form field renders, required errors show, and the form submits.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Creator pages on the white-label site</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c1-creators-filter"><span><code>/explore-creators</code>: the category dropdown filters the creators list.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-collab-search"><span>Collaborators tab: search narrows the list, and a row's menu opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-sidebar"><span>Right sidebar: suggestions load and Follow works.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-skyscraper"><span>If a sponsored ad shows in the right sidebar, open it. The preview modal plays its video and the description is trimmed.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-setup"><span><code>/content/setup-profile</code>: the date picker opens, a profile photo can be cropped, and the avatar modal opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-setup-dialogs"><span>Setup profile: the add category and content dialogs open and scroll.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> The converted pieces on other pages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c1-feed-sidebar"><span>Home feed and a creator profile: the right sidebar and its sponsored ads look the same as before.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-feed-video"><span>A video post in the feed starts playing when scrolled into view.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag low">Low</span> Public pages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c1-faq"><span><code>/help-faq</code> and <code>/advertise</code>: FAQ items expand and search filters them.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-dispute"><span><code>/order-status/dispute</code>: the text area takes input and the submit button works.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-global"><span><code>/global/category-creator-listing</code> with a category: the list and its search work.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-static"><span><code>/about</code>, <code>/pricing</code>, <code>/privacy-policy</code>, <code>/terms-of-service</code>: links inside the page navigate.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-notfound"><span>An unknown URL shows the not-found page with a 404, and its button goes home.</span></label></li>
+              <li><label><input type="checkbox" data-id="c1-connect"><span><code>/calendar-connect</code>, <code>/shopify-connect</code>, <code>/imported/opt-out</code> and both unsubscribe pages render.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "shared-module-small-pages-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

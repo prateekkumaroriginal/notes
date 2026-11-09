@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>How the profile card got under 2.5s</title>
+  <meta name="description" content="What changed on feature/profile-performance-measurement so tf:profile-card:visible landed under 2.5s on the bonded-wealth QA lab.">
+  <link rel="canonical" href="https://notes.prateekkumar.site/profile-card-visible">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+    strong { color: var(--text); font-weight: 650; }
+    .focus { color: var(--blue); }
+    .good { color: var(--green); }
+    .num { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .cmt { color: var(--muted); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+    section > * + * { padding-top: 0.75rem; }
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+    td:first-child { color: var(--text); }
+    td.good { color: var(--green); }
+    td.bad { color: var(--pink); }
+    td.num { color: var(--amber); font-variant-numeric: tabular-nums; }
+
+    .file {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <nav aria-label="Breadcrumb"><a href="/">Development notes</a></nav>
+      <h1>How the profile card got under 2.5s</h1>
+      <p>The KPI is <code>tf:profile-card:visible</code>. That is the moment the white-label profile header is on screen. Banner slot, logo, name, location, nav pills, bio, subscribe button. Not the feed. Not the banner image finishing. On a warm Firebase host the mark dropped from about <span class="num">3.1s</span> to the <span class="good">1.7s to 2.3s</span> range.</p>
+      <p class="meta">
+        <span>3 November 2026</span>
+        <span>branch <code>feature/profile-performance-measurement</code></span>
+        <span>lab <a href="https://tf-site-2.web.app/">tf-site-2.web.app</a></span>
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What we were actually timing</h2>
+        <p>Lighthouse LCP is the banner image. Fine as a Core Web Vital. Useless as a "can I see who this creator is" number. The profile card mark fires in <code>handleUserProfileResponse</code> after <code>setUserProfileWithBadges</code>, then one <code>afterNextRender</code>. If the GET has not come back, the mark cannot fire.</p>
+        <p class="file">src/app/utils/profile-perf-marks.ts</p>
+        <pre><code><span class="kw">export const</span> PROFILE_PERF_MARKS = {
+  BOOTSTRAP: <span class="str">'tf:bootstrap'</span>,
+  HYDRATION: <span class="str">'tf:hydration'</span>,
+  LANDING_FEED: <span class="str">'tf:landing:decision:feed'</span>,
+  PROFILE_CARD_VISIBLE: <span class="str">'tf:profile-card:visible'</span>,
+  FIRST_CARD: <span class="str">'tf:profile:first-card'</span>
+} <span class="kw">as const</span>;</code></pre>
+        <p><code>tf:profile:first-card</code> is a different clock. It waits for the first feed row. We left it alone. The loop stopped when the card mark went under 2.5s, not when the feed did.</p>
+      </section>
+
+      <section>
+        <h2>Why it sat at 3 seconds</h2>
+        <p>On a white-label homepage the HTML is prerendered. The profile payload is not in that HTML. The browser still had to boot Angular, read <code>wls-config.json</code>, decide cover vs feed, construct <code>ProfileComponent</code>, then start <code>api/user_by_username/...</code>. The GET was a CORS request too, because every GET left the office with <code>Content-Type: application/json</code>. Browsers treat that as non-simple, so they send OPTIONS first.</p>
+        <p>A typical logged-out chain before the overlap work:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Request</th><th>Window</th><th>Role</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>HTML</td><td class="num">1 to 54ms</td><td>Prerendered shell</td></tr>
+              <tr><td>CSS</td><td class="num">69 to 190ms</td><td>Render-blocking</td></tr>
+              <tr><td>wls-config</td><td class="num">575 to 778ms</td><td>Blocks bootstrap via APP_INITIALIZER</td></tr>
+              <tr><td>profile preflight</td><td class="num">1356 to 2173ms</td><td>OPTIONS, empty body</td></tr>
+              <tr><td>profile GET</td><td class="num">2173 to 3063ms</td><td>The data the card needs</td></tr>
+              <tr><td><code>tf:profile-card:visible</code></td><td class="num">3119ms</td><td>afterNextRender after that GET</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Bootstrap itself was around 1.1s on a warm host. The card waited another two seconds for a request that could have started with the HTML.</p>
+      </section>
+
+      <section>
+        <h2>The move that actually paid</h2>
+        <p>Start the owner profile GET from <code>index.html</code>, before Angular exists. Hide the URL in a tiny per-build hint file so the shared shell does not hardcode a tenant. When <code>ProfileComponent</code> asks for the same path, hand it the in-flight promise instead of opening a second GET.</p>
+        <p>On a warm host the profile GET now starts around <span class="num">50 to 130ms</span> and finishes around <span class="num">1.7 to 2.2s</span>. Bootstrap still lands near 1.0 to 1.6s. The card no longer waits for bootstrap to <em>begin</em> the request. It only waits for the request to finish and for one render.</p>
+      </section>
+
+      <section>
+        <h2>Early fetch in the HTML</h2>
+        <p class="file">src/index.html</p>
+        <pre><code>window.__tfOwnerProfile = <span class="fn">fetch</span>(<span class="str">'/assets/owner-prefetch.json'</span>)
+  .<span class="fn">then</span>(<span class="kw">function</span> (res) { <span class="kw">return</span> res.ok ? res.<span class="fn">json</span>() : <span class="kw">null</span>; })
+  .<span class="fn">then</span>(<span class="kw">function</span> (hint) {
+    <span class="kw">if</span> (!hint || !hint.url) <span class="kw">return null</span>;
+    <span class="kw">var</span> headers = {};
+    <span class="kw">try</span> {
+      <span class="kw">var</span> raw = localStorage.<span class="fn">getItem</span>(<span class="str">'fm_user'</span>);
+      <span class="kw">var</span> token = raw &amp;&amp; JSON.<span class="fn">parse</span>(raw).fm_user;
+      <span class="kw">if</span> (token) headers.Authorization = token;
+    } <span class="kw">catch</span> (e) {}
+    <span class="kw">return</span> <span class="fn">fetch</span>(hint.url, { headers: headers }).<span class="fn">then</span>(<span class="kw">function</span> (res) {
+      <span class="kw">return</span> res.ok ? res.<span class="fn">json</span>() : <span class="kw">null</span>;
+    });
+  })
+  .<span class="fn">catch</span>(<span class="kw">function</span> () { <span class="kw">return null</span>; });</code></pre>
+        <p><code>scripts/write-owner-prefetch.mjs</code> reads the tenant env file and writes <code>src/assets/owner-prefetch.json</code>. That file is gitignored. A white-label QA build for bonded-wealth gets a hint like <code>api/user_by_username/&lt;owner&gt;?wlsOwner=true</code> against the QA <code>baseURL</code>. TopFans has no hint file, the fetch 404s, the promise resolves <code>null</code>, and nothing tenant-specific leaks onto topfan.com.</p>
+        <p>This is a raw <code>fetch</code> on purpose. <code>ApiCacheService</code> does not exist yet. The Angular path still goes through the cache service. The HTML script only starts the network work early.</p>
+      </section>
+
+      <section>
+        <h2>Hand the response to ProfileComponent</h2>
+        <p><code>prefetchWhiteLabelOwnerProfile</code> is a second APP_INITIALIZER. Browser plus white-label only. It preconnects the API origin, then starts the same GET through <code>ApiCacheService</code> with <code>CacheTypes.ALWAYS_FRESH</code>. That covers the case where the HTML fetch missed or came back empty.</p>
+        <p><code>getUserProfile</code> used to always open a new <code>REFRESH_EVERY_N</code> GET. Now it asks <code>consumeOwnerProfilePrefetch(profileUrl)</code> first.</p>
+        <p class="file">src/app/modules/shared/components/profile/profile.component.ts</p>
+        <pre><code><span class="kw">const</span> profileUrl = <span class="kw">this</span>.<span class="fn">userByUsernameUrl</span>(userId);
+<span class="kw">const</span> prefetched = <span class="fn">consumeOwnerProfilePrefetch</span>(profileUrl);
+<span class="kw">const</span> fresh$ = <span class="kw">this</span>.apiCacheService.<span class="fn">get</span>(profileUrl, CacheTypes.ALWAYS_FRESH);
+(prefetched
+  ? prefetched.<span class="fn">pipe</span>(<span class="fn">switchMap</span>((data) =&gt; (data ? <span class="fn">of</span>(data) : fresh$)))
+  : fresh$)</code></pre>
+        <p>Consume is URL-gated. The early promise is the owner. A deep link to someone else on the same tenant must not swallow that payload. If the URL does not match <code>APIENDPOINT.userProfileView(owner, wlsOwner)</code>, consume returns null and the normal GET runs.</p>
+        <p><code>ALWAYS_FRESH</code> is the cache type because the first paint is what we are buying. A 30-second stale profile from <code>REFRESH_EVERY_N</code> would hide a miss and still not help a cold lab run.</p>
+      </section>
+
+      <section>
+        <h2>Stop sending Content-Type on GET</h2>
+        <p class="file">src/app/core/http.service.ts</p>
+        <pre><code><span class="kw">if</span> (type === Application.TYPE_GET) {
+  <span class="kw">const</span> newOptions = {
+    ...httpOptions,
+    ...(options || {}),
+    headers:
+      (options <span class="kw">as</span> { headers?: HttpHeaders })?.headers ??
+      httpOptions.headers.<span class="fn">delete</span>(<span class="str">'Content-Type'</span>)
+  };</code></pre>
+        <p>A GET with a JSON content type is not a simple request. The browser pauses for OPTIONS. On the old logged-out trace that preflight ate <span class="num">800ms</span> after bootstrap. The early <code>fetch</code> in <code>index.html</code> never set Content-Type, so it was already simple. This change makes the Angular GET simple too, for every caller that does not pass its own headers. POSTs are untouched.</p>
+      </section>
+
+      <section>
+        <h2>Lab numbers after deploy</h2>
+        <p>Bonded-wealth QA on Firebase, desktop Lighthouse, one run each. Logged-in runs keep auth and wipe HTTP cache so they stay cold. Host TTFB is not the app KPI. The first hit after an idle edge is still slow. Judge the warm-host cluster.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>When</th><th>Auth</th><th>Card</th><th>Note</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>14:11</td>
+                <td>logged-out</td>
+                <td class="bad">3119ms</td>
+                <td>Baseline before overlap</td>
+              </tr>
+              <tr>
+                <td>14:12</td>
+                <td>logged-in</td>
+                <td class="bad">3296ms</td>
+                <td>Baseline</td>
+              </tr>
+              <tr>
+                <td>16:28</td>
+                <td>logged-out</td>
+                <td class="bad">4889ms</td>
+                <td>First hit after deploy. TTFB 487ms, bootstrap 3857ms</td>
+              </tr>
+              <tr>
+                <td>16:28</td>
+                <td>logged-out</td>
+                <td class="good">1869ms</td>
+                <td>Warm host. Profile GET 127 to 1829ms</td>
+              </tr>
+              <tr>
+                <td>16:28</td>
+                <td>logged-in</td>
+                <td class="good">1736ms</td>
+                <td>Warm host. Profile GET 49 to 1684ms</td>
+              </tr>
+              <tr>
+                <td>16:29</td>
+                <td>logged-out</td>
+                <td class="good">2273ms</td>
+                <td>Confirm</td>
+              </tr>
+              <tr>
+                <td>16:30</td>
+                <td>logged-in</td>
+                <td class="good">2047ms</td>
+                <td>Confirm</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Four warm runs in a row under 2.5s. That is the stop condition. History lives in the frontend repo at <code>page-lab/history.html</code>.</p>
+      </section>
+
+      <section>
+        <h2>What this did not fix</h2>
+        <ul>
+          <li>LCP is still the banner image, around <span class="num">2.9 to 3.1s</span>.</li>
+          <li>CLS is still <span class="num">0.564</span> from the sidebar ad skeleton.</li>
+          <li><code>tf:profile:first-card</code> is still <span class="num">2.8 to 3.8s</span>. The feed GET still starts after the profile GET.</li>
+          <li>A cold Firebase edge still costs a second or more of TTFB and delayed JS. Do not read that as a regression in the card path.</li>
+          <li>The hardcoded TopFan WebSite JSON-LD came out of shared <code>index.html</code>. It named topfan.com on every tenant. <code>SeoService</code> still injects structured data per page.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Files</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>File</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>src/index.html</code></td><td>Start the owner GET before bootstrap.</td></tr>
+              <tr><td><code>scripts/write-owner-prefetch.mjs</code></td><td>Write the per-build hint from the tenant env.</td></tr>
+              <tr><td><code>src/app/core/auth.service.ts</code></td><td>APP_INITIALIZER prefetch, consume, URL gate, API preconnect.</td></tr>
+              <tr><td><code>src/app/app.config.ts</code></td><td>Register the initializer.</td></tr>
+              <tr><td><code>src/app/modules/shared/components/profile/profile.component.ts</code></td><td>Use the prefetch. Mark the card after the first profile response.</td></tr>
+              <tr><td><code>src/app/core/http.service.ts</code></td><td>Drop Content-Type on GET so CORS stays simple.</td></tr>
+              <tr><td><code>src/app/utils/profile-perf-marks.ts</code></td><td>Named marks, including <code>tf:profile-card:visible</code>.</td></tr>
+              <tr><td><code>scripts/measure-page-lab.mjs</code></td><td>Desktop Lighthouse harness. Primary KPI is the card mark.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Related: <a href="/profile-performance-implementation">what shipped after service cleanup</a>,
+      <a href="/profile-performance-after-service-cleanup">combined review</a>,
+      <a href="/user-by-username-backend">user_by_username backend cuts</a>.
+    </footer>
+  </div>
+</body>
+</html>

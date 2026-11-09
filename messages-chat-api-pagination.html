@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat cursor pagination</title>
+  <meta name="description" content="Inbox and history now page with cursors. Creators fetch one tab at a time. Fans use tab=all. First history page carries validation. The old ChatUserValidation call is gone.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, h4, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .good { color: var(--green); }
+    .num { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code, h4 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .cmt { color: var(--muted); }
+    .add { color: var(--green); }
+    .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td:first-child { color: var(--text); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+    .tag.skip { background: rgba(213, 166, 255, 0.14); color: var(--violet); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Chat cursor pagination</h1>
+      <p>The inbox no longer downloads every conversation and sorts them into tabs on the client. Each tab asks the server for its own page. History stopped using a timestamp and started using a cursor. The first history page also brings <code>validation</code>, so <code>ChatUserValidation</code> is gone.</p>
+      <div class="meta">
+        <span>t3code/explain-chat-api-pagination</span>
+        <span>message-container + messages.constant</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Almost all of it is <code>message-container</code>. Query strings and body keys live in <code>messages.constant.ts</code> so the component is not inventing <code>tab=featured</code> inline.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Before</th><th scope="col">Now</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>One GET <code>?search_key=</code>, then split by <code>is_featured</code> / <code>is_broadcast</code> / empty last message</td>
+                <td><code>?tab=featured|general|broadcast|all&amp;counts=true</code>. The current tab owns <code>data</code>. No local split.</td>
+              </tr>
+              <tr>
+                <td>Creators and fans both parsed the full mix. Fans concatenated Featured + General into one list.</td>
+                <td>Creators fetch the open tab. Fans send <code>tab=all</code> and still render one list.</td>
+              </tr>
+              <tr>
+                <td>Tab badges were unread sums of whatever was already loaded</td>
+                <td>Badges come from <code>counts.featured</code> and <code>counts.general</code>. Opening a thread subtracts that row's unread from the stored counts.</td>
+              </tr>
+              <tr>
+                <td>Sidebar unread came from the badge-count endpoint, then drifted as you opened threads</td>
+                <td>Each inbox response sets the sidebar to <code>general + featured + broadcast</code></td>
+              </tr>
+              <tr>
+                <td>Left list had no next page</td>
+                <td>Scroll down sends the last <code>cursor</code>. Null cursor stops.</td>
+              </tr>
+              <tr>
+                <td>History POST sent <code>timeStamp</code>. <code>onUp()</code> was commented out.</td>
+                <td>First page is <code>{ groupId, include_validation }</code>. Next page is <code>{ groupId, cursor }</code>. Scroll-up prepends the older page.</td>
+              </tr>
+              <tr>
+                <td>Permissions were a second POST to <code>ChatUserValidation</code></td>
+                <td>First history page returns <code>validation</code>. Retry refetches that first page. Broadcast and followers still skip it.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Inbox request</h2>
+        <p>Creators map Priority → <code>featured</code>, General → <code>general</code>, Message Lists → <code>broadcast</code>. Fans never send those. They send <code>all</code>.</p>
+        <pre><code>GET api/get-chatGroups-and-users?tab=featured&amp;counts=true
+GET api/get-chatGroups-and-users?tab=featured&amp;counts=true&amp;cursor=&lt;from last response&gt;
+GET api/get-chatGroups-and-users?tab=all&amp;counts=true&amp;search_key=ana</code></pre>
+        <p>Empty search is omitted, not sent as <code>search_key=</code>. A tab change or a new search string drops the cursor and replaces that tab's rows. Switching away and back also starts page 1 again. That matches the API. Do not keep a stale page 2 sitting under a new query.</p>
+        <p><code>buildChatInboxUrl</code> is a plain function. First page, next page, and a fan search look like this when I ran it outside Angular:</p>
+        <pre><code>api/get-chatGroups-and-users?tab=featured&amp;counts=true
+api/get-chatGroups-and-users?tab=featured&amp;counts=true&amp;search_key=ana&amp;cursor=abc%2B%2F%3D
+api/get-chatGroups-and-users?tab=all&amp;counts=true</code></pre>
+        <p>Base64 cursors go through <code>URLSearchParams</code>, so <code>+</code> and <code>/</code> do not break the query.</p>
+      </section>
+
+      <section>
+        <h2>Trust the tab</h2>
+        <p>The old <code>searchResults</code> walk was the whole product rule for Priority vs General. It also dropped conversations with an empty <code>last_message</code>. That is how a server row vanished after a paginated <code>tab=featured</code> response. The new path maps each item through the existing badge normalizer, then writes the array into the open tab. Featured rows stay in Featured even if <code>is_featured</code> is missing on the payload.</p>
+      </section>
+
+      <section>
+        <h2>Counts</h2>
+        <p>Tab pills are still unread, not conversation totals. Message Lists never had a pill count and still does not. The sidebar number is the sum of the three keys. Search responses overwrite those numbers with whatever the server sent. If search returns filtered unread, the pills will shrink until you clear the box. That is the server talking, not a local guess.</p>
+        <p>Opening a thread still zeros that row and subtracts its unread from the sidebar the way it used to. It also decrements the matching key on the stored <code>counts</code> object so the Priority / General pills do not jump back up until the next inbox GET.</p>
+      </section>
+
+      <section>
+        <h2>History and validation</h2>
+        <p>First open of a DM:</p>
+        <pre><code>{
+  <span class="str">"groupId"</span>: <span class="str">"CHATGROUP#..."</span>,
+  <span class="str">"include_validation"</span>: <span class="kw">true</span>
+}</code></pre>
+        <p>The reply is <code>{ response, cursor, validation }</code>. <code>response</code> becomes <code>messageList</code>. <code>validation</code> becomes <code>dmValidations</code>. Same post-processing as the old call: guaranteed-reply pending, tip modal, <code>validateNewUser</code>. If <code>include_validation</code> was sent and <code>validation</code> is missing, send stays locked and Retry refetches the first page.</p>
+        <p>Scroll toward the top. If <code>cursor</code> is still there, the next POST is only <code>groupId</code> plus that cursor. Older messages are prepended and the viewport offset is restored so you do not snap to the newest bubble. Broadcast still sends <code>from</code>. It does not ask for validation.</p>
+        <p><code>getUserEmail</code> and <code>checkNewUserValidation</code> were deleted from this component. Retry no longer hits <code>api/chat-user-validation</code>.</p>
+      </section>
+
+      <section>
+        <h2>What I checked</h2>
+        <p>Local <code>:4200</code> after <code>generate-white-label-staging</code>, copy of <code>environment.rudeus-greyrat.staging.ts</code> onto <code>environment.ts</code>, then <code>cleanup-white-label</code>. The app compiled. The Rudeus white-label homepage loaded. <code>/messages</code> redirected to <code>/auth/login</code>. I did not have a password, so I never saw Priority, a cursor, or <code>include_validation</code> on the wire.</p>
+        <p>Leave <code>environment.ts</code> out of the commit. That copy is only for this machine. The Vite overlay on <code>wls-config.json</code> 500 is the missing generated file after cleanup. It is not this change.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>ng serve</code> compile</td>
+                <td><span class="good">Passed</span> after renaming the unused <code>selectedUser</code> arg. <span class="num">3.5s</span> incremental rebuild.</td>
+              </tr>
+              <tr>
+                <td>Rudeus staging env on <code>:4200</code></td>
+                <td>Title is Official Website of Rudeus Greyrat. Sidebar is SIGN IN / CREATE NEW ACCOUNT.</td>
+              </tr>
+              <tr>
+                <td><code>/messages</code> logged out</td>
+                <td>Auth guard sent me to the login form. No inbox GET. Correct.</td>
+              </tr>
+              <tr>
+                <td>URL builder</td>
+                <td>First page, cursor+search, and blank search match the contract. Cursor is encoded.</td>
+              </tr>
+              <tr>
+                <td>Logged-in inbox, tabs, scroll, history cursor</td>
+                <td><span class="bad">Not run.</span> Need the Rudeus password or another staging creator.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Creator first. Then a fan. DevTools Network, disable cache. Watch <code>get-chatGroups-and-users</code> and <code>getpreviousMessagesFromHttp</code>. There should be no <code>chat-user-validation</code> on a normal DM open.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Inbox first page</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-first-url"><span>Hard refresh <code>/messages</code> as a creator. First inbox GET is <code>tab=featured&amp;counts=true</code>. No <code>cursor</code>. No empty <code>search_key</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-no-split"><span>Priority only shows the featured page. A row the server put there does not jump to General because <code>is_featured</code> is false or <code>last_message</code> is empty.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-tab-switch"><span>Switch to General. Request is <code>tab=general&amp;counts=true</code> with no cursor. Priority rows are gone from the list. Switch to Message Lists. Request is <code>tab=broadcast</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-counts"><span>Priority and General pills match <code>counts.featured</code> and <code>counts.general</code>. Sidebar Messages badge is the sum of all three keys, not the tab you are on.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Inbox next page and search</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-inbox-scroll"><span>If the first page has a cursor, scroll the left list. Next GET adds that cursor. Rows append. No duplicate <code>groupId</code>. Null cursor, no more requests.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-search"><span>Type a name, wait <span class="num">500ms</span>. First page of the current tab with <code>search_key</code>, no leftover cursor. Clear the box. First page without <code>search_key</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-search-tab"><span>Search, then switch tabs. New tab starts at page 1 with the same search string. An in-flight page 2 of the old tab must not write into the new tab.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-open-unread"><span>Open an unread thread. That row's badge clears. The tab pill and sidebar drop by that unread count. They do not reset to the full server total until the next inbox GET.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> History and validation</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-hist-first"><span>Open a DM. POST body has <code>groupId</code> and <code>include_validation: true</code>. No <code>timeStamp</code>. No <code>chat-user-validation</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-hist-perms"><span>History can paint while send is still locked. When <code>validation</code> arrives, paid DM / tip / hidden rules match the old <code>dmValidations</code> shape. Composer unlocks or hides the same way as before.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-hist-scroll"><span>Scroll up in a long thread. Next POST is <code>groupId</code> + <code>cursor</code>, no <code>include_validation</code>. Older messages appear above. You stay near the same bubble. Null cursor, stop.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-retry"><span>If validation is missing, Retry refetches the first history page. It does not call <code>ChatUserValidation</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-switch-thread"><span>Open A, then B quickly. B's messages and validation win. A late A page does not prepend into B.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Broadcast, fans, leftovers</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-broadcast"><span>Message list thread. History POST still sends <code>from</code>. No <code>include_validation</code>. Composer works without a validation object.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-fan"><span>Fan account. No tab UI. Inbox GET is <code>tab=all&amp;counts=true</code>. One list. Sidebar still uses the three-key sum.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-query"><span><code>/messages?user=someone</code> still opens that person if they are on the first page, or falls back to <code>getSelectedUserDetails</code> if they are not.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-send-refresh"><span>Send or receive on a thread that is already in the list. Existing row patch still works. A brand new thread can still refetch page 1 of the current tab.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <a href="/messages-phase-1-stop-waiting">Phase 1: stop waiting</a>
+      ·
+      <a href="index.html">All notes</a>
+    </footer>
+  </div>
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "messages-chat-api-pagination-v1";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

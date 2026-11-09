@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Angular 16 to 17 upgrade</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #0b0f14;
+      --ink: #e6edf5;
+      --muted: #93a0b0;
+      --line: #2a3544;
+      --panel: #121922;
+      --code: #0e141c;
+      --accent: #7eb6ff;
+      --ok: #6fdb9a;
+      --warn: #e6c36a;
+      --todo: #d7a6ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--page); }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font: 14.5px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(920px, calc(100% - 32px));
+      margin: 28px auto 48px;
+      padding: 36px 40px 44px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    header {
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(26px, 4vw, 36px);
+      line-height: 1.12;
+      letter-spacing: -.03em;
+    }
+
+    header p,
+    .lede {
+      margin: 0;
+      max-width: 42rem;
+      color: var(--muted);
+    }
+
+    h2 {
+      margin: 32px 0 12px;
+      font-size: 18px;
+      letter-spacing: -.015em;
+    }
+
+    h3 {
+      margin: 18px 0 6px;
+      font-size: 14.5px;
+    }
+
+    p { margin: 0 0 12px; }
+
+    ul, ol { margin: 0 0 12px; padding-left: 1.2rem; }
+
+    li + li { margin-top: 7px; }
+
+    code, .pill {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12.5px;
+    }
+
+    code {
+      padding: .08rem .32rem;
+      color: var(--accent);
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      color: var(--ink);
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font: 12.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--code);
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .todo { color: var(--todo); }
+
+    .note {
+      margin: 14px 0;
+      padding: 12px 14px;
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    footer {
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Branch feature/release-0.0.23/version-16-17</p>
+      <h1>Angular 16 to 17 upgrade</h1>
+      <p>The official 16 → 17 code work is in. What is left is proving the runtime checklist in a running app, plus deciding which build system that proof runs against.</p>
+    </header>
+
+    <section>
+      <h2>Decisions that stayed locked</h2>
+      <ul>
+        <li>Stay on NgModules. No standalone rewrite.</li>
+        <li>Hydration stays off. The app never had <code>provideClientHydration</code>.</li>
+        <li>Keep the custom Express path in <code>server.ts</code>: white-label dist detection, helmet, compression, prerender fallback, trailing-slash 301s, referral <code>?key=</code>.</li>
+        <li><code>@cotufa82/ng-ivs</code> stays. Install with <code>legacy-peer-deps</code>.</li>
+        <li><code>functions/</code> is leftover Firebase SSR and out of scope. <code>firebase.json</code> is hosting-only.</li>
+        <li>Do not invent <code>environment.dev.ts</code>. That file was deleted in 2025. <code>npm run build-dev</code> already failed before 17.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>What landed</h2>
+      <p>Commit <code>e9051eab15</code> is the upgrade. Later commits on the same branch changed the client builder. Treat those as follow-on, not as part of the official 16 → 17 guide.</p>
+
+      <h3>Toolchain</h3>
+      <ul>
+        <li>Node pinned to <code>20.19.6</code> in <code>.nvmrc</code> and the unused Dockerfile.</li>
+        <li>Angular 17.3.12, CLI 17.3.17, TypeScript 5.4.5, Zone.js 0.14.10.</li>
+        <li>Material / CDK 17.3.10, Angular ESLint 17.5.3, typescript-eslint 7.2, ESLint 8.57.</li>
+      </ul>
+
+      <h3>Angular-bound libraries</h3>
+      <ul>
+        <li>NgRx 17.2.0, PrimeNG 17.18.15, AngularFire 17.1.0, ng-bootstrap 16, ngx-bootstrap 12, ng-select 12, ngx-stripe 17, Font Awesome 0.14, ZXing 17.</li>
+        <li>Older packages still compile: ngx-intl-tel-input 15, ngx-toastr 14, ngx-quill 16, ngx-mask 16. Leave them unless a screen breaks.</li>
+        <li><code>@types/node</code> is still 18 while runtime is Node 20. Harmless unless a Node 20 type is needed.</li>
+      </ul>
+
+      <h3>SSR</h3>
+      <ul>
+        <li>Removed <code>@nguniversal/*</code>. Added <code>@angular/ssr</code> 17.3.17.</li>
+        <li><code>server.ts</code> now renders with <code>CommonEngine</code>. Custom Express logic stayed.</li>
+        <li><code>REQUEST</code> / <code>RESPONSE</code> live in <code>src/app/core/express.tokens.ts</code>. <code>NotFoundComponent</code> imports <code>RESPONSE</code> from there so 404 can still set status.</li>
+        <li><code>serverless.ts</code> uses <code>renderModule</code> from <code>@angular/platform-server</code>.</li>
+        <li>In <code>angular.json</code>: <code>browserTarget</code> became <code>buildTarget</code>. <code>guessRoutes</code> became <code>discoverRoutes</code>. Prerender and SSR-dev-server builders moved to <code>@angular-devkit/build-angular</code>.</li>
+      </ul>
+
+      <h3>Compile fixes Angular 17 forced</h3>
+      <ul>
+        <li>Firebase <code>provideFirebaseApp</code>, <code>provideMessaging</code>, and <code>provideRemoteConfig</code> moved from <code>AppModule.imports</code> to <code>providers</code>. 17 rejects <code>EnvironmentProviders</code> in imports.</li>
+        <li><code>post-price.component.html</code> escaped <code>@{{name}}</code> to <code>&amp;#64;{{name}}</code> because the new control-flow parser treats <code>@</code> as syntax.</li>
+        <li><code>TrailingSlashUrlSerializer.parse()</code> wraps bad URLs in try/catch. 17 dropped <code>malformedUriErrorHandler</code>.</li>
+      </ul>
+
+      <h3>Same-branch follow-on, not the 16 → 17 guide</h3>
+      <ul>
+        <li>Committed HEAD uses <code>browser-esbuild</code> for the client, plus two crash fixes: Quill loaded as ESM, and leaf components no longer import <code>CommonService</code>.</li>
+        <li>The working tree currently swaps that for the <code>application</code> builder and folds SSR / prerender into <code>ng build</code>. That is unfinished local work. Do not mix its commands into the 17 upgrade proof until someone decides to ship it.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Official checklist</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th>Status</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Node 18.13+, TypeScript 5.2+, Zone 0.14</td>
+            <td class="ok">Done</td>
+            <td>Node 20.19.6, TypeScript 5.4.5, Zone 0.14.10</td>
+          </tr>
+          <tr>
+            <td><code>ng update</code> core, CLI, Material 17</td>
+            <td class="ok">Done</td>
+            <td>Peers forced only for IVS. Workspace / SSR schematics were applied by hand so they would not overwrite <code>server.ts</code></td>
+          </tr>
+          <tr>
+            <td>Router options on <code>forRoot</code></td>
+            <td class="ok">Done</td>
+            <td>Already had <code>paramsInheritanceStrategy: 'always'</code> and <code>urlUpdateStrategy: 'deferred'</code>. No old Router setters to move</td>
+          </tr>
+          <tr>
+            <td>Handle bad URLs in <code>UrlSerializer.parse</code></td>
+            <td class="ok">Done</td>
+            <td>Try/catch in <code>trailing-slash-url.serializer.ts</code></td>
+          </tr>
+          <tr>
+            <td>Zone deep imports, <code>AnimationDriver.NOOP</code>, Signals <code>.mutate()</code></td>
+            <td class="ok">N/A</td>
+            <td>Already on <code>zone.js/node</code> and <code>zone.js/testing</code>. The other APIs are unused</td>
+          </tr>
+          <tr>
+            <td>Disable hydration / <code>loadComponent</code> param inheritance</td>
+            <td class="ok">N/A</td>
+            <td>Hydration was never on. No <code>loadComponent</code> routes</td>
+          </tr>
+          <tr>
+            <td>NgSwitch now uses <code>===</code></td>
+            <td class="todo">Verify</td>
+            <td>Compiler will not catch <code>"1"</code> vs <code>1</code>. About 21 templates</td>
+          </tr>
+          <tr>
+            <td>Absolute redirect loops</td>
+            <td class="todo">Verify</td>
+            <td>Wallet bank-details redirect and marketing slug <code>/music</code> → <code>/music-artists</code></td>
+          </tr>
+          <tr>
+            <td>Destroyed-component styles</td>
+            <td class="todo">Verify</td>
+            <td>Default is now strip styles on destroy. Only set <code>REMOVE_STYLES_ON_COMPONENT_DESTROY</code> if a modal or overlay goes blank</td>
+          </tr>
+          <tr>
+            <td><code>ngDoCheck</code> on factory-created components</td>
+            <td class="ok">Likely N/A</td>
+            <td>Custom multiselect has <code>ngDoCheck</code> but is not created through a component factory</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Verification already done</h2>
+      <p>These passed after the upgrade, on Node 20.19.6, against the webpack <code>browser</code> + separate server targets:</p>
+      <ul>
+        <li><code>ng build --configuration=development</code></li>
+        <li><code>ng run TopFans:server:development</code></li>
+        <li><code>ng run TopFans:serverless:production</code></li>
+      </ul>
+      <p>If you are verifying committed <code>browser-esbuild</code> or the uncommitted <code>application</code> builder, rerun those builds. Do not treat the original webpack pass as proof of the current tree.</p>
+    </section>
+
+    <section>
+      <h2>Verification still required</h2>
+      <p>This is the remaining 16 → 17 work. None of it needs more <code>ng update</code>.</p>
+
+      <h3>1. NgSwitch strict equality</h3>
+      <p>Open the console and look for Angular NgSwitch warnings. Then click through screens that switch on mixed types:</p>
+      <ul>
+        <li>Post unlock state: <code>post-card</code>, <code>post-detail</code>, <code>profile</code></li>
+        <li>Payments: <code>post-payment</code>, <code>merchandise-detail</code>, live-stream paywall</li>
+        <li>Wallet transaction detail (sale type and transaction type)</li>
+        <li>Dynamic form builder and table cell types</li>
+        <li>Marketing layout previews (<code>layoutId</code>, <code>viewMode</code>)</li>
+        <li>Create-plan subscription selection, mailer type dialog, share dialog</li>
+      </ul>
+
+      <h3>2. Absolute redirects</h3>
+      <ul>
+        <li>Hit <code>/wallet/current-balance-home/add-bank-details</code>. It must land on <code>/wallet/current-balance</code> once, not bounce.</li>
+        <li>If <code>music-artists</code> is a published marketing slug, hit <code>/music</code>. Same rule: one redirect, no loop.</li>
+      </ul>
+
+      <h3>3. Styles after a component is destroyed</h3>
+      <p>Open and close stacked modals, toasts, and overlays (PrimeNG 17 and Material 17 both changed). If a later dialog looks unstyled, that is this flag. Do not flip <code>REMOVE_STYLES_ON_COMPONENT_DESTROY</code> until you see it.</p>
+
+      <h3>4. Live SSR smoke</h3>
+      <p>Serve the SSR bundle and check the responses, not just the HTML:</p>
+      <ul>
+        <li>Unknown route returns HTTP 404 from <code>NotFoundComponent</code></li>
+        <li>A trailing-slash URL 301s to the canonical path</li>
+        <li>A referral URL with <code>?key=</code> is rendered, not served from prerendered HTML</li>
+        <li>A route in <code>prerender.routes.txt</code> is served as static HTML; a route that is not falls back to <code>CommonEngine</code></li>
+      </ul>
+
+      <h3>5. Builds the upgrade did not run</h3>
+      <ul>
+        <li>Production browser build</li>
+        <li>Full prerender for one env that still has a real environment file: qa, staging, or prod</li>
+        <li>One generated white-label project: browser build, SSR, tenant colors, tenant URLs, white-label-only guard</li>
+      </ul>
+
+      <h3>6. Visual and product smoke</h3>
+      <ul>
+        <li>PrimeNG 17 and Material 17: tables, dialogs, datepickers, toasts</li>
+        <li>Auth in and out, creator / dashboard / white-label guards</li>
+        <li>Stripe test payment: success, decline, cancel</li>
+        <li>Audio play / pause / seek / minimize. One video. One live stream if fixtures exist</li>
+      </ul>
+
+      <div class="note">
+        <p><code>ng lint</code> OOMs on this repo. <code>ng test</code> was not run. Neither is a 17-specific blocker, but do not claim they passed.</p>
+        <p><code>npm run build-dev</code> fails because <code>src/environments/environment.dev.ts</code> is gone. Use <code>--configuration=development</code> (uses <code>environment.ts</code>) or qa / staging / prod.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Commands</h2>
+      <p>Put nvm Node 20 first. Cursor’s helper Node 22 will otherwise win on <code>PATH</code>.</p>
+      <pre>export PATH="$HOME/.nvm/versions/node/v20.19.6/bin:$PATH"
+nvm use
+node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng build --configuration=development
+node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng run TopFans:server:development
+node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng run TopFans:serverless:production</pre>
+      <p>For a production-shaped pass against committed HEAD:</p>
+      <pre>node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng build --configuration=production
+node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng run TopFans:prerender:qa</pre>
+      <p>If the uncommitted <code>application</code> builder is what you are shipping, those <code>ng run TopFans:server</code> / <code>prerender</code> targets are gone. <code>ng build --configuration=qa</code> then builds client, server, and prerender together. Confirm that before QA copies the old scripts.</p>
+    </section>
+
+    <section>
+      <h2>Out of scope</h2>
+      <ul>
+        <li>Updating <code>@cotufa82/ng-ivs</code></li>
+        <li>Cleaning or deploying <code>functions/</code> (Universal 16 + platform-server 18, unused)</li>
+        <li>Turning on hydration</li>
+        <li>Migrating the remaining old ngx-* majors</li>
+        <li>The <code>application</code> builder, unless you explicitly take that as a separate task</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Open questions</h2>
+      <ul>
+        <li>Ship committed <code>browser-esbuild</code>, revert to webpack <code>browser</code>, or finish the uncommitted <code>application</code> builder first? Verification commands change with that answer.</li>
+        <li>Is anyone still deploying <code>exports.ssr</code> from <code>functions/</code>? If yes, that leftover is a production landmine, not a docs footnote.</li>
+      </ul>
+    </section>
+
+    <footer>
+      Official guide: https://angular.dev/update-guide?v=16.0-17.0&amp;l=3. This page is not the 15 → 16 writeup in <code>angular-16-upgrade-explained.html</code>.
+    </footer>
+  </main>
+</body>
+</html>

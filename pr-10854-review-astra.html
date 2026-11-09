@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10854 review-astra</title>
+<meta name="description" content="Updated review of PR 10854. The section refresh and destroy findings are fixed. Merge recommendation and verification limits.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10854-review-astra">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10854 review-astra</h1><p>The updated commit fixes the stale section content and the load that could restart after destroy.</p></div>
+<div class="meta"><span>Re-reviewed 28 September 2026</span><span>2 files changed</span><span>148 additions, 23 deletions</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10854">PR 10854</a> · Base <code>4b0b79a261</code> · Head <code>8dda6fb483</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#fixes">Resolved findings</a><a href="#checks">Checks and limits</a><a href="#followup">Follow-up</a></nav></header>
+<main><section id="verdict"><h2>Should I merge it now? Yes.</h2><p class="ok">No remaining blocking findings in <code>8dda6fb483</code>.</p>
+<p>My earlier no applied to <code>a8be95a5dd</code>. That version skipped section content updates when the layout list and page colors stayed the same. The new commit forces a data rebuild when Angular reports a sections input change. It also prevents waiting layout loads from restarting after destroy.</p>
+<p>The branding getter still returns its cached object when the values are unchanged. The loader still caches loaded components, so rebuilding section data does not require downloading the same layouts again.</p></section>
+<section id="fixes"><h2>Both findings are fixed</h2><div class="items"><div><h3>Section content now refreshes</h3>
+<p><code>ngOnChanges</code> passes <code>!!changes['sections']</code> to <code>resolveSectionsOnce</code>. That flag bypasses the resolve-key shortcut and rebuilds <code>resolvedData</code> and layout inputs. A published cover refresh can now replace headlines and images without changing the layout sequence.</p>
+<p>I repeated the original heading reproduction against all three commits. The base returned the new heading. The first PR version returned the old heading. The updated PR returns the new heading.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-full-preview.component.ts#L142-L163">Section-change handling and forced rebuild</a></p></div>
+<div><h3>Destroy stops waiting loads</h3><p><code>ngOnDestroy</code> sets <code>previewDestroyed</code>. The loader checks it before starting, after waiting for an existing load, and before writing results. The pending-task cleanup remains in <code>finally</code>.</p>
+<p>With 20 section updates and waiting callers during one unfinished import, destroying the preview prevented a second load, a cache write, and any later change-detection notification. The original pending task was released.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-full-preview.component.ts#L246-L297">Layout loading and destroy checks</a></p></div></div></section>
+<section id="checks"><h2>Checks and limits</h2><ul>
+<li>Heading replacement passes on the updated commit. The same check still reproduces the regression on the earlier commit.</li>
+<li>Twenty content updates during an unfinished load keep one loader call, retain the latest heading, and release the pending task.</li>
+<li>The destroy variant makes no cache write or change-detection notification after destroy.</li>
+<li>Equal branding values avoid a false change. Changed branding reaches layout inputs.</li>
+<li>Clearing sections and restoring them rebuilds the displayed data.</li>
+<li>Angular compilation: Pass with <code>ngc --noEmit</code> on a clean checkout of the reviewed commit, using the installed dependencies and a 10 GB heap.</li>
+<li>The incremental diff passes the Git whitespace check.</li>
+</ul><p>The behavioral checks execute the exact component class from Git through TypeScript transpilation, with Angular services, color helpers, and layout loaders stubbed. They verify control flow and data propagation. They do not measure browser memory or validate rendered colors.</p>
+<p>I did not run full main-project or generated white-label builds, SSR rendering, or a signed-in appearance-tab browser session for this update. The usual white-label smoke test should still cover an idle preview, a palette edit, and a published cover refresh. No content was published to a white-label site during this review.</p>
+<p>GitHub reports the PR open and mergeable, with no listed status checks. Mergeability alone is not a test result.</p></section>
+<section id="followup"><h2>Keep import failure handling as a follow-up</h2><p>The batch still uses <code>Promise.all</code>. If one chunk rejects, the batch does not publish its successful results and there is no local retry or error state. This behavior predates this PR and is not a new merge blocker.</p></section>
+<section><h2>Review references</h2><ul>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/a8be95a5ddfa6ffb2a6d1f5f1fb8f5ebeae9dee9...8dda6fb483ce0b0408c6538fcdd9e0fd0d268499">Changes since the first review</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/4b0b79a26174b654f7793f578f3cf22db744f28a...8dda6fb483ce0b0408c6538fcdd9e0fd0d268499">Full reviewed comparison</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499/src/app/modules/promotional/promotional-landing/promotional-landing.component.ts#L278-L342">Published cover refresh</a></li>
+</ul></section></main><footer>Recommendation applies to <code>8dda6fb483ce0b0408c6538fcdd9e0fd0d268499</code>.</footer></div></body></html>

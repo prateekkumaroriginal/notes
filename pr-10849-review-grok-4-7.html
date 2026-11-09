@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10849 review-grok-4-7</title>
+<meta name="description" content="Review of lazy public marketing layouts. Header stays static. The 53 other layouts in the old template load only when a page shows them. Merge yes.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10849-review-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10849 review-grok-4-7</h1><p>A public marketing page loads the layouts it shows. The header stays in the template so the welcome video can still project into it.</p></div>
+<div class="meta"><span>Reviewed 25 September 2026</span><span>3 files</span><span>385 added, 345 removed</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">PR 10849</a> · Base <code>33fcd8d508</code> · Head <code>3645b6d5</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#inputs">Inputs</a><a href="#load">How loading works</a><a href="#limits">What I did not run</a></nav></header>
+<main>
+<section id="verdict"><h2>Should I merge it now? Yes.</h2>
+<p class="ok">The public template and the new loader agree.</p>
+<p>I compared every <code>ngSwitchCase</code> in the old preview with <code>MARKETING_PAGE_LAYOUT_LOADERS</code> and <code>getMarketingPageLayoutInputs</code>. The header is the one layout that stays a real template. The other 53 cases from that switch are loaders, and each extra input is the same expression as before. The add-section picker still reads the layout constants. This commit does not touch it.</p>
+<p>I would merge <code>3645b6d5</code>. The size numbers in the pull request description are the author's. I did not rebuild.</p></section>
+<section id="inputs"><h2>The inputs match the old switch</h2>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/3645b6d5eefd3f23e2730a724fdf7fb56444be6c/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-layout-loaders.ts#L259">getMarketingPageLayoutInputs</a></p>
+<ul>
+<li>Every lazy layout still gets <code>data</code>.</li>
+<li>The 14 editing layouts still get <code>isEditingMode</code> from <code>cmsPreviewMode</code>.</li>
+<li>Pinned horizontal scroll still gets <code>disablePinnedScroll</code> on the mobile preview viewport.</li>
+<li>Vertical card carousel, comparison, and the comparison full table still get <code>forceMobileView</code> on that same viewport.</li>
+<li>Vertical card snap scroll still gets <code>isEditingMode</code> from the mobile viewport, which is what the old template did.</li>
+<li>Footer still gets <code>syncWhitelabelLogo</code> and <code>previewBranding</code>.</li>
+</ul>
+<p>I checked those input names against each component class. Every one is an <code>@Input</code> on the class the loader returns. All 53 loader files export the class they name.</p>
+<p>The header bindings are copied onto <code>app-header-layout</code>, including <code>#headerLayout</code>, the user menu template, and the welcome video modal. That is why the header is in <code>STATIC_MARKETING_PAGE_LAYOUT_IDS</code> and is not a dynamic import. <code>ngComponentOutlet</code> cannot project those two pieces of content.</p>
+<p><code>LAYOUT_IDS</code> has 55 keys. <code>PRO_CONTACT_FORM_LAYOUT</code> was already missing from the old switch, so a page that uses it still renders an empty slot. This pull request does not change that.</p></section>
+<section id="load"><h2>How a page loads layouts</h2>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/3645b6d5eefd3f23e2730a724fdf7fb56444be6c/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-full-preview.component.ts#L230">loadVisibleLayoutComponents</a></p>
+<p>Visible section ids are deduped. The header is skipped. Ids that already have a class are skipped. The rest import together. <code>PendingTasks</code> stays open until that batch finishes, including when the import throws, so server rendering does not wait forever. After a successful batch the classes are stored and <code>markForCheck</code> runs. The preview is <code>OnPush</code>.</p>
+<p>A newer resolve, or <code>ngOnDestroy</code>, bumps <code>layoutLoadGeneration</code>. A stale batch does not write classes. Viewport, branding, and preview-mode changes rebuild <code>layoutInputs</code> without importing again. <code>NgComponentOutlet</code> applies those inputs on the existing component.</p>
+<p>Angular's <code>ViewContainerRef.createComponent</code> looks up a server-rendered view by component id. The pending task is what keeps the app unstable until the class is assigned and change detection is scheduled, which is the window that lookup needs. I did not watch a browser for a hydration error.</p>
+<p>One sharp edge. The batch is <code>Promise.all</code>. If one chunk rejects, none of that batch is stored, and the <code>void</code> call leaves an unhandled rejection. A missing chunk should fail one section. I would not hold the merge for it.</p></section>
+<section id="limits"><h2>What I did not run</h2>
+<p>I did not build TopFans, compare SSR titles or <code>app-*-layout</code> counts, or open <code>/</code>, <code>/athletes</code>, <code>/music-artists</code>, <code>/topfan-vs-patreon</code>, or <code>/creators-home</code>. The test plan on the pull request is still unchecked. GitHub reports the pull request open and mergeable, with no status checks.</p>
+<p>The useful check after merge is the one in that plan. Compare the server HTML for those routes, confirm unused layouts are absent, and confirm the header menu, welcome video, and editor picker still behave, with no hydration error in the console.</p></section>
+<section id="references"><h2>Review references</h2><ul>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">PR 10849</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/33fcd8d508854598731afd2d41d00876bc120f88...3645b6d5eefd3f23e2730a724fdf7fb56444be6c">Exact comparison</a></li>
+<li><a href="/pr-10847-review-grok-4-7">Previous review, PR 10847</a></li>
+</ul></section>
+</main>
+<footer>Review applies to <code>3645b6d5</code>. Recheck if the PR moves.</footer>
+</div></body></html>

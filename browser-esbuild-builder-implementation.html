@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>browser-esbuild builder implementation</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121418;
+      --panel: #1b1e24;
+      --border: #2a2f38;
+      --text: #e8eaed;
+      --muted: #9aa3b2;
+      --accent: #8ab4f8;
+      --code-bg: #0e1014;
+      --pill-bg: #252a33;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    header, main { max-width: 880px; margin: 0 auto; padding: 28px 24px; }
+    header { border-bottom: 1px solid var(--border); }
+    h1 { font-size: 22px; font-weight: 650; margin: 0 0 8px; }
+    header p { margin: 0; color: var(--muted); }
+    h2 {
+      font-size: 15px;
+      font-weight: 650;
+      margin: 28px 0 10px;
+      padding-top: 8px;
+    }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0 0 12px; padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 16px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); color: var(--muted); font-weight: 600; }
+    code, .pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .pill {
+      display: inline-block;
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--accent);
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 0 0 16px;
+    }
+    pre code { color: #d7dde8; font-size: 12px; line-height: 1.45; }
+    .note { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>browser-esbuild builder implementation</h1>
+    <p>Path A switched only the TopFans client from Webpack <span class="pill">browser</span> to <span class="pill">browser-esbuild</span>. SSR, prerender, and <span class="pill">serverless.ts</span> stayed on Webpack until Path B.</p>
+  </header>
+  <main>
+    <h2>What shipped</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Before (Webpack)</th>
+          <th>After (Path A)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Client: <span class="pill">@angular-devkit/build-angular:browser</span></td>
+          <td>Client: <span class="pill">@angular-devkit/build-angular:browser-esbuild</span></td>
+        </tr>
+        <tr>
+          <td>Output: <span class="pill">dist/TopFans/browser/</span></td>
+          <td>Same folder. S3 / CloudFront path did not change.</td>
+        </tr>
+        <tr>
+          <td>SSR / SSG: <span class="pill">ng run TopFans:server</span> and <span class="pill">:prerender</span></td>
+          <td>Unchanged Webpack targets. Deploy still ran <span class="pill">prerender-all-qa</span>.</td>
+        </tr>
+        <tr>
+          <td><span class="pill">ng serve</span> on Webpack</td>
+          <td>Vite-backed serve. Restart required after the switch.</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">Commits: <span class="pill">d51206db97</span> (builder + assets) and <span class="pill">268f237e1e</span> (runtime <span class="pill">require()</span> / cycle). Path B later replaced this client builder with <span class="pill">application</span>.</p>
+
+    <h2>1. Swap the client builder only</h2>
+    <p>The schema is almost the Webpack one. <span class="pill">main</span>, <span class="pill">outputPath: "dist/TopFans/browser"</span>, <span class="pill">serviceWorker: true</span>, and <span class="pill">ngswConfigPath</span> stay valid. <span class="pill">vendorChunk</span> is not — it was dropped from every client configuration so the CLI would not reject the file.</p>
+    <pre><code>"builder": "@angular-devkit/build-angular:browser-esbuild",
+"options": {
+  "outputPath": "dist/TopFans/browser",
+  "index": "src/index.html",
+  "main": "src/main.ts",
+  "polyfills": "src/polyfills.ts",
+  "tsConfig": "tsconfig.app.json"
+}</code></pre>
+    <p>White-label generation still cloned the TopFans build target, so tenants inherited esbuild for the client without a generator rewrite. Karma and the leftover <span class="pill">serverless</span> Webpack target were left alone.</p>
+
+    <h2>2. Sass paths and flag icons</h2>
+    <p>esbuild’s Sass resolver does not treat the workspace root the same way Webpack did. Imports like <span class="pill">src/assets/...</span> failed until the preprocessor include list added <span class="pill">"."</span> (client, serverless, and server targets).</p>
+    <pre><code>"stylePreprocessorOptions": {
+  "includePaths": ["sass", "."]
+}</code></pre>
+    <p>Flag CSS was a second blocker. Webpack could emit <span class="pill">lazy-flag-icons.css</span> as a named style bundle. esbuild hashed the same SVGs from two CSS files into colliding <span class="pill">media/</span> names. The lazy bundle was removed. CSS and flags are copied as assets; the loader now points at the unhashed file.</p>
+    <pre><code>{
+  "glob": "flag-icons.min.css",
+  "input": "node_modules/flag-icon-css/css",
+  "output": "/"
+},
+{
+  "glob": "**/*",
+  "input": "node_modules/flag-icon-css/flags",
+  "output": "/flags"
+}</code></pre>
+    <pre><code>export const LAZY_CSS_LOADER_CONSTANTS = {
+  hrefs: {
+    'lazy-owl-carousel': '/lazy-owl-carousel.css',
+    'lazy-emoji-mart': '/lazy-emoji-mart.css',
+    'lazy-flag-icons': '/flag-icons.min.css',
+    'lazy-primeng-theme': '/lazy-primeng-theme.css'
+  }
+} as const;</code></pre>
+    <p><span class="pill">LazyCssLoaderService</span> reads those hrefs instead of concatenating <span class="pill">/${bundle}.css</span>.</p>
+
+    <h2>3. Remove Node <span class="pill">require()</span> from the browser polyfill</h2>
+    <p>esbuild does not polyfill Node <span class="pill">require</span> in the client the way Webpack did. This line compiled under Webpack and failed immediately on esbuild:</p>
+    <pre><code>(window as any).global.util =
+  (window as any).global.util || require('util').util;</code></pre>
+    <p>It was unused. <span class="pill">window.global</span> and the debug <span class="pill">process.env</span> stub stayed.</p>
+
+    <h2>4. Quill as ESM, not runtime require</h2>
+    <p><span class="pill">text-editor.component.ts</span> loaded Quill only after <span class="pill">typeof window !== 'undefined'</span> via <span class="pill">require('quill')</span>. That is a Webpack habit. esbuild leaves those calls as runtime <span class="pill">require</span>, which is not defined in the browser. Quill is a static ESM import; the default/CJS interop is normalized once.</p>
+    <pre><code>import QuillDefault from 'quill';
+import 'quill-emoji';
+
+const Quill: any = (QuillDefault as any)?.default ?? QuillDefault;
+
+if (isBrowser) {
+  BlockEmbed = Quill.import('blots/block/embed');
+  // custom blots register here
+}</code></pre>
+    <p>The browser guard remains around blot registration so SSR does not touch the DOM. The package load itself is no longer lazy.</p>
+
+    <h2>5. Break the CommonService cycle</h2>
+    <p>esbuild evaluates modules in a stricter order than Webpack. <span class="pill">CommonService</span> used a lazy <span class="pill">require('../../../core/auth.service')</span> to hide a cycle with <span class="pill">AuthService</span>. Leaf icon components also imported <span class="pill">CommonService</span> only for <span class="pill">isBrowser</span>. That pulled the cycle into component definition time and Angular failed to resolve the defs.</p>
+    <p>The service now injects <span class="pill">AuthService</span> normally. The icons ask the platform directly:</p>
+    <pre><code>constructor(@Inject(PLATFORM_ID) private readonly platformId: object) {
+  this.onResize();
+}
+
+onResize() {
+  if (isPlatformBrowser(this.platformId)) {
+    this.isMobile = window.innerWidth &lt;= 992;
+  }
+}</code></pre>
+    <pre><code>const authService = this.injector.get(AuthService);</code></pre>
+
+    <h2>What did not change</h2>
+    <ul>
+      <li><span class="pill">serve-ssr</span>, <span class="pill">prerender</span>, and <span class="pill">server</span> still used Webpack <span class="pill">main.js</span>.</li>
+      <li>Docker still ran <span class="pill">build-stage:ssr</span> then <span class="pill">serve:ssr</span>.</li>
+      <li><span class="pill">serverless.ts</span> stayed a leftover Webpack target (not on the QA S3 path).</li>
+      <li>Scripts still called <span class="pill">ng run TopFans:prerender:qa</span> after the client build.</li>
+    </ul>
+
+    <h2>Validation already done</h2>
+    <ul>
+      <li>Development client build completed (~39s) with <span class="pill">flag-icons.min.css</span> and <span class="pill">flags/</span> in <span class="pill">dist/TopFans/browser/</span>.</li>
+      <li>QA client configuration used by <span class="pill">prerender-all-qa</span> compiled after <span class="pill">vendorChunk</span> was removed.</li>
+      <li>Runtime follow-up fixed Quill and the CommonService cycle; those crashes only showed after the first successful compile.</li>
+    </ul>
+
+    <h2>Why Path B still had to happen</h2>
+    <p>Path A made <span class="pill">ng serve</span> and the client compile faster. It did not unify output. QA still needed a Webpack server/prerender pass, and the two toolchains disagreed about CSS, chunks, and Node shims. The <span class="pill">application</span> builder (see <span class="pill">application-builder-implementation.html</span>) is the step that collapsed those targets.</p>
+  </main>
+</body>
+</html>

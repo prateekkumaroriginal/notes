@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PR 10830 review-astra</title><meta name="description" content="Independent review of PR 10830: standalone public routes, dependency checks, QA build, SSR results, and remaining validation."><style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--green); }
+    pre .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > p + .pair { margin-top: 0.75rem; }
+
+    section > * + .table-wrap,
+    section > * + pre,
+    section > * + .pair { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .pair figure { display: grid; gap: 0.5rem; align-content: start; }
+
+    .pair figcaption {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .pair { grid-template-columns: 1fr; }
+    }
+
+.table-wrap { overflow-x: auto; } td code { overflow-wrap: anywhere; }
+
+code { overflow-wrap: anywhere; }
+</style></head><body><div class="page"><header>
+<p><a href="/">All notes</a></p>
+<h1>PR 10830 review-astra</h1>
+<p>Convert the one-component public pages to standalone routes.</p>
+<div class="meta"><span>Reviewed 23 September 2026</span><span>Head aaa15ec916</span><span>Base ee0c53c5b2</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10830">Open pull request</a> · <a href="#verification">Verification</a> · <a href="#remaining">Remaining checks</a></p>
+</header><main>
+<section><h2>Review result</h2>
+<p><strong class="ok">I found no regression in this PR.</strong> The converted pages keep their route paths, guards, template dependencies, and callback logic. I built the PR commit and requested thirteen URLs from its SSR server. Each returned the expected page or 404 response.</p>
+<p>I did not test form submissions, authenticated callbacks, browser hydration, or white-label builds. Those still need release testing.</p>
+</section>
+<section><h2>What changes</h2>
+<p>The PR changes 42 files, adding 154 lines and removing 3,016. Fifteen public pages now load as standalone components. The PR removes their NgModules and two unused page modules, seventeen module files in total.</p>
+<ul><li>Informational pages: about, pricing, privacy policy, terms, and help/FAQ.</li><li>Contact pages: contact-us and contact-v1, including both demo aliases.</li><li>Callback and utility pages: calendar-connect, shopify-connect, imported-opt-out, unsubscribe-newsletter, unsubscribe-instruction, shortend-url, access-user-account, and not-found.</li></ul>
+<p>Routes still load lazily through dynamic imports. They now load the component directly. Both terms URLs, both demo URLs, and the global and link-in-bio wildcards still load the same components.</p>
+<p>The PR deletes public/advertise and public/comparison. The live pages use advertisement-home and comparison-page.</p>
+</section>
+<section><h2>Code review</h2>
+<h3>The components import what their templates use</h3>
+<p>About, pricing, privacy, terms, and help now import RouterLink directly. Their old page modules supplied it through RouterModule. I checked the rendered HTML for all six URLs, including both terms URLs. Every Home link had href="/".</p>
+<p>Contact-us imports NgSelectModule for its dropdowns. Contact-v1 imports DynamicFormBuilderModule for its form. SharedModule exports the other form directives and shared UI these pages use. Help keeps FaqComponent and drops CarouselModule, which its template does not use.</p>
+<p>Imported-opt-out still imports AlertModalComponent in TypeScript to open its dialog. That import survives the module deletion. Pricing, Calendar, and Shopify compile without CUSTOM_ELEMENTS_SCHEMA.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/public/contact-us/contact-us/contact-us.component.ts#L41">Contact-us imports</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/public/contact-us/contact-v1/contact-v1.component.ts#L42">Demo form imports</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/promotional/help-faq/help-faq.component.ts#L17">Help template imports</a></p>
+<h3>Routes keep their metadata and guards</h3>
+<p>The page data strings move into PUBLIC_PAGE_ROUTE_DATA. Contact-us and both demo URLs use the same contact data. Both terms URLs keep the route title. The guards stay on the same routes.</p>
+<p>The components also call SeoService. Both terms URLs rendered "Terms of Service - TopFan" in my SSR check, which differs from the route title string. The PR preserves the route title, but that string alone does not determine the rendered title.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/app-routing.module.ts#L179">App route configuration</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/constants/public-page-route-data.ts#L1">Public page metadata</a></p>
+<h3>Components read parameters from their own route</h3>
+<p>None of the converted components reads a parent ActivatedRoute or depends on the removed empty child route. Calendar, Shopify, account access, opt-out, and unsubscribe read query parameters from the activated route. Short links read the named shortend-url path parameter. Removing the empty child route leaves those values available on the page route.</p>
+<p>Shortend-url and access-user-account have empty templates. Their application services use providedIn: 'root', so Angular can inject them without SharedModule. None of the fifteen deleted page modules declared a custom provider that needs to move.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/public/shortend-url/shortend-url.component.ts#L19">Short-link parameter access</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/public/access-user-account/access-user-account.component.ts#L17">Account-access dependencies</a></p>
+<h3>The 404 routes return 404</h3>
+<p>NotFoundComponent still sets HTTP status 404 and adds robots noindex. I checked /not-found, an unknown multi-segment URL, and the link-in-bio wildcard. All returned 404 and rendered NotFoundComponent.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/public/not-found/not-found.component.ts#L42">404 status and SEO</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/aaa15ec916d70afbfd78afb14ec70e270e9d1ebe/src/app/modules/link-in-bio-fan-preview/link-in-bio-fan-preview.routes.ts#L10">Link-in-bio wildcard</a></p>
+<h3>Nothing imports the two deleted pages</h3>
+<p>I found no remaining imports or class references to AdvertiseModule, AdveriseComponent, ComparisonModule, ComparisonComponent, or their deleted directories. One unused app-advertise CSS rule remains. It can be removed separately.</p>
+</section>
+<section id="verification"><h2>What I checked</h2>
+<p>I tested a separate copy of commit aaa15ec916 using the repository's installed dependencies. This excluded the six locally modified generated files. I left the working checkout unchanged.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead><tbody>
+<tr><td>Full diff and dependency review</td><td>Checked the route edits, component decorators, deleted modules, template imports, service providers, and references to deleted pages.</td></tr>
+<tr><td>QA application build</td><td>Passed with --configuration=qa --prerender=false and --max_old_space_size=10048. The build generated browser and server bundles in 64.731 seconds.</td></tr>
+<tr><td>Initial bundle</td><td>12.30 MB raw; CLI estimate 2.00 MB transferred. The build warns about the 10 MB initial budget. I did not rebuild the base commit to measure the size change.</td></tr>
+<tr><td>ESLint, 18 changed TypeScript files</td><td>0 errors, 4 lifecycle-interface warnings. The missing interfaces and lifecycle methods are also present in the base commit.</td></tr>
+<tr><td>Diff whitespace check</td><td>Passed.</td></tr>
+<tr><td>Server rendering</td><td>13 URLs checked. Ten returned 200; three returned 404. All contained Angular hydration annotations.</td></tr>
+</tbody></table></div>
+<p>The build also reported CommonJS optimization and CSS selector warnings. The SSR HTML contains hydration annotations, but I did not test hydration in a browser.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">URLs checked independently</th><th scope="col">Observed result</th></tr></thead><tbody>
+<tr><td>/about, /pricing, /privacy-policy, /help-faq</td><td>200, server-rendered content, Home anchor with href="/".</td></tr>
+<tr><td>/terms-conditions, /terms-of-service</td><td>200, Home anchor with href="/", title "Terms of Service - TopFan".</td></tr>
+<tr><td>/contact-us, /request-demo, /schedule-a-demo</td><td>200 with server-rendered content. No form submitted.</td></tr>
+<tr><td>/unsubscribe-instruction</td><td>200 with server-rendered content.</td></tr>
+<tr><td>/not-found, /astra-review-missing/a/b, /bio/astra-review/extra/segment</td><td>404 and app-not-found rendered.</td></tr>
+</tbody></table></div>
+</section>
+<section><h2>What the PR author tested</h2>
+<p>The <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10830">PR description</a> reports successful QA builds of the base and head commits. The author compared SSR HTML for twenty URLs after removing generated differences and found no changes. They also report that pricing hydrated, its breadcrumb navigated without a reload, and every converted page opened through client navigation without console errors.</p>
+<p>The reported initial byte totals are 12,295,379 on the base and 12,296,131 on the head, an increase of 752 bytes. I did not repeat the author's base/head comparison or browser tests.</p>
+</section>
+<section id="remaining"><h2>What still needs testing</h2>
+<ul><li>Build and smoke-test a generated white-label project. Only TopFans is configured in the reviewed angular.json. Verify marketing redirects and branded public pages on a tenant host.</li><li>Submit contact-us and both demo forms with valid and invalid input. Verify dropdown behavior, captcha, validation, and the resulting API request.</li><li>Test Calendar and Shopify callbacks with valid and invalid query parameters, including popup completion where applicable.</li><li>Test imported-fan opt-out and newsletter unsubscribe with valid, expired, and missing identifiers. Confirm each intended state without changing real subscriber data.</li><li>Test short-link destinations and account-access login with test records. I checked how the code reads parameters, but did not complete these flows.</li><li>Check hydration and breadcrumb navigation in the release environment. I verified the links in server-rendered HTML. The author reports testing them in a browser.</li></ul>
+<p>I would not block this PR on the code I reviewed. Test the white-label pages and callback flows before release.</p>
+</section>
+<section><h2>Review scope</h2><p>This document reviews head <code>aaa15ec916d70afbfd78afb14ec70e270e9d1ebe</code> against base <code>ee0c53c5b2f36a241e4d7623ad4cf3d9001d1cf4</code>. Source links point to that head commit. I did not submit a GitHub review or change application code.</p><p>Colours and typography follow the existing <a href="/pr-10829-review-astra">PR 10829 review-astra</a> note.</p></section>
+</main></div></body></html>

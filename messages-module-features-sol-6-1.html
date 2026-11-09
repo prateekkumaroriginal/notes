@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Source-based inventory of TopFan messages: conversations, broadcasts, media, paid attachments, tips, guaranteed replies, automation, sharing, permissions, and white-label behavior.">
+  <title>Messages module features · sol-6-1</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,dl,dd { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    p,li,dd,td,.meta { color: var(--muted); }
+    a { color: var(--blue); border-radius: .25rem; text-underline-offset: .2em; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--blue); font-weight: 600; }
+    .meta { padding-top: 1.25rem; }
+    nav { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; padding-top: 1.75rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    ul { padding-left: 1.25rem; display: grid; gap: .85rem; }
+    section > p { padding-bottom: 1.25rem; }
+    .source { padding-top: 1rem; padding-bottom: 0; font-size: .875rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border-radius: .6rem; border: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; min-width: 580px; }
+    th,td { padding: .85rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); }
+    tbody tr + tr { border-top: 1px solid var(--line); }
+    tbody th { font-weight: 500; }
+    .note { color: var(--amber); }
+    .refs { display: grid; gap: 1.75rem; }
+    dt { color: var(--text); padding-bottom: .5rem; }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+    @media print { :root { color-scheme: light; --bg: #fff; --text: #111; --muted: #333; --blue: #15546e; --line: #ccc; --surface: #eee; --amber: #755200; } .page { width: 100%; padding-block: 1rem; } nav { display: none; } .table-wrap { overflow: visible; } table { min-width: 0; } li { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Messages module features</h1>
+    <p>A source-based inventory of direct messaging, message lists, attachments, payments, sharing, and automated messages in TopFan.</p>
+    <p class="meta">Reviewed 30 September 2026 · Frontend revision <code>d885efb055</code> · <code>src/app/modules/messages/</code></p>
+    <p class="meta">Availability depends on account permissions, creator status, age, backend validation, and tenant configuration. This document describes the checked-out implementation; it does not certify live backend behavior.</p>
+    <nav aria-label="Feature sections">
+      <a href="#inbox">Inbox</a><a href="#composer">Composer</a><a href="#media">Media</a><a href="#paid">Paid attachments</a><a href="#tips">Tips and replies</a><a href="#credits">DM credits</a><a href="#lists">Message lists</a><a href="#sharing">Sharing</a><a href="#automation">Automation</a><a href="#access">Access and tenants</a><a href="#limits">Limits</a><a href="#boundaries">Implementation boundaries</a><a href="#sources">Source map</a>
+    </nav>
+  </header>
+  <main>
+    <section id="inbox">
+      <h2>Inbox and conversations</h2>
+      <ul>
+        <li><strong>Direct conversations.</strong> Open existing one-to-one threads or start a conversation by selecting a user in the new-message modal. Existing channels are reused; new channels are created when needed.</li>
+        <li><strong>Creator inbox tabs.</strong> Creators have Priority, General, and Message Lists views. Non-creators use the General conversation view.</li>
+        <li><strong>Priority classification.</strong> A thread enters Priority when its user has the backend featured flag or it has an unread tip. Broadcast threads go into Message Lists. Sorting places recent conversations first.</li>
+        <li><strong>Conversation search.</strong> Search the inbox through a debounced API query. New-recipient and participant searches also debounce input and cancel the previous request.</li>
+        <li><strong>Conversation previews.</strong> Rows show the person's name, avatar or fallback icon, recent text or a Media label, unread count, and selected-thread highlighting.</li>
+        <li><strong>Identity and fan badges.</strong> Display creator verification, qualifying subscriber indicators, and normalized fan badges with tooltips in the list and conversation header.</li>
+        <li><strong>Tip and reply indicators.</strong> Mark unread tips and pending guaranteed replies in conversation rows.</li>
+        <li><strong>Unread counts.</strong> Track conversation and tab counts plus the shared app message count. Opening a thread clears its local unread count and unread-tip indicator.</li>
+        <li><strong>Online presence.</strong> Show online/offline indicators from WebSocket membership data, both in inbox rows and in the selected direct conversation.</li>
+        <li><strong>Conversation history.</strong> Fetch stored messages for the selected channel. Group them by Today, Yesterday, or a calendar date; show local timestamps and sender avatars where the sender changes.</li>
+        <li><strong>Live updates.</strong> Receive messages through the shared WebSocket service. Append messages in the active thread, refresh inbox ordering, and increase unread counts for other threads. The service contains reconnect handling.</li>
+        <li><strong>Deep links and return flows.</strong> Select a conversation through the <code>user</code> query parameter, a route/query <code>id</code> for payment return handling, or router state carrying a user key or group ID.</li>
+        <li><strong>Profile navigation.</strong> Open the selected user's profile from the conversation header.</li>
+        <li><strong>Responsive layout.</strong> Desktop displays the list and thread together. Mobile selection opens the thread, with a back control to return to the list.</li>
+        <li><strong>Loading and empty states.</strong> Show inbox and conversation loaders, a no-messages state, and an empty-automation state.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L634">inbox and thread logic</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/services/chat.service.ts">WebSocket service</a>.</p>
+    </section>
+    <section id="composer">
+      <h2>Message composition and sending</h2>
+      <ul>
+        <li><strong>Text, attachments, or both.</strong> Send text-only, attachment-only, or mixed messages. Empty and whitespace-only text without attachments or shared content does not send.</li>
+        <li><strong>Growing text area.</strong> The composer grows as text fills it, up to four rows. Message URLs render as clickable links in the thread.</li>
+        <li><strong>Emoji picker.</strong> Insert the chosen emoji at the current cursor position. Selecting an emoji or clicking outside closes the picker.</li>
+        <li><strong>First-name personalization.</strong> Broadcast composition offers an Insert First Name action that inserts <code>[First Name]</code> at the cursor. The automated-message text field also exposes first-name insertion.</li>
+        <li><strong>Local sending queue.</strong> Add an outgoing message locally, upload attachments, then send the completed payload. The UI tracks submission and upload progress and resets composition after sending.</li>
+        <li><strong>Navigation protection during sending.</strong> Pending queue entries prevent route deactivation, and switching to another conversation is restricted while the queue is occupied. This protection concerns queued sends, not every unsent draft.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L1724">composer and send pipeline</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3558">route protection</a>.</p>
+    </section>
+    <section id="media">
+      <h2>Media and file attachments</h2>
+      <ul>
+        <li><strong>Images, videos, audio, and other files.</strong> The main composer classifies selected files into these four types. Generic files show their filename and formatted size.</li>
+        <li><strong>Multiple attachments.</strong> Select multiple files, inspect previews, and remove individual items before sending.</li>
+        <li><strong>Images.</strong> Compress selected images, create thumbnails, and open sent or received images in a lightbox overlay.</li>
+        <li><strong>Video playback.</strong> Preview attached videos and play conversation videos in a player modal. Portrait video metadata controls the player presentation.</li>
+        <li><strong>Audio playback.</strong> Play uploaded audio and recorded voice messages. The composer has an audio preview that can be cleared before sending.</li>
+        <li><strong>Voice recording.</strong> Start, stop, cancel, and discard microphone recordings. Show elapsed recording time and a live waveform; a nonzero recording becomes an audio attachment.</li>
+        <li><strong>Downloads.</strong> Available recipient media has download actions. In the mobile app, downloads pass to the native bridge; browser downloads use a file download flow.</li>
+        <li><strong>Upload feedback and moderation.</strong> Track image and file upload progress. Images flagged by the upload service open a restricted-content carousel. Upload errors return user-facing feedback.</li>
+        <li><strong>Mobile file selection.</strong> File inputs integrate with the mobile bridge. The automated-message attachment component also handles files supplied by the native app.</li>
+        <li><strong>Media presentation.</strong> Images use lazy loading and mobile image optimization. Media elements use the shared right-click restriction directive where configured.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L1416">selection and previews</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L2079">uploads</a>.</p>
+    </section>
+    <section id="paid">
+      <h2>Paid attachments and free previews</h2>
+      <ul>
+        <li><strong>Set an unlock price.</strong> With the Lock Message permission and at least one attachment, open the pricing modal and set the price recipients pay to view the attachment bundle.</li>
+        <li><strong>International prices.</strong> The main pricing modal opens the currency conversion component. It stores adjusted international prices alongside the base dollar price in the outgoing message.</li>
+        <li><strong>Optional free preview.</strong> Add one preview item separately from the locked attachments. Recipients see a Free Preview area before paying.</li>
+        <li><strong>Drag and reorder.</strong> Reorder attachments and move eligible media between the paid area and the free-preview area, subject to item limits.</li>
+        <li><strong>Shared-link preview restriction.</strong> Store, portfolio, and event share links cannot be moved into the free-preview area while the message has a positive unlock price.</li>
+        <li><strong>Remove the lock.</strong> Clearing the price removes international-price data and moves the free preview back into the regular attachment list.</li>
+        <li><strong>Locked presentation.</strong> Paid images have blurred or locked URLs generated by the upload flow. The thread displays a Paid label, price, and an unlock action for qualifying received locked messages.</li>
+        <li><strong>Purchase and return.</strong> Unlocking sends message ID, channel, timestamp, sender, and amount to the shared payment flow, which returns to Messages. The unlock action checks delegate-user permission.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-price-model/message-price-model.component.ts">pricing and currencies</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3462">preview constraints and unlocking</a>.</p>
+    </section>
+    <section id="tips">
+      <h2>Tips and guaranteed replies</h2>
+      <ul>
+        <li><strong>Tip with a direct message.</strong> Eligible direct conversations with creators expose a tip amount panel. Tips can include text and media and use the shared checkout flow.</li>
+        <li><strong>Preset and custom amounts.</strong> Generate suggested amounts from the minimum tip and multipliers of 1, 5, 10, 20, and 50. Support a custom amount with numeric, minimum, and currency-range validation.</li>
+        <li><strong>Local currency.</strong> Display converted suggestions, a currency symbol, and local prices; convert the tip to its USD base amount for payment.</li>
+        <li><strong>Tip receipts in the thread.</strong> Render the amount and distinguish an ordinary tip from a guaranteed-reply payment.</li>
+        <li><strong>Guaranteed-reply offer.</strong> Backend validation supplies the offer flag and minimum qualifying tip. A modal explains the offer and lets the sender add a tip or send without the guarantee.</li>
+        <li><strong>Refund terms displayed to the sender.</strong> The offer copy says that a qualifying tip is automatically refunded within seven days if the creator does not reply. Refund processing is a backend/payment responsibility.</li>
+        <li><strong>Pending-reply fulfillment.</strong> A creator reply to a pending guaranteed-reply message calls the redemption endpoint. On successful redemption, clear the pending indicator, display the credited-wallet notice, and send the reply.</li>
+        <li><strong>Composition restrictions.</strong> Tip controls apply to direct creator conversations, rather than broadcast or follower-list sends. A positive attachment price or inserted share content disables tip selection. Delegate mode has additional permission handling.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L1758">offer and redemption</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3035">tip amounts and checkout</a>.</p>
+    </section>
+    <section id="credits">
+      <h2>Free DM credits and pay-per-message</h2>
+      <ul>
+        <li><strong>Creator-specific validation.</strong> Fetch the selected recipient's DM price, free-message allowance, unlimited allowance flag, guaranteed-reply status, and currency data.</li>
+        <li><strong>Credit status.</strong> Display remaining free messages, Unlimited where applicable, or the paid DM price when no free messages remain.</li>
+        <li><strong>Consume free credits.</strong> When a priced creator conversation still qualifies for a free message and has no attached tip, call the consume-credit endpoint and update the allowance before sending.</li>
+        <li><strong>Pay after credits run out.</strong> Route the message and its attachments to pay-per-message checkout when the recipient charges for DMs and the finite free allowance is exhausted.</li>
+        <li><strong>Combined DM price and tip.</strong> A combined checkout payload carries the DM charge and tip separately while charging their total. Preserve message text, media, channel, and guarantee context.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L2263">credit-aware send decisions</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3155">paid DM payloads</a>.</p>
+    </section>
+    <section id="lists">
+      <h2>Message lists and broadcast sending</h2>
+      <ul>
+        <li><strong>Create a named message list.</strong> Select individual users or audience groups, then enter a list name and optionally upload a cropped list icon.</li>
+        <li><strong>Two audience types.</strong> Lists can contain individual users or predefined/subscription groups. The selection UI prevents mixing those two types in one list.</li>
+        <li><strong>Predefined audiences.</strong> Choose Fans and Subscribers, Current Fans, All Current Subscribers, Previously Paid Subscribers, Top 20 Spenders, or Prior Paid DM Users. The frontend maps display labels to backend audience keys.</li>
+        <li><strong>Subscription audiences.</strong> Select subscription-plan audiences returned by the new-chat API. Preserve the plan ID when creating or editing the group list.</li>
+        <li><strong>Bulk conversation view.</strong> Show saved message lists with their name, icon, recipient details, unread count, and recent activity. Select a list to open its broadcast history.</li>
+        <li><strong>Broadcast delivery.</strong> Send text and attachments through the public/broadcast WebSocket action using the list's broadcast ID.</li>
+        <li><strong>Edit list details.</strong> Rename a list and update its icon through the list-details modal.</li>
+        <li><strong>Edit recipients.</strong> Search current and available participants, add or remove users or audience groups, and save the changes. The selected conversation reflects the updated participants.</li>
+        <li><strong>Recipient count.</strong> Show the selected list's recipient count in the thread header; selecting it opens participant editing.</li>
+        <li><strong>Delete a list.</strong> Confirm deletion in a modal, remove it through the API, and refresh the message-list view.</li>
+        <li><strong>Personalized broadcast text.</strong> Insert the first-name token into list messages. Recipient expansion and delivery are backend responsibilities.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/new-message-model/new-message-model.component.ts">new lists and audience selection</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/edit-participants-modal/edit-participants-modal.component.ts">participant editing</a>.</p>
+    </section>
+    <section id="sharing">
+      <h2>Store, portfolio, and event sharing</h2>
+      <p>Creators have separate composer actions for inserting store items, portfolio content, and event tickets. These become typed message attachments with short share links.</p>
+      <ul>
+        <li><strong>Store item selection.</strong> The shared picker has All, Courses, Experiences, Merchandise, NFTs, and Downloadables tabs. Insert a selected item with its metadata and generated share URL.</li>
+        <li><strong>Store previews.</strong> Conversation messages use the shared item-preview component. Selecting an inserted item navigates to its share route.</li>
+        <li><strong>Portfolio selection.</strong> Browse All, Music, Podcasts, Videos, and Custom content. Pick albums, series, collections, or individual songs, episodes, videos, and custom items.</li>
+        <li><strong>Portfolio drill-down.</strong> Browse the contents of a selected collection in the shared picker. Insert selected items as portfolio-share attachments; individual links include the player-open parameter.</li>
+        <li><strong>Portfolio presentation.</strong> Render the shared portfolio preview with content-appropriate actions, such as viewing an album or playing an individual item.</li>
+        <li><strong>Event selection.</strong> Browse the shared picker's Upcoming and Past tabs. Insert selected event options as event-ticket-share attachments with generated ticket-purchase links.</li>
+        <li><strong>Event previews.</strong> Show an event image or fallback icon, title, venue/address, available date and time, and a View Ticket action.</li>
+        <li><strong>Duplicate prevention.</strong> Pass already attached store, portfolio, and event IDs to their pickers so those options are disabled.</li>
+        <li><strong>Mixed attachment composition.</strong> Share links can accompany text and uploaded files, appear in the attachment preview, and be removed before sending. Store and event insertion check the five-item capacity; the portfolio insertion path has a limit caveat below.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3692">share-link creation and insertion</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/tree/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/shared/components/portfolio-share-modal">portfolio picker</a>.</p>
+    </section>
+    <section id="automation">
+      <h2>Automated messages</h2>
+      <ul>
+        <li><strong>Automation management.</strong> An Automated Messages tab lists each configured event type and its message text, with add, edit, and delete actions.</li>
+        <li><strong>Four configured triggers.</strong> Fan Registers, Fan Purchases Subscription, Fan Purchases Content Post, and Fan's Birthday. The registration label maps to the backend <code>FOLLOW_MESSAGE</code> type.</li>
+        <li><strong>One configuration per trigger.</strong> Disable event types already present in the automation list. Editing keeps the existing event type fixed.</li>
+        <li><strong>Required text.</strong> Event type and message text are required. Text has a 1,000-character maximum and supports first-name insertion.</li>
+        <li><strong>Image and audio attachments.</strong> The automation attachment component supports image uploads, audio uploads, voice recording, and audio preview. Its current file classifier does not accept newly selected video or generic files.</li>
+        <li><strong>Paid automated attachments.</strong> Set a lock price with the automation's separate price modal and optionally provide a free preview. A positive price requires at least one main attachment.</li>
+        <li><strong>Edit existing media.</strong> Restore existing paid/main and free-preview attachments. Existing attachments are marked as patched and reused without uploading them again.</li>
+        <li><strong>Save and refresh.</strong> Create through POST, update through PUT, and delete by event type through DELETE. Refresh the table and show success or error feedback.</li>
+        <li><strong>Cancel and reset.</strong> Closing clears form values, attachments, pricing, and audio previews, and aborts an active recording.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/automated-message-modal/automated-message-fields.ts">triggers and form validation</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/automated-message-modal/automated-message-modal.component.ts">automation editor</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/image-audo-message/image-audio-message.component.ts#L309">accepted automation media</a>.</p>
+    </section>
+    <section id="access">
+      <h2>Permissions, safety, and white-label behavior</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Capability</th><th scope="col">Availability in the frontend</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Enter Messages</th><td>The lazy-loaded route uses authentication, permission, and creator-approval guards. Delegate access references Send Reply to Direct Messages. The Messages tab also checks its permission key.</td></tr>
+          <tr><th scope="row">Send or start a message</th><td>The new-message action and composer require the profile's 18-or-older flag. Younger users see an age notice and a customer-support link.</td></tr>
+          <tr><th scope="row">Lock attachments</th><td>Requires Lock Message permission in the main composer, attached items, and a compatible composition state.</td></tr>
+          <tr><th scope="row">Manage automated messages</th><td>Requires Automated Messages permission. On a white-label site, the tab additionally requires the profile's host-owner flag.</td></tr>
+          <tr><th scope="row">Insert creator content</th><td>Store, portfolio, and event actions display for creator accounts.</td></tr>
+          <tr><th scope="row">Block a user</th><td>The main TopFan site exposes Block User from inbox and direct-thread menus. It opens a confirmation dialog and refreshes the inbox. These menus are hidden on white-label sites.</td></tr>
+          <tr><th scope="row">Hidden or exclusive creator</th><td>On the main site, backend <code>is_hidden</code> validation hides composition and displays the creator-unavailable notice. White-label conversation behavior bypasses that particular display condition.</td></tr>
+          <tr><th scope="row">White-label conversation list</th><td>Show the list on the main site, to the tenant owner, or when tenant DM settings allow it. Otherwise, select the tenant owner as the default conversation target.</td></tr>
+          <tr><th scope="row">Start a chat on a tenant site</th><td>The New Message action is available to the tenant owner rather than other tenant visitors. Explicit incoming chat targets are respected, and self-targets are cleared.</td></tr>
+          <tr><th scope="row">Tenant context</th><td>Use white-label configuration for owner identity and waveform color; outgoing messages carry the white-label owner ID. Share URLs use environment configuration.</td></tr>
+          <tr><th scope="row">Delegate purchase actions</th><td>Attachment unlocking and the subscription purchase helper check delegate-user permission before starting payment. Tip handling also has delegate-specific conditions.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/app-routing.module.ts#L150">route guards</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.html#L2089">composer and tab permissions</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3943">tenant targeting</a>.</p>
+    </section>
+    <section id="limits">
+      <h2>Limits and validation</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Item</th><th scope="col">Current check</th></tr></thead>
+        <tbody>
+          <tr><th scope="row">Main attachments</th><td>Five items in the regular/paid attachment area. This check also applies when the message is free. Store and event links share this capacity. Portfolio insertion does not call the same capacity check.</td></tr>
+          <tr><th scope="row">Free previews</th><td>One item in the separate free-preview area.</td></tr>
+          <tr><th scope="row">File size</th><td>The picker checks the first selected file against 512 MB and displays a video-size error if exceeded. It does not check every selected file individually in this method.</td></tr>
+          <tr><th scope="row">Main unlock price</th><td>The main pricing modal disables Save below $1 or above $10,000 and uses two-decimal input formatting.</td></tr>
+          <tr><th scope="row">Automation unlock price</th><td>The separate V2 modal uses a keypress limiter intended to cap entry at $1,000. It does not use the main modal's $1-to-$10,000 Save validation or currency-adjustment control.</td></tr>
+          <tr><th scope="row">Automated message text</th><td>Required, with a maximum of 1,000 characters.</td></tr>
+          <tr><th scope="row">Message list name</th><td>Required, with a maximum of 25 characters.</td></tr>
+          <tr><th scope="row">List membership</th><td>An individual-user list requires at least two selected users. An audience-group list requires at least one selected group. Participant editing preserves these minimums.</td></tr>
+          <tr><th scope="row">Tips</th><td>Suggested amounts use a default minimum of $1 or the guaranteed-reply minimum. Custom amounts are checked against numeric format, qualifying minimums, and currency-derived bounds.</td></tr>
+          <tr><th scope="row">Empty messages</th><td>Require nonblank text, an attachment, or share content.</td></tr>
+        </tbody>
+      </table></div>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-price-model/message-price-model.component.html">main pricing validation</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-price-model-v2/message-price-model-v2.component.ts">automation pricing limiter</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/new-message-model/new-message-modal.fields.ts">list form limits</a>.</p>
+    </section>
+    <section id="boundaries">
+      <h2>Implementation boundaries and related flows</h2>
+      <ul>
+        <li><strong>Older-message scrolling is inactive.</strong> The template wires an upward-scroll event, but <code>onUp()</code> has its history-fetch call commented out. Initial history retrieval exists; working infinite history loading is not established by this implementation.</li>
+        <li><strong>Reporting has a helper only.</strong> <code>reportUser()</code> opens the shared chat-report dialog, but the messages template has no call to it. The visible moderation action is Block User.</li>
+        <li><strong>Dispute messages can be displayed.</strong> The thread recognizes dispute payloads and renders the product image, product name, price, and reason. It does not expose a dispute-creation form here.</li>
+        <li><strong>Subscription helpers exist.</strong> The container can fetch a creator's plans, open a subscription picker, and launch subscription checkout. The current template does not call these helpers, so they are not counted as an exposed Messages action.</li>
+        <li><strong>Welcome-message editing is separate.</strong> The profile welcome-message editor lives under Edit Preference. Its preview, enable/disable state, and upload controls are outside this module. The automation trigger labeled Fan Registers is part of Messages.</li>
+        <li><strong>Purchase history is separate.</strong> Wallet's purchased-direct-messages view tracks purchased messages and redirects into a thread. Messages initiates attachment checkout and displays message content.</li>
+        <li><strong>Feed-sharing copy is not evidence of a feature.</strong> Constants include a label for adding feed content, but this composer exposes store, portfolio, and event pickers. No separate feed-content picker is wired in its template.</li>
+        <li><strong>No exposed message editing or deletion.</strong> The reviewed template has no per-message edit, delete, or unsend action. Message-list and automation deletion are separate supported operations.</li>
+        <li><strong>Backend-driven execution.</strong> Automated trigger timing, audience resolution, guaranteed-reply refunds, payment settlement, and durable message delivery are not implemented by this frontend module.</li>
+      </ul>
+      <p class="source">Source: <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3304">inactive scroll handler</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.ts#L3414">report helper</a>, <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/d885efb055773bb6e00b786bf0180cf35f09633f/src/app/modules/messages/components/message-container/message-container.component.html">actual UI bindings</a>.</p>
+    </section>
+    <section id="sources">
+      <h2>Source map</h2>
+      <dl class="refs">
+        <div><dt>Main page and conversation behavior</dt><dd><code>messages.routes.ts</code> and <code>components/message-container/</code> cover inboxes, composition, media, payments, tenant rules, and live events.</dd></div>
+        <div><dt>List creation and editing</dt><dd><code>components/new-message-model/</code>, <code>components/edit-participants-modal/</code>, and <code>constants/messages.constant.ts</code> define list fields, membership editing, and audience mappings.</dd></div>
+        <div><dt>Pricing and automation</dt><dd><code>components/message-price-model/</code>, <code>components/message-price-model-v2/</code>, <code>components/automated-message-modal/</code>, and <code>components/image-audo-message/</code> implement the two pricing flows and the automation editor.</dd></div>
+        <div><dt>Shared dependencies</dt><dd><code>services/chat.service.ts</code>, <code>shared/services/audio-recording.service.ts</code>, and the shared store, portfolio, event, preview, and video-player components supply messaging integrations.</dd></div>
+      </dl>
+    </section>
+  </main>
+  <footer>Inventory based on local source inspection at <code>d885efb055</code>. Source links point to that revision and may require repository access.</footer>
+</div>
+</body>
+</html>

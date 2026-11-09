@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Profile performance improvements after service cleanup</title>
+<meta name="description" content="Combined PR 10977 performance review, adjusted for a release-0.0.25 worktree with PR 10994 service cleanup integrated first.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{color-scheme:dark;--bg:#0c1015;--surface:#121923;--text:#e8edf3;--muted:#99a6b5;--line:#2b3745;--blue:#68d7ff;--green:#8ee6a2;--amber:#f1c66d}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+h1,h2,h3,p,ol,ul,table{margin:0}h1{padding-bottom:.75rem}h2{padding-top:1.5rem}a{color:var(--blue);text-underline-offset:3px}a:focus-visible,summary:focus-visible{outline:2px solid var(--blue);outline-offset:4px;border-radius:.25rem}
+.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}header{display:grid;gap:.75rem}header nav{padding-bottom:1rem}main{padding-top:3rem;display:grid;gap:1rem;min-width:0}p,li,td{color:var(--muted)}strong,.verdict{color:var(--text)}.verdict{font-weight:600}.small{color:var(--muted)}
+code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;background:var(--surface);color:var(--green);border-radius:.25rem;padding:.1em .25em;overflow-wrap:anywhere}h1 code,h2 code{background:none;padding:0}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;vertical-align:top;padding:.8rem .5rem;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{color:var(--text);font-weight:600}th:first-child,td:first-child{padding-left:0}th:last-child,td:last-child{padding-right:0}.score{white-space:nowrap;color:var(--amber);font-variant-numeric:tabular-nums}.score strong{color:var(--amber)}ol,ul{padding-left:1.5rem}li+li{padding-top:.8rem}details{padding-block:1rem}summary{cursor:pointer;color:var(--blue);font-weight:600}details>p,details>table,details>ol{padding-top:1rem}.compare td:first-child{width:28%}.priorities td:first-child{width:25%}.priorities td:nth-child(2){width:18%}
+@media(max-width:720px){.page{padding-block:3rem}}@media(max-width:560px){table thead{display:none}table tr,table td{display:block;width:100%!important}table tr{padding-block:.8rem}table td{border:0;padding:.3rem 0}table td:first-child{font-weight:600;color:var(--text)}.priorities td:nth-child(2)::before{content:'Scores A / B / remaining: ';color:var(--muted)}.compare th,.compare td{padding:.5rem .25rem}}
+</style></head><body><div class="page"><header><nav aria-label="Breadcrumb"><a href="/">Development notes</a></nav><h1>Profile performance after service cleanup</h1><p>Combined findings for PR #10977, adjusted for PR #10994. Updated 15 October 2026.</p></header><main>
+<p class="verdict">Start from release plus service cleanup, then add the remaining performance improvements.</p>
+<p>The implementation will use a new worktree created from <code>origin/release-0.0.25</code>. Pull <code>hotfix/release-0.0.25/service-cleanup</code> into that worktree before making the improvements below. This is the planned starting point; this report update does not create the worktree or integrate either branch.</p>
+<p class="small">Branch heads verified on 15 October 2026: release <code>8439db8ab6</code>; service cleanup and <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10994/changes">PR #10994</a> <code>f1a883efbd</code>. Refresh the remote refs when implementation starts and record the actual combined baseline.</p>
+
+<h2>Included in the planned baseline</h2>
+<table><thead><tr><th>Service-cleanup change</th><th>How subsequent work must treat it</th></tr></thead><tbody>
+<tr><td>Posts render independently of ads</td><td>Keep <code>fetchPostsWithSkyscraperAds()</code> and late ad insertion across initial loads, pagination, and filters. Normal loading no longer waits for ads. Scroll and unlock restoration intentionally still wait to preserve list indexes.</td></tr>
+<tr><td>Six modals deferred until idle</td><td>Keep the existing modal defer block. Sidebar and welcome-video deferral remain separate improvements. Do not count the modal changes again as new work.</td></tr>
+<tr><td>Subscription cleanup</td><td>Keep the added teardown handling and replacement of the previous logged-in profile subscription. Preserve these changes when editing profile setup.</td></tr>
+</tbody></table>
+<p>PR #10994 covers the earlier recommendation to separate feed loading from ads. It leaves the image, deployment cache, visible profile SSR, and CSS improvements available to implement.</p>
+
+<h2>Implementation order</h2>
+<ol>
+<li>Refresh the remote refs, create the worktree from <code>origin/release-0.0.25</code>, and pull <code>hotfix/release-0.0.25/service-cleanup</code>. Complete the repository's skills-first workflow before implementation. Record measurements after this integration so improvements are compared against the correct baseline.</li>
+<li>Implement banner priority, tenant-safe logo sizing, and corrected S3 caching as independently reviewable changes.</li>
+<li>Trim Bootstrap CSS and defer the sidebar and welcome video. Preserve the modal defer block, component dependency imports, and sized placeholders.</li>
+<li>Implement visible profile SSR and consistent transferred-data consumption as a separate change. Keep authenticated refresh behavior and the baseline feed-loading logic intact.</li>
+<li>Consider secondary-request scheduling and the low-scoring items only where measurements show remaining value.</li>
+</ol>
+<p>Adapt selected changes from <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10977/changes">PR #10977</a> against this combined baseline. Do not restore its posts-and-ads <code>forkJoin</code> in place of the service-cleanup helper. The earlier three-way text comparison found two conflict blocks in TypeScript, in RxJS imports and <code>getOtherPosts()</code>; the HTML merged cleanly. Reconcile behavior even where text merges automatically.</p>
+
+<details><summary>Original reviewer comparison: GPT-6.1-sol 8.5/10, Grok 4.6 6.5/10</summary>
+<p>The first review found more concrete adoption risks and made fewer unsupported claims. Grok gave a clearer rollout order and a useful warning about the video placeholder, but its Angular import advice would preserve a likely build failure.</p>
+<table class="compare"><thead><tr><th>Review</th><th>My rating</th><th>Assessment</th></tr></thead><tbody>
+<tr><td><a href="t3-thread://v1/b161c0fc-2a26-4912-950f-8dfe3d7d3f6a">A · GPT-6.1-sol</a></td><td class="score">8.5 / 10</td><td>Stronger source analysis, cache and hydration reasoning, and calibration of expected gains.</td></tr>
+<tr><td><a href="t3-thread://v1/4ca38460-75fa-4d9b-913f-5f62e971db4e">B · Grok 4.6</a></td><td class="score">6.5 / 10</td><td>Useful prioritization and history checks. Several recommendations need correction before implementation.</td></tr>
+</tbody></table>
+<p class="small">These are my editorial ratings, weighted toward technical accuracy and adoption safety. Both reviewed the same checkout, <code>8439db8ab6</code>, against PR head <code>37ac9de83d</code>. Their different branch names do not explain the disagreements.</p>
+
+<h2>What decided the comparison</h2>
+<ol>
+<li><strong>Deferred component imports.</strong> A correctly flagged that the PR removes <code>ProfileSidebarComponent</code> and <code>WelcomeVideoPostComponent</code> while their selectors remain. B explicitly recommends removing the sidebar from the parent imports array. Keep the component dependencies declared; Angular generates the dynamic imports for eligible <code>@defer</code> content. See the <a href="https://angular.dev/tutorials/deferrable-views/1-what-are-deferrable-views">official example</a> and <a href="https://v21.angular.dev/guide/templates/defer">Angular 21 rules</a>.</li>
+<li><strong>SSR data handoff.</strong> A traced the specific problem: the PR uses <code>PRERENDERED</code> on the server and <code>REFRESH_EVERY_N</code> in the browser, but only the former reads this custom TransferState entry. B mentions hydration risk without explaining that mismatch. A provides the better starting point for a fix; runtime failure remains untested.</li>
+<li><strong>Timeouts and existing skeletons.</strong> B says the new 8-second timeouts conflict with an existing 10-second timeout. That timeout only runs in <code>PRERENDERED</code>; the affected welcome-video and merchandise calls use <code>REFRESH_EVERY_N</code>, and other calls use the API service directly. B also misses the existing <code>h-500</code> ad skeletons. A distinguishes existing height reservation from the PR's extra wrapper constraints.</li>
+<li><strong>Cache rollout and image quality.</strong> B rightly makes HTML cache headers urgent. A goes further by noticing that the helper still makes all non-HTML files immutable and that unchanged objects may retain old metadata. A also questions blanket removal of 2× image variants. B's “take ... for sure” claim lacks device-density or visual evidence.</li>
+</ol>
+</details>
+
+<h2>Remaining improvements after service cleanup</h2>
+<p class="small">Scores are adoption value out of 10, including effort and risk, rather than measured speedups. A and B retain the original review scores. The final score reflects remaining value after integrating service cleanup. The optional-request score falls from 5 to 3 because feed/ad separation is already included.</p>
+<table class="priorities"><thead><tr><th>Change</th><th>A / B / remaining</th><th>State after the planned integration and recommendation</th></tr></thead><tbody>
+<tr><td>Profile banner priority</td><td class="score">9 / 9 / <strong>9</strong></td><td>The directive supports priority, but this banner is lazy. Enable eager loading and high fetch priority. A small change with plausible LCP value.</td></tr>
+<tr><td>S3 cache headers</td><td class="score">6 / 9 / <strong>9</strong></td><td>The upload path makes HTML immutable. Fix this early for update correctness. Revalidate HTML and mutable manifests; keep immutable caching for fingerprinted assets. Verify metadata on existing objects. Express's policy does not fix S3 uploads.</td></tr>
+<tr><td>Visible profile SSR</td><td class="score">9 / 8 / <strong>8</strong></td><td>The visible profile is browser-gated. Render public first-paint content on the server, consume the same transferred data on the client, then refresh personalized state. High upside; needs its own change and hydration checks.</td></tr>
+<tr><td>Bootstrap CSS reduction</td><td class="score">7 / 8 / <strong>7</strong></td><td>The full Bootstrap stylesheet remains. Audit class use across tenant layouts and compare compressed output. B's preference for <code>@use</code> fits current repo conventions, but the partial build still needs a real compilation check.</td></tr>
+<tr><td>Defer sidebar and welcome video</td><td class="score">7 / 8, 7 / <strong>7</strong></td><td>Service cleanup defers modals; these two components remain eager. Retain Angular dependency imports and use suitable loading triggers. Add a sized video placeholder. Preserve the modal defer block and inspect actual chunks; shared dependencies and idle prefetch affect savings.</td></tr>
+<tr><td>Size the header logo</td><td class="score">7 / 6 / <strong>7</strong></td><td>Optimization already defaults to WebP. Add sizing appropriate to the displayed logo and tenant aspect ratio. Explicit WebP alone adds no new benefit.</td></tr>
+<tr><td>Delay secondary profile work</td><td class="score">6 / 7 / <strong>6</strong></td><td>Delay analytics and optional requests selectively. Preserve the service-cleanup subscription handling and prompt post rendering. <code>afterNextRender</code> plus a timer does not prove that paint or LCP has finished. Avoid delaying content the user immediately needs.</td></tr>
+<tr><td>Optional-request resilience</td><td class="score">5 / 2 / <strong>3</strong></td><td>Normal feed/ad separation is included in the baseline. Investigate remaining slow tags, merchandise, welcome-video requests, and restoration paths. Add targeted fallbacks or time bounds only where justified; do not reintroduce a normal feed wait or blanket 8-second timeouts.</td></tr>
+<tr><td>Ad skeleton wrapper heights</td><td class="score">3 / 6 / <strong>3</strong></td><td>Both templates already request 500px skeletons. Extra block hosts and minimum heights may help specific layouts, but demonstrate a collapse or layout shift before prioritizing this.</td></tr>
+<tr><td>Suppress priority-image 2× variants</td><td class="score">2 / 7 / <strong>2</strong></td><td>Do not adopt globally. The current code conditionally offers a 2× candidate; the browser chooses an image. Tune delivered pixels to display size and device density, then compare bytes and sharpness.</td></tr>
+<tr><td>Icon font <code>swap</code></td><td class="score">2 / 5* / <strong>2</strong></td><td>This changes the fallback behavior, not the font size. Check missing-glyph flashes before adopting. B grouped this with critical CSS, so its score is not directly comparable.</td></tr>
+<tr><td>Early translation cookie</td><td class="score">— / 4 / <strong>2</strong></td><td>B raises a possible returning-user translation flash. Keep this as a testable hypothesis. Neither review demonstrates a visible flash or a speed gain from restoring the shell script.</td></tr>
+</tbody></table>
+
+<h2>Already covered, or little value to port</h2>
+<table><thead><tr><th>Change</th><th>Combined</th><th>Disposition</th></tr></thead><tbody>
+<tr><td>Third-party CDN cleanup and duplicate Roboto removal</td><td class="score">0</td><td>Already present. B explicitly checked that <code>434d95ad91</code> is in the baseline history.</td></tr>
+<tr><td>On-demand Google Translate</td><td class="score">0</td><td>Already loads for a resolved non-English locale. Keep the newer implementation rather than restoring picker-open downloads.</td></tr>
+<tr><td>Idle GTM / GA loading</td><td class="score">0</td><td>Already implemented. The PR's documentation note adds no runtime improvement.</td></tr>
+<tr><td>Explicit generated <code>inlineCritical</code></td><td class="score">0</td><td>Production and QA already enable it; tenant generation clones the configuration. The extra assignment is a safeguard rather than a demonstrated new gain.</td></tr>
+<tr><td>Remove small WebSite JSON-LD</td><td class="score">0</td><td>Keep valid structured data. Neither review establishes a useful performance case for deleting it.</td></tr>
+<tr><td>Polyfills comment and existing theme-color change</td><td class="score">0</td><td>No additional performance behavior to adopt.</td></tr>
+</tbody></table>
+
+<h2>Validation for the implementation</h2>
+<p>Measure before and after each improvement against the release-plus-cleanup baseline. Check profile LCP and layout shifts, compressed CSS and JavaScript output, image requests and sharpness across tenant logos, and actual deployed cache headers including unchanged objects and mutable manifests.</p>
+<p>Exercise initial feeds, filters, pagination, delayed or failed ads, and scroll/unlock restoration. Check modal actions before and after idle loading, sidebar and video placeholders, and anonymous versus authenticated hydration. Run the applicable repository checks and builds with <code>--max_old_space_size=10048</code>; use the existing running app for browser checks.</p>
+
+<h2>Limits of both reviews</h2>
+<p>Neither produced before-and-after Lighthouse results, transfer-size comparisons, bundle measurements, or runtime hydration evidence. A states these limits more clearly. B uses stronger wording than its evidence supports, including “will CLS” for the video placeholder and certainty about skipping 2× images.</p>
+<p>My comparison used both full activity timelines and their published reports, then spot-checked disputed findings against the stored baseline and PR commits. This revision also accounts for the inspected #10994 diff and verified branch heads. The review did not change application code or create an implementation worktree. No application build or performance test ran. The original report previews both failed because the host browser sandbox was blocked.</p>
+<p class="small">Source reports: <a href="t3-thread://v1/b161c0fc-2a26-4912-950f-8dfe3d7d3f6a">A</a> · <a href="t3-thread://v1/4ca38460-75fa-4d9b-913f-5f62e971db4e">B</a>. Source checks: PR <code>profile.component.ts</code>, <code>profile.component.html</code>, upload helper; baseline <code>api-cache.service.ts</code>, image directive, skeleton templates and styles, <code>angular.json</code>, and tenant generator.</p>
+</main></div></body></html>

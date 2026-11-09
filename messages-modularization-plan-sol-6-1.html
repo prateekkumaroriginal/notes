@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A source-based plan to split the TopFans messages page into components with clear state ownership, typed contracts, and a staged migration.">
+<title>Make messages maintainable | TopFans</title>
+<style>
+:root{color-scheme:dark;--paper:#131A24;--panel:#1A2331;--ink:#E8EDF4;--muted:#8593A6;--dim:#4E5B6E;--rule:#2A3546;--minus:#F0776F;--plus:#5FCF8F;--focus:#8FB4FF}
+*{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:1.5rem}body{margin:0;background:var(--paper);color:var(--muted);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6}h1,h2,h3,p,ul,ol,figure,table,dl,dd{margin:0}h1,h2,h3,th,strong{color:var(--ink)}h1{padding-bottom:.75rem;line-height:1.15}h2{padding-bottom:.75rem;line-height:1.3}h3{padding-bottom:.4rem}a{color:var(--focus);text-underline-offset:.2em;border-radius:.25rem;overflow-wrap:anywhere}a:focus-visible{outline:2px solid var(--focus);outline-offset:4px}.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}main{padding-top:3rem}section+section{padding-top:2.5rem}.stack{display:grid;gap:1rem}.items{display:grid;gap:1.75rem}.meta,.fine{font-size:.875rem}.meta{padding-top:1rem}.lead{color:var(--ink)}nav{padding-top:1.5rem}nav ul{list-style:none;display:flex;flex-wrap:wrap;gap:.5rem 1.25rem;padding:0}ul,ol{padding-left:1.4rem}li+li{padding-top:.5rem}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.875em;background:var(--panel);color:var(--focus);padding:.1em .3em;border-radius:.3rem;overflow-wrap:anywhere}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem}.metrics dt{color:var(--ink);font-size:1.75rem;font-weight:650}.metrics dd{font-size:.875rem}.table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:.6rem}table{width:100%;border-collapse:collapse;font-size:.9375rem}th,td{text-align:left;vertical-align:top;padding:.85rem}th{background:var(--panel)}tbody tr+tr{border-top:1px solid var(--rule)}td:first-child{color:var(--ink)}.tree,.tree ul{list-style:none}.tree{padding:0}.tree ul{padding:.6rem 0 0 1.25rem}.tree li+li{padding-top:.9rem}.tree .node{color:var(--ink);font-weight:600}.tree .note{display:block;font-size:.875rem;padding-top:.1rem}.tree code{background:none;padding:0;color:var(--ink)}.good{color:var(--plus)}.risk{color:var(--minus)}.phase{color:var(--focus)}.references li{overflow-wrap:anywhere}caption{text-align:left;padding:.65rem .85rem;color:var(--ink);font-weight:600}@media(max-width:720px){.page{padding-block:3rem}.metrics{gap:.7rem}.metrics dt{font-size:1.45rem}th,td{padding:.65rem}.tree ul{padding-left:.85rem}}@media(max-width:600px){.table-wrap{border:0;overflow:visible}table,tbody,tr,td{display:block}caption{display:block;padding:0 0 .75rem}thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}th,td{padding:0}tbody tr+tr{border:0;padding-top:1.75rem}td+td{padding-top:.65rem}td::before{content:attr(data-label);display:block;color:var(--ink);font-weight:600;font-size:.875rem;padding-bottom:.15rem}td:first-child{color:var(--focus)}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media print{body{background:#fff;color:#333}.page{width:100%;padding:0}h1,h2,h3,strong,th,td:first-child,.tree .node{color:#111}code,th{background:#eee;color:#222}a{color:#222}.table-wrap{overflow:visible}tr{break-inside:avoid}nav{display:none}}
+</style>
+</head>
+<body>
+<div class="page">
+<header>
+<h1>Make messages maintainable</h1>
+<p class="lead">Split the page by responsibility. Give each piece one owner for its state, move transport and payment work out of the UI, and preserve the current inbox, history, and send behavior one extraction at a time.</p>
+<p class="meta">TopFans web frontend · Source reviewed 7 October 2026 · Base revision <code>61843a4e3b</code>, with the current working tree · Proposed refactor, application code unchanged</p>
+<nav aria-label="Document sections"><ul><li><a href="#current">Current code</a></li><li><a href="#components">Component boundaries</a></li><li><a href="#ownership">State ownership</a></li><li><a href="#contracts">Contracts</a></li><li><a href="#migration">Migration order</a></li><li><a href="#verification">Verification</a></li></ul></nav>
+</header>
+<main>
+<section id="current" class="stack">
+<h2>The container owns too much</h2>
+<dl class="metrics" aria-label="Current message container file sizes"><div><dt>4,746</dt><dd>TypeScript lines</dd></div><div><dt>3,180</dt><dd>HTML lines</dd></div><div><dt>1,228</dt><dd>SCSS lines</dd></div></dl>
+<p>Those 9,154 lines belong to one component. It searches and pages the inbox, selects recipients, fetches history, merges live events, validates DMs, records audio, uploads media, chooses payment paths, manages broadcasts, edits automated messages, opens dialogs, and controls scroll position.</p>
+<p>The size is a symptom. The real problem is that changing one job requires understanding all the others. <code>sendMessageApiCall()</code> alone mixes socket payloads, DM credits, tips, guaranteed replies, and payment navigation.</p>
+<div class="table-wrap"><table><caption>Existing code that defines the extraction boundaries</caption><thead><tr><th scope="col">Responsibility</th><th scope="col">Current location</th><th scope="col">Why it needs its own owner</th></tr></thead><tbody>
+<tr><td data-label="Responsibility">Inbox and selection</td><td data-label="Current location">TS <code>723-857</code>, <code>3865-3962</code>, <code>4029-4050</code><br>HTML <code>28-533</code></td><td data-label="Why it needs its own owner">Search, cursor, tab counts, recipient selection, and row actions share mutable lists.</td></tr>
+<tr><td data-label="Responsibility">Thread and live messages</td><td data-label="Current location">TS <code>2810-3072</code>, <code>3359-3545</code><br>HTML <code>734-1872</code></td><td data-label="Why it needs its own owner">History replacement must retain live events. Older pages must preserve the reader's scroll position.</td></tr>
+<tr><td data-label="Responsibility">Draft, attachments, and sending</td><td data-label="Current location">TS <code>1104-1141</code>, <code>1535-1780</code>, <code>2018-2717</code><br>HTML <code>1874-3024</code></td><td data-label="Why it needs its own owner">Draft fields and send jobs share arrays, recipient fields, upload progress, and payment state.</td></tr>
+<tr><td data-label="Responsibility">Automated messages</td><td data-label="Current location">TS <code>634-660</code>, <code>4326-4360</code><br>HTML <code>3046-3117</code></td><td data-label="Why it needs its own owner">A separate feature tab still lives inside the chat container. Its existing media editor repeats composer logic.</td></tr>
+<tr><td data-label="Responsibility">Share content and dialogs</td><td data-label="Current location">TS <code>4383-4647</code><br>HTML <code>3105-3180</code></td><td data-label="Why it needs its own owner">Share URL creation, item deduplication, preview state, and dialog references pull unrelated imports into the shell.</td></tr>
+</tbody></table></div>
+<p class="fine">Line references are relative to <code>components/message-container/message-container.component.*</code> under <code>src/app/modules/messages/</code>. They identify today's code, not permanent interfaces.</p>
+</section>
+
+<section id="preserve" class="stack">
+<h2>Keep the recent behavior</h2>
+<p>The current source already has cursor pagination, cancellation on tab or thread changes, an open-thread presence poll, and history responses that can include DM validation. An older plan in notes recommends separate history and permission requests. That recommendation no longer matches this checkout.</p>
+<ul>
+<li>Keep the existing lazy <code>MESSAGES_ROUTES</code> entry, access guards, and <code>canDeactivateGuard</code>. The route already uses a standalone container. A new NgModule would add work without fixing ownership.</li>
+<li>Keep <code>ApiCacheService</code> for inbox and presence GETs. History is a POST through <code>ApiCallService</code>, even though it reads data. Preserve <code>groupId</code>, <code>cursor</code>, <code>from</code>, and <code>includeValidation</code>.</li>
+<li>Keep <code>mergeHistoryWithLiveMessages()</code> and its pending-event buffer when moving history. A socket event can arrive before the first history page returns.</li>
+<li>Keep server counts as the authority when the socket provides them. Preserve the fallback count updates when counts are absent.</li>
+<li>Keep message actions disabled while DM validation loads or fails. Readable history and permission status need separate fields even though one request returns both.</li>
+<li>Keep tenant recipient defaults, owner self-chat checks, delegate permissions, age restrictions, and mobile back navigation. These decisions belong in typed page policy, not repeated template conditions.</li>
+</ul>
+</section>
+
+<section id="components" class="stack">
+<h2>The component split</h2>
+<p>Keep <code>MessageContainerComponent</code> as the route shell. It chooses the active page tab, applies route inputs, handles the mobile layout, and delegates the navigation guard. It should have no upload pipeline, socket-event parsing, or payment branch.</p>
+<figure>
+<ul class="tree" aria-label="Proposed component hierarchy">
+<li><span class="node">MessageContainerComponent</span><span class="note">Existing route entry. Page layout, route context, access policy, navigation guard.</span>
+<ul>
+<li><span class="node">MessagesInboxComponent</span><span class="note">Search, Priority / General / Bulk tabs, cursor loading, empty and error states.</span><ul><li><span class="node">ConversationRowComponent</span><span class="note">Avatar, badges, preview, unread count, selection and row action intents. Direct and mailing-list row variants.</span></li></ul></li>
+<li><span class="node">MessageThreadComponent</span><span class="note">Selected conversation layout and coordination. It passes view models to its children.</span><ul>
+<li><span class="node">ThreadHeaderComponent</span><span class="note">Participant or group title, presence, badges, block/report, mobile back.</span></li>
+<li><span class="node">MessageTimelineComponent</span><span class="note">Scroll viewport, older-page trigger, date groups, history loading and errors.</span><ul>
+<li><span class="node">MessageBubbleComponent</span><span class="note">Sender, time, delivery state, text, tip/dispute notices, and message actions.</span></li>
+<li><span class="node">MessageMediaComponent</span><span class="note">Image, video, audio, file, locked-media, and shared-item variants. Reuse existing player and preview components.</span></li>
+</ul></li>
+<li><span class="node">MessageComposerComponent</span><span class="note">Text entry, send intent, access notices, and local draft controls.</span><ul>
+<li><span class="node">MessageAttachmentEditorComponent</span><span class="note">Paid attachments, free previews, ordering, limits, removal, and price intent.</span></li>
+<li><span class="node">MessageRecorderComponent</span><span class="note">Record, stop, cancel, preview, and waveform. Browser-only resources.</span></li>
+<li><span class="node">MessageTipPickerComponent</span><span class="note">Preset and custom amount UI. Payment decisions stay outside it.</span></li>
+</ul></li>
+</ul></li>
+<li><span class="node">AutomatedMessagesPanelComponent</span><span class="note">List, create/edit/delete, loading, and retry. Reuse the existing automated-message modal.</span></li>
+</ul></li>
+</ul>
+</figure>
+<p>The tree describes ownership. Do not create an empty component for every line in it on day one. Extract the inbox and automated panel as complete units. Split a media variant into another component only when its player, inputs, or lifecycle justify that file.</p>
+<p>Keep these components inside <code>src/app/modules/messages/components/</code>. Common buttons, tabs, icons, tables, and skeletons come from <code>src/app/components/</code>. Feature components should not become global shared components just because two message screens use them.</p>
+</section>
+
+<section id="ownership" class="stack">
+<h2>Give state one owner</h2>
+<p><span class="risk">Moving all 4,746 lines into a MessagesService would leave the same problem.</span> Use small owners with typed state and commands. A page coordinator connects their results. It does not hold another copy of their arrays.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Proposed owner</th><th scope="col">Owns</th><th scope="col">Lifetime and limits</th></tr></thead><tbody>
+<tr><td data-label="Proposed owner"><code>MessagesPageCoordinator</code></td><td data-label="Owns">Selected conversation, route intent, page tab, tenant/delegate context. Connects inbox, thread, and send results.</td><td data-label="Lifetime and limits">Provide at the container. No raw HTTP, media files, or payment implementation.</td></tr>
+<tr><td data-label="Proposed owner"><code>MessagesInboxStore</code></td><td data-label="Owns">Rows, search, active inbox tab, cursor, counts, loading/error states, and immutable row updates.</td><td data-label="Lifetime and limits">Container-scoped. Replace cancels the old query. Append is guarded by the current tab, search, and request generation.</td></tr>
+<tr><td data-label="Proposed owner"><code>MessageThreadStore</code></td><td data-label="Owns">History, cursor, validation, buffered live events, presence subscription, message identity, and merge results.</td><td data-label="Lifetime and limits">Container-scoped. Reset on selection. Late history and validation results must match the current selection generation.</td></tr>
+<tr><td data-label="Proposed owner"><code>MessageDraftStore</code></td><td data-label="Owns">Text, attachments, free previews, price, selected share content, and tip amount.</td><td data-label="Lifetime and limits">Provide at each composer/editor owner. The automated editor gets a separate instance. Preserve current reset behavior across selection.</td></tr>
+<tr><td data-label="Proposed owner"><code>MessageSendCoordinator</code></td><td data-label="Owns">Immutable send jobs, upload progress, eligibility decision, credit consumption, payment handoff, and optimistic send result.</td><td data-label="Lifetime and limits">Container-scoped to match the page queue and guard. Jobs retain their original recipient when the user opens another thread.</td></tr>
+<tr><td data-label="Proposed owner"><code>AutomatedMessagesStore</code></td><td data-label="Owns">Automated-message list, CRUD status, selected edit item, and refresh after save/delete.</td><td data-label="Lifetime and limits">Panel-scoped. No dependency on live thread history.</td></tr>
+<tr><td data-label="Proposed owner"><code>MessagesApiService</code></td><td data-label="Owns">Existing endpoints, request builders, response typing, and cache choice.</td><td data-label="Lifetime and limits">Stateless root singleton. GETs use <code>ApiCacheService</code>, mutations and history POST use <code>ApiCallService</code>.</td></tr>
+<tr><td data-label="Proposed owner"><code>MessageMediaService</code></td><td data-label="Owns">File classification, compression, thumbnail creation, upload operations, and share URL requests.</td><td data-label="Lifetime and limits">Stateless root singleton. Progress and cancellation belong to the owning draft or send job, never singleton fields.</td></tr>
+</tbody></table></div>
+<p>Keep the existing root <code>ChatService</code> as transport. The shared header creates its connection, and the post-payment page also sends through it. The messages page owns its event subscription. It must not disconnect the global socket when a child component closes.</p>
+<p>A single page-level socket adapter should decode incoming events and pass typed events to the stores. Move broadcast status handling into that adapter too. Today's <code>sliceMessageFromMessageQueue()</code> adds another socket subscription after a broadcast send.</p>
+<p>Retain the current route-provided <code>AudioRecordingService</code> initially. Put recording subscription and stop/cancel ownership in the recorder, and make sure opening automated messages cannot deliver a recorded blob to the direct-message draft.</p>
+</section>
+
+<section id="contracts" class="stack">
+<h2>Define contracts before moving state</h2>
+<p>Reuse Angular's existing <code>input()</code> and <code>output()</code> style. Children receive read-only view models and emit user intents. Do not pass the parent component, a bag of callbacks, or shared mutable arrays into them.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Boundary</th><th scope="col">Input</th><th scope="col">Output or command</th></tr></thead><tbody>
+<tr><td data-label="Boundary">Inbox</td><td data-label="Input"><code>InboxViewModel</code> with rows, counts, tab, query and load states</td><td data-label="Output or command">Select a <code>ConversationRef</code>, change tab/query, load next page, create/edit/delete list intent</td></tr>
+<tr><td data-label="Boundary">Header</td><td data-label="Input"><code>ThreadHeaderViewModel</code> with participants, presence and allowed actions</td><td data-label="Output or command">Back, open profile, block, report, edit participants</td></tr>
+<tr><td data-label="Boundary">Timeline</td><td data-label="Input"><code>ThreadViewModel</code> with grouped messages, page state and stable IDs</td><td data-label="Output or command">Load older page, retry history, preview media, request unlock</td></tr>
+<tr><td data-label="Boundary">Composer</td><td data-label="Input"><code>DraftViewModel</code>, <code>ComposerPolicy</code> and current job state</td><td data-label="Output or command">Draft changes, submit snapshot, retry validation, price/share/tip intent</td></tr>
+<tr><td data-label="Boundary">Attachment editor</td><td data-label="Input">Ordered attachments, free previews, price, limits and allowed media kinds</td><td data-label="Output or command">Add/remove/reorder/move item, change price. No socket or DM-credit calls.</td></tr>
+<tr><td data-label="Boundary">Automated panel</td><td data-label="Input">Account policy and its own list state</td><td data-label="Output or command">Create/edit/delete and refresh. Its editor returns a saved result.</td></tr>
+<tr><td data-label="Boundary">Send job</td><td data-label="Input"><code>SendJob</code> with client ID, conversation, recipient, tenant, draft snapshot and payment context</td><td data-label="Output or command">Progress, payment handoff, submitted result or failure, matched by job ID</td></tr>
+</tbody></table></div>
+<p>Add models under <code>interfaces/</code> for conversation references, message records, drafts, socket events, view models, and send jobs. Parse JSON and normalize legacy payloads at the API/socket boundary. Map the existing misspelled <code>uinqueId</code> field there; keep the backend payload compatible.</p>
+<p>Put pure identity, sorting, day grouping, inbox-count, and merge functions under <code>helpers/</code>. The current older-page merge uses <code>sk || timeStamp</code>, while the live merge uses <code>sk || message_id || uinqueId || id</code>. Characterize both first, then agree on one identity rule. A timestamp alone can collide.</p>
+<p>Do not introduce a second global state library for this feature. Use typed local state and the project's existing RxJS patterns for request cancellation. Adopt <code>OnPush</code> in an extracted component after its owner replaces arrays and objects rather than mutating them.</p>
+</section>
+
+<section id="sending" class="stack">
+<h2>Treat each send as a job</h2>
+<p>The send path is the highest-risk extraction. A job must capture its conversation and recipient before upload begins. Reading <code>this.sid</code>, <code>this.gsi4pk</code>, or the currently selected tip amount after an asynchronous step can mix two conversations.</p>
+<ol>
+<li>Validate the draft and current composer policy. Preserve whitespace checks, media limits, age/delegate restrictions, guaranteed-reply prompts, and minimum-tip rules.</li>
+<li>Capture a typed draft snapshot, recipient, tenant owner ID, client message ID, and the relevant validation context.</li>
+<li>Upload that job's media and thumbnails. Keep free previews and paid attachments in their recorded order.</li>
+<li>Choose the current credit, paid-DM, tip, combined-payment, guaranteed-reply, or broadcast path. Keep the decision in the send coordinator, using a pure eligibility helper where possible.</li>
+<li>Apply the result to the original thread and inbox. Match optimistic items by client/server IDs. Clear only the draft that produced the job; a later edit must survive.</li>
+<li>Settle progress and guard state on completion, failure, cancellation, or payment handoff according to current behavior.</li>
+</ol>
+<p class="risk">The code currently marks some socket sends complete immediately after <code>chatService.send()</code>. Preserve that meaning during extraction. Do not rename it "delivered" or invent a server acknowledgement. Payment retry and socket acknowledgement rules need backend confirmation before behavior changes.</p>
+<p>Start by moving existing branches intact and testing their results. Refactor payment selection after the job boundary is stable. Do not bundle billing changes with the component split.</p>
+</section>
+
+<section id="styles" class="stack">
+<h2>Move styles and dialogs with their owners</h2>
+<p>Angular style encapsulation makes this part easy to miss. Container selectors such as <code>.messages-left .messages-item</code> will stop reaching markup moved into a child. Move those selectors into the child's SCSS in the same change. Check <code>src/assets/scss/_messages.scss</code> too, since global styles also reach the page.</p>
+<ul>
+<li>Keep only page columns, page tabs, and responsive shell layout in the container SCSS. Inbox rows, bubbles, composer controls, and recorders own their respective styles.</li>
+<li>Use the six configured theme variables from <code>.guides/color-guide.md</code> in the Angular UI. Use <code>--theme-interactive-link</code> for link text, since the theme color can be a gradient. The palette on this document is only for notes.</li>
+<li>Create message-specific modal components around <code>AlertModalComponent</code> for inline delete-list, tip-required, and guaranteed-reply dialogs. Keep existing shared dialogs reusable and leave their other consumers intact.</li>
+<li>Give each dialog typed input data and a result event. The store or coordinator performs the operation after confirmation. Avoid a new universal dialog manager that imports every modal.</li>
+<li>Group labels, validation messages, media kinds, socket actions, and dialog copy into related <code>const</code> objects. Extract existing hardcoded copy when moving each block. Use <code>as const</code>, not new enums.</li>
+<li>Use the dynamic form builder when it supports every required field type. Custom attachment ordering, recording, and rich composer behavior can remain dedicated components.</li>
+<li>Put inbox and thread skeletons under <code>src/app/components/skeleton/</code>. Match their final geometry and theme colors. Reuse the available listing/table skeletons when they fit.</li>
+</ul>
+<p>Text input should use Angular bindings. Focus, selection, canvas rendering, and scroll measurement may need a small <code>ViewChild</code> boundary. Remove document-wide queries, manual textarea value writes, and dropdown class manipulation as their UI moves.</p>
+</section>
+
+<section id="migration" class="stack">
+<h2>Migration order</h2>
+<p>Each step should leave the application usable. Move one responsibility, remove its old implementation, and verify its behavior before starting the next step. Keep the existing selector and route so callers do not need to change.</p>
+<div class="items">
+<article><h3><span class="phase">1.</span> Capture behavior and establish the types</h3><p>Record creator, fan, delegate, broadcast, and tenant flows. Add the boundary models and characterize history/live merge, count updates, and send eligibility. Extract pure helpers without changing their behavior. Record the route's loaded chunks as a baseline.</p><p class="fine">Ready when replayable fixtures explain selection, pagination, counts, validation, and payment branches. Identify the current draft-reset behavior before assigning a new owner.</p></article>
+<article><h3><span class="phase">2.</span> Extract automated messages</h3><p>Move the table, loading state, list fetch, CRUD callbacks, and delete confirmation into <code>AutomatedMessagesPanelComponent</code> and its store. Keep <code>AutomatedMessageModalComponent</code>. Convert its GET to <code>ApiCacheService</code> with an explicit refresh after writes. Leave its current media editor in place until the shared editor step.</p><p class="fine">Ready when create, edit, delete, retry, and reopening the panel work without live-thread fields or container callbacks. This is the first implementation slice I would take.</p></article>
+<article><h3><span class="phase">3.</span> Extract inbox and selection</h3><p>Move the left column and rows, then move cursor/search/count ownership into <code>MessagesInboxStore</code>. Connect selected conversation intents through the page coordinator. Preserve default tabs, deep links, mailing lists, participant edits, and white-label owner selection.</p><p class="fine">Ready when rapid tab/search changes cannot apply stale results and each row action works on its original conversation. The container no longer owns inbox arrays.</p></article>
+<article><h3><span class="phase">4.</span> Extract thread, history, and live events</h3><p>Move header and timeline templates with their SCSS. Move history, validation, cancellation, merge helpers, and presence into the thread store. Keep scrolling in the timeline component. Replace the multiple page socket subscriptions with one typed event adapter.</p><p class="fine">Ready when an A-to-B-to-A switch rejects old responses, a live event survives first-page loading, overlapping pages do not duplicate messages, and prepending history holds the reading position.</p></article>
+<article><h3><span class="phase">5.</span> Extract composer, media, and send jobs</h3><p>Give the composer its draft store and explicit snapshot submit contract. Move recording and attachment editing, then move the upload/payment/socket flow into the send coordinator. Replace the automated modal's old <code>ImageAudioMessageComponent</code> with the same attachment editor and a separate draft instance. Remove the duplicate logic once both consumers pass.</p><p class="fine">Ready when switching threads during an upload cannot change its recipient, a newer draft survives an earlier send result, payment paths match existing payloads, and automated-message files never enter the chat draft.</p></article>
+<article><h3><span class="phase">6.</span> Remove the remaining coupling</h3><p>Move inline dialogs into their owners. Replace broad DOM mutations and scattered subscriptions with owned teardown. Remove obsolete state, imports, duplicated media code, and migrated styles. Enable <code>OnPush</code> only after immutable updates work. Remove the unconditional <code>ngAfterViewChecked()</code> detection loop once the page no longer depends on it.</p><p class="fine">Ready when the shell handles layout, route intent, policy and navigation only. Optional code can then load on demand if bundle inspection shows a benefit.</p></article>
+</div>
+</section>
+
+<section id="lifecycle" class="stack">
+<h2>Fix teardown at the extraction boundary</h2>
+<p>Today's container has two destroy subjects and a subscription array. <code>ngOnDestroy()</code> emits <code>destroyV2$</code>, but does not emit <code>destroy$</code>, which several upload/payment/share subscriptions use. It also binds <code>awsRequest.abort</code> without invoking the bound function. Those are concrete cleanup gaps.</p>
+<p>Use <code>takeUntilDestroyed()</code> tied to the component-scoped owner's <code>DestroyRef</code> for lifetime cleanup. Keep separate cancellation for replaceable inbox queries, selected threads, presence polls, and individual upload jobs. Component destruction and thread replacement are different events.</p>
+<ul>
+<li>Cancel the prior presence poll on selection and page exit. Keep browser-only work out of SSR.</li>
+<li>Stop the microphone, remove listeners, revoke owned object URLs, and call the actual upload abort operation when its owner cancels.</li>
+<li>Protect writes with a selection generation or request identity. Checking only the conversation ID is insufficient for A-to-B-to-A navigation.</li>
+<li>Keep the shell's navigation guard connected to active send jobs. The current guard checks the queue, not unsent text. Adding a draft warning would be a separate product change.</li>
+</ul>
+</section>
+
+<section id="verification" class="stack">
+<h2>Verification that catches real regressions</h2>
+<p>Test the data transitions that span requests and UI owners. Snapshot tests for extracted markup will not catch a message sent to the wrong recipient.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Scenario</th><th scope="col">Required result</th></tr></thead><tbody>
+<tr><td data-label="Scenario">Inbox search, tab change, scroll</td><td data-label="Required result">Each query starts with its own cursor. Late responses cannot replace a newer result. Append does not reset existing rows or count badges.</td></tr>
+<tr><td data-label="Scenario">Thread A → B → A with delayed history</td><td data-label="Required result">Only the latest selection generation can write history, validation, presence, or loading states.</td></tr>
+<tr><td data-label="Scenario">Socket event during first-page fetch</td><td data-label="Required result">The event remains after history replacement. A server ID or client ID present in both sources produces one message.</td></tr>
+<tr><td data-label="Scenario">Older history with overlap</td><td data-label="Required result">Repeated messages do not duplicate. Date groups remain correct. The viewport retains its reading position.</td></tr>
+<tr><td data-label="Scenario">Missing or failed DM validation</td><td data-label="Required result">History stays readable when available. Send/unlock/payment actions stay disabled. Retry uses the current thread.</td></tr>
+<tr><td data-label="Scenario">Inbox socket counts</td><td data-label="Required result">Server counts take precedence. Local fallback changes do not double-count outgoing events or active-thread reads.</td></tr>
+<tr><td data-label="Scenario">Send/payment combinations</td><td data-label="Required result">Free or unlimited credits, exhausted credits, tip, DM plus tip, guaranteed reply, broadcast and followers keep the same destination and payload. Failed operations release loading state.</td></tr>
+<tr><td data-label="Scenario">Upload followed by a thread switch</td><td data-label="Required result">The job retains the original recipient and tenant. Its result updates that conversation without clearing the new draft. Queue guard remains active.</td></tr>
+<tr><td data-label="Scenario">Paid and free media</td><td data-label="Required result">Limits, drag/drop order, thumbnails, locked-media unlock, price, previews, downloads, audio and share links still work.</td></tr>
+<tr><td data-label="Scenario">Automated-message editing</td><td data-label="Required result">Create/edit/delete, media patching, prices, form validation and refresh work. Recording and attachments stay isolated from the direct-message composer.</td></tr>
+<tr><td data-label="Scenario">Page leave and return</td><td data-label="Required result">No accumulated socket handlers, polls, recorder subscriptions, object URLs, or abandoned uploads. Global chat transport remains available to other pages.</td></tr>
+<tr><td data-label="Scenario">Main site and tenant</td><td data-label="Required result">Creator, fan, delegate, age restriction, owner default chat, self-chat exclusion, disabled DMs, configured links and mobile layout behave as before.</td></tr>
+</tbody></table></div>
+<p>Use unit tests for merge/identity/count helpers and eligibility rules. Use controlled API/socket streams for cancellation and send-job integration tests. Use browser checks for scroll anchoring, modals, media playback, responsive layout, keyboard focus, and tenant themes.</p>
+<p>Run <code>npm run build-dev</code> with the project's 10 GB memory setting. Repeat a representative generated white-label build using its actual generated project name and configuration. This checkout currently lists only <code>TopFans</code> in <code>angular.json</code>, so tenant build setup must come from the existing automation. Do not edit generated environments.</p>
+<p>Check browser and SSR compilation, lazy route access, AOT template checking, and loaded chunks. The outer messages route is already lazy. Extracting a statically imported child does not automatically reduce the route bundle. Defer automated UI, players, or pickers only in a later measured change, with a loading state and no eager references defeating the split.</p>
+</section>
+
+<section id="done" class="stack">
+<h2>What completion looks like</h2>
+<ul>
+<li>The shell has no API calls, raw socket parsing, media upload loops, payment branches, or direct access to child draft fields.</li>
+<li>Inbox, thread, draft, send queue, and automated messages each have one authoritative state owner. Their public contracts use named types instead of <code>any</code>.</li>
+<li>A row or bubble consumes a view model and emits intents. It cannot mutate the parent's arrays.</li>
+<li>Direct and automated messages use the same attachment editor with independent drafts. Legacy duplicate media code is removed.</li>
+<li>New modal components use <code>AlertModalComponent</code>. Migrated copy uses grouped constants. Every extracted component has its own SCSS and verified tenant theme.</li>
+<li>The regression cases above pass on the main project and a generated tenant. No unconditional view-check detection loop or document-wide UI mutations remain in the messages feature.</li>
+</ul>
+<p>I would start with automated messages, then inbox ownership. Those changes establish the component and state pattern before touching the upload and payment path. File count is not the success measure. Being able to change inbox search without reading send-credit logic is.</p>
+</section>
+
+<section id="evidence" class="stack">
+<h2>Source notes</h2>
+<ul class="references">
+<li><code>src/app/modules/messages/components/message-container/message-container.component.ts</code>, <code>.html</code>, and <code>.scss</code>. Primary source for file sizes, responsibilities, send paths, state and cleanup.</li>
+<li><code>src/app/modules/messages/messages.routes.ts</code> and <code>src/app/app-routing.module.ts:150</code>. Existing lazy routing, access guards and route-scoped recording provider.</li>
+<li><code>src/app/modules/messages/components/automated-message-modal/</code> and <code>components/image-audo-message/</code>. Existing modal and duplicated attachment/recording editor. The folder spelling is current source.</li>
+<li><code>src/app/services/chat.service.ts</code>, <code>src/app/modules/shared/components/header/header.component.ts:726</code> and <code>src/app/modules/dashboard/components/post-payment/post-payment.component.ts:2862</code>. Shared socket ownership and another send consumer.</li>
+<li><code>src/app/modules/messages/constants/messages.constant.ts</code>, <code>interfaces/messages.interface.ts</code>, <code>src/assets/scss/_messages.scss</code> and the four <code>.guides/</code> files. Existing payload builders, types, styles and repository conventions.</li>
+<li>Colors copied from <a href="https://notes.prateekkumar.site/angular-15-to-lts-upgrade.html#p1s1">the Angular upgrade reference</a>. Background <code>#131A24</code>, panel <code>#1A2331</code>, text <code>#E8EDF4</code>, muted <code>#8593A6</code>, rules <code>#2A3546</code>, blue <code>#8FB4FF</code>, green <code>#5FCF8F</code>, red <code>#F0776F</code>.</li>
+</ul>
+<p class="fine">This document records source inspection and proposed implementation checkpoints. It does not claim application runtime tests, measured speed gains, or an implemented refactor.</p>
+</section>
+</main>
+</div>
+</body>
+</html>

@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10927-grok-4-7</title>
+<meta name="description" content="Do not merge PR 10927. The new S3 upload code adds a CRC32 checksum and does not turn it off.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10927-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,p,ul,ol,pre { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+p,li,td,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+.bad { color: var(--pink); } .warn { color: var(--amber); }
+.meta,nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+.stack { display: grid; gap: 1rem; }
+ul,ol { padding-left: 1.25rem; }
+li + li { padding-top: .65rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } th,td { padding: .65rem; } }
+</style></head><body><div class="page">
+<header>
+<a href="/">All notes</a>
+<div><h1>PR 10927-grok-4-7</h1><p>Do not merge it. The new upload code adds a CRC32 checksum and does not turn it off.</p></div>
+<div class="meta"><span>Reviewed 8 October 2026</span><span>Open</span><span>29 files</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10927">Pull request 10927</a> · Base <code>hotfix/release-0.0.23/wls-21-priority</code> · Head <code>ba4d719d6e5a</code></p>
+<nav aria-label="Review sections"><a href="#why">Why</a><a href="#who">Affected areas</a><a href="#next">Before you merge</a><a href="#qa">Human QA</a></nav>
+</header>
+<main>
+<section id="why" class="stack">
+<h2>Why</h2>
+<p class="bad">No.</p>
+<p>This pull request replaces the browser code that uploads files to S3. The target branch is the white-label hotfix.</p>
+<p>The new code uses AWS SDK 3.1147. That SDK adds a CRC32 checksum when the client does not set a checksum option. This client does not set that option. SDK version 2 did not send this checksum.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>File size</th><th>What happens</th></tr></thead>
+<tbody>
+<tr><td>Under 5 MB</td><td>One <code>PutObject</code> request. The request includes the header <code>x-amz-checksum-crc32</code>. The upload can fail at the start.</td></tr>
+<tr><td>Over 5 MB</td><td>A multipart upload with checksum CRC32. The progress bar can move. The complete request can fail if the browser cannot read <code>x-amz-checksum-crc32</code>.</td></tr>
+</tbody>
+</table></div>
+<p class="warn">I did not upload a file. GitHub shows a clean merge and no checks.</p>
+</section>
+<section id="who" class="stack">
+<h2>Affected areas</h2>
+<p>TopFans and each white-label site from this hotfix use the same upload service. A checksum failure stops uploads in all of these areas.</p>
+<ul>
+<li>Posts. Video, reel, audio, image, article, and the other post types.</li>
+<li>Messages. Attachments, automated messages, and comment video.</li>
+<li>Store. Courses, lessons, downloadables, VIP offers, experiences, and merchandise.</li>
+<li>Profile and site pages. Portfolio, welcome message, forum, identity, setup, and white-label images.</li>
+<li>Forms. The file input and the fan CSV import use the same helper.</li>
+</ul>
+</section>
+<section id="next" class="stack">
+<h2>Before you merge</h2>
+<ol>
+<li>Set these two options on the S3 client in <code>browser-s3-upload.ts</code>.</li>
+<li>Delete <code>src/wls-config.json</code>. The file contains <code>{}</code>. No code reads it.</li>
+<li>A person runs the checks below on QA. I did not run them.</li>
+</ol>
+<pre><code>requestChecksumCalculation: 'WHEN_REQUIRED',
+responseChecksumValidation: 'WHEN_REQUIRED',</code></pre>
+<p>The post output name is now <code>statusChange</code>. The parent template uses that name. The SDK loads when an upload starts. A normal page render does not load it.</p>
+</section>
+<section id="qa" class="stack">
+<h2>Human QA</h2>
+<p>A person must do these checks in a browser on QA. Watch the network tab for <code>x-amz-checksum-crc32</code> and for a CORS error.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Check</th><th>Pass when</th></tr></thead>
+<tbody>
+<tr><td>Post a JPEG under 5 MB on TopFans.</td><td>The image appears. The progress bar reaches the end. The console has no CORS error.</td></tr>
+<tr><td>Post a video over 5 MB on TopFans.</td><td>The upload finishes. The video plays from the CDN URL.</td></tr>
+<tr><td>Cancel that video while it uploads.</td><td>The upload stops. The post does not keep a broken file.</td></tr>
+<tr><td>Send a message with an image, and one with a video.</td><td>Both messages send. Each file opens.</td></tr>
+<tr><td>Import a fan CSV.</td><td>The file URL is a CDN URL. Confirm accepts it.</td></tr>
+<tr><td>Save one store file. Use a lesson video or a downloadable.</td><td>Save succeeds. The file opens.</td></tr>
+<tr><td>Post a video over 5 MB on one white-label site.</td><td>Same result as the TopFans video.</td></tr>
+<tr><td>Open a post and use the enable toggle.</td><td>The toggle still updates. This covers the <code>statusChange</code> rename.</td></tr>
+</tbody>
+</table></div>
+<p>I read the pull request and the published SDK source. I did not run the app.</p>
+</section>
+</main>
+<footer>Recommendation applies to <code>ba4d719d6e5ac9792a82fa3fcb69a4d481b1c809</code>.</footer>
+</div></body></html>

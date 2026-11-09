@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WLS builds and selective prerendering</title>
+  <style>
+    :root { color-scheme: light; --ink: #202a37; --muted: #536174; --line: #dce3eb; --paper: #fff; --accent: #145b91; }
+    * { box-sizing: border-box; }
+    html { scroll-padding-top: 20px; }
+    body { margin: 0; background: #f3f5f8; color: var(--ink); font: 16px/1.65 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    main { max-width: 1080px; margin: 36px auto; padding: 48px 56px; background: var(--paper); border: 1px solid var(--line); border-radius: 12px; }
+    header { border-bottom: 2px solid var(--ink); padding-bottom: 24px; }
+    .eyebrow { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; font-weight: 650; }
+    h1 { font-size: clamp(28px, 4vw, 42px); line-height: 1.15; letter-spacing: -.035em; margin: 10px 0 16px; }
+    h2 { font-size: 24px; line-height: 1.3; margin: 0 0 18px; letter-spacing: -.02em; }
+    h3 { font-size: 18px; margin: 24px 0 8px; }
+    p { margin: 10px 0 16px; }
+    .lead { font-size: 19px; max-width: 820px; }
+    .muted, small { color: var(--muted); }
+    nav { padding: 22px 0; border-bottom: 1px solid var(--line); }
+    nav a { display: inline-block; margin: 4px 18px 4px 0; font-size: 14px; }
+    a { color: var(--accent); text-underline-offset: 3px; overflow-wrap: anywhere; }
+    section { padding: 32px 0; border-bottom: 1px solid var(--line); }
+    section:last-of-type { border-bottom: 0; }
+    ul, ol { padding-left: 24px; margin: 12px 0 20px; }
+    li { margin: 9px 0; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    code { font-size: .88em; background: #edf2f7; padding: 2px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+    pre { background: #f5f7fa; border: 1px solid var(--line); border-radius: 6px; padding: 18px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .note { border-left: 4px solid var(--accent); background: #f0f6fc; padding: 14px 18px; margin: 20px 0; }
+    .note p { margin: 0; }
+    .caution { border-color: #a77319; background: #fff8eb; }
+    .table-wrap { overflow-x: auto; margin: 18px 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; background: #f3f6fa; font-weight: 650; }
+    th, td { border: 1px solid var(--line); padding: 12px 14px; vertical-align: top; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 20px 0; }
+    .card { border: 1px solid var(--line); border-radius: 7px; padding: 18px; }
+    .card h3 { margin: 0 0 8px; }
+    .card p { font-size: 14px; margin: 0; }
+    .step { display: inline-block; font-size: 12px; color: var(--accent); font-weight: 700; letter-spacing: .08em; margin-bottom: 8px; }
+    footer { border-top: 1px solid var(--line); padding-top: 20px; color: var(--muted); font-size: 13px; }
+    @media (max-width: 700px) { body { background: white; } main { margin: 0; padding: 28px 20px; border: 0; border-radius: 0; } .cards { grid-template-columns: 1fr; } th, td { padding: 10px; } }
+    @media print { body { background: white; font-size: 11pt; } main { margin: 0; padding: 0; max-width: none; border: 0; } nav { display: none; } section { padding: 20px 0; } h2, h3 { break-after: avoid; } tr, .card, .note { break-inside: avoid; } a { color: inherit; } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="eyebrow">Architecture proposal · TopFans + WLS · 10 September 2026</div>
+    <h1>Build once. Prerender the pages that changed.</h1>
+    <p class="lead">Keep complete HTML pages in S3. Use a shared Angular build and a separate render worker to update the correct pages for main-site, Prateek, and James.</p>
+    <p class="muted">Proposed implementation, not a deployed change. Examples use your actual article post URL format. Backend events, queue, and page records described here must be added.</p>
+  </header>
+  <nav aria-label="Document contents">
+    <a href="#baseline">Current code</a><a href="#design">Proposed system</a><a href="#cases">All cases</a><a href="#selection">How pages are selected</a><a href="#worker">How one page is rendered</a><a href="#theme">Colors and missing files</a><a href="#releases">1,000 WLS sites</a><a href="#implementation">Implementation order</a><a href="#checks">Checks and decisions</a>
+  </nav>
+
+  <section id="baseline">
+    <h2>1. What the code does today</h2>
+    <p>A WLS pipeline generates a separate Angular project for each creator. It places tenant configuration and some page data in TypeScript files. The prerender target then builds browser and server code and creates HTML for its route list.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Repository evidence</th><th>Meaning for this proposal</th></tr></thead>
+      <tbody>
+        <tr><td><code>scripts/generate-whitelabel.js</code></td><td>Generates tenant projects, environment files, cover/sub-page constants, and deployment entries for all selected WLS creators. It currently has no creator selector for generation.</td></tr>
+        <tr><td><code>generate-static-routes.mjs</code></td><td>Reads <code>admin/posts-list-seo</code>, builds post URLs, and writes them to the prerender route list. The WLS generator adds a creator username filter.</td></tr>
+        <tr><td><code>prerender.routes.txt</code></td><td>Contains article URLs. Articles are scheduled for prerendering. This does not verify that each deployed HTML file currently exists or contains the expected content.</td></tr>
+        <tr><td><code>post-detail-routing.module.ts</code></td><td>The post module already accepts <code>:username/:type/:id</code>. Articles are posts with <code>type = article</code>, not a separate <code>/articles/:slug</code> route.</td></tr>
+        <tr><td><code>scripts/prefetch-marketing-pages.mjs</code></td><td>Generates marketing data and routes as TypeScript. A new marketing slug currently becomes a build input.</td></tr>
+        <tr><td><code>server.ts</code></td><td>Uses an existing dist folder to select a project and creates global DOM objects. A shared worker needs explicit site selection and isolated render state.</td></tr>
+        <tr><td><code>deployment_script/parallel-build-and-upload.sh</code></td><td>Builds each listed tenant, uploads the output, and requests distribution invalidation. Its upload rule applies a one-year immutable header to the output.</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>Verified article URL:</strong> <code>/post/&lt;username&gt;/article/&lt;encoded-id&gt;</code>. Reuse the existing URL builder, including its <code>original_sk || sk</code> handling. Do not introduce a different article URL scheme.</p>
+    <p class="muted">The workspace now declares Angular 16.2 and Universal 16.2, with an upgrade in progress. Earlier discussion referred to Angular 15. Select the render API and build settings for the version finalized in the repository.</p>
+  </section>
+
+  <section id="design">
+    <h2>2. The proposed system, in three parts</h2>
+    <div class="cards">
+      <article class="card"><span class="step">01 · BUILD</span><h3>Shared application</h3><p>CI compiles browser files and a server renderer when code changes. Start with one main-site build and one generic WLS build if their shells differ.</p></article>
+      <article class="card"><span class="step">02 · SELECT</span><h3>Backend + queue</h3><p>A content publish or code release selects site-and-URL pairs. The queue holds these jobs and limits how many run at once.</p></article>
+      <article class="card"><span class="step">03 · RENDER</span><h3>Render worker</h3><p>A Node worker runs the existing server build for one site and URL, creates HTML, and publishes that page to S3.</p></article>
+    </div>
+    <pre>Publish content                         Release application code
+       |                                          |
+       |                                  Compile shared application
+       |                                          |
+       +--------------- Select affected URLs -----+
+                                  |
+                            Render queue
+                                  |
+                    Worker runs the built renderer
+                                  |
+                       Validate and publish HTML
+                                  |
+                       CloudFront serves the page</pre>
+    <p>Use SQS for the queue and a Node worker on ECS or EC2 as an initial AWS design. The worker reads public, published content with backend credentials kept on the server. The visitor receives HTML with the correct site branding and content already present.</p>
+    <p>For the first implementation, keep the existing site buckets and distributions. Put common JavaScript and CSS in a shared release location. Configure shared asset routing once, rather than copying application files into each bucket for every release.</p>
+    <pre>Shared application storage
+  /releases/wls/v43/...          JavaScript, CSS, server artifact
+  /releases/main-site/v43/...    Separate artifact if needed
+
+Site storage, illustrated as three existing buckets
+  main-site → HTML, theme, public config, manifest, icons
+  prateek   → HTML, theme, public config, manifest, icons
+  james     → HTML, theme, public config, manifest, icons</pre>
+    <div class="note"><p><strong>Build and render are different jobs.</strong> One code build can produce HTML for many sites. If a change affects 50,000 static pages, those pages still require rendering. This design removes repeated compilation and selects the work that is needed.</p></div>
+  </section>
+
+  <section id="cases">
+    <h2>3. All cases discussed</h2>
+    <p>Assume Prateek and James each have a WLS. Their public article posts can also appear on main-site. Whether a post belongs on a particular site is checked against publication and access rules.</p>
+
+    <h3>A. Only Prateek needs a WLS rebuild today</h3>
+    <p>As an immediate fix, add an explicit creator selector to the generator. Filter before fetching tenant pages and generating files. Emit a deployment file containing only Prateek. The upload script must process only that file. A missing or invalid creator must fail, never fall back to building every creator. Require an explicit all-sites mode for bulk work.</p>
+    <p>This is an interim improvement. After the new worker is available, a content or theme publish uses the smaller jobs below.</p>
+
+    <h3>B. Create a new WLS for James</h3>
+    <ol>
+      <li>Register James's verified domain, creator ID, storage destination, and selected shared application version.</li>
+      <li>Publish James's theme, public configuration, manifest, and icons.</li>
+      <li>Discover James's eligible public routes, including article posts, and queue their first renders.</li>
+      <li>Verify the required initial pages, then activate the site.</li>
+    </ol>
+    <p>With the current tenant-compiled code, James still needs an initial tenant build. With the generic WLS application, provisioning needs data and page renders only. Do not copy today's main-site output into James's bucket: it contains main-site assumptions and metadata. A neutral WLS release can be reused after the refactor.</p>
+
+    <h3>C. Prateek changes colors</h3>
+    <p>The backend validates and publishes Prateek's theme. Pages read the same six CSS variables before their first visible render. James and main-site keep their themes. This avoids page renders only after removing compiled and inline overrides that restore old colors. See <a href="#theme">the theme design</a> for missing files, caching, and existing visitors.</p>
+
+    <h3>D. Prateek creates or edits a marketing page</h3>
+    <p>On publish, the backend registers the actual site and URL, then queues one render. A new page has no rendered revision, so its first render is always required. An edit creates a new desired revision. The worker publishes the page and updates the site's sitemap and any pages that link to it.</p>
+    <p>A new slug using an existing layout needs no compilation after routes and content are loaded at runtime. A brand-new Angular layout or feature still needs a code release. Reserve application paths and existing creator routes; do not let an arbitrary marketing slug take them over.</p>
+
+    <h3>E. Prateek edits one article post</h3>
+    <ol>
+      <li>The post-save API commits the published edit and records a durable event with the post identity and revision.</li>
+      <li>The event handler computes the existing post URL and finds sites where the article is publicly served.</li>
+      <li>It queues the same post URL in the two site contexts below.</li>
+      <li>The worker renders each context using that site's branding, uploads its HTML, and refreshes its public URL in CloudFront.</li>
+    </ol>
+    <pre>Job 1: main-site → /post/prateek/article/&lt;id&gt;
+Job 2: prateek   → /post/prateek/article/&lt;id&gt;
+
+No article-detail job for James's WLS.</pre>
+    <p>If a prerendered homepage, feed, or related-post section shows this article, queue that page too. Do not assume an <code>/articles</code> listing exists. Register dependencies for the actual pages in this application. A page rendered only in the browser does not need an HTML job, though its data cache may need a refresh.</p>
+
+    <h3>F. Code changes all creators' article pages</h3>
+    <ol>
+      <li>Build the new shared WLS and main-site artifacts, where applicable.</li>
+      <li>The release explicitly declares that it affects article post detail pages.</li>
+      <li>Query eligible posts with <code>type = article</code>. For each post, find its permitted site contexts.</li>
+      <li>Queue the following renders and publish their HTML with the matching application assets.</li>
+    </ol>
+    <pre>Prateek article A → main-site + prateek
+Prateek article B → main-site + prateek
+James article C   → main-site + james</pre>
+    <p>Other post types need rendering only if shared post code affects them. Article cards in other pages need rendering if the change affects those cards. When release scope is uncertain, select all public pages that could be affected. Angular cannot reliably infer the complete impact from a Git diff.</p>
+
+    <h3>G. Prateek changes shared page content</h3>
+    <p>If his footer changes, select Prateek's prerendered pages that use that footer. A title change in a menu can affect several pages even though only one page was edited. Track dependencies to account for this.</p>
+
+    <h3>H. Unpublish, delete, or rename</h3>
+    <p>Unpublishing removes the public HTML, refreshes listing pages and the sitemap, and clears the relevant edge caches. Mark the page withdrawn so an older queued job cannot publish it again. A rename publishes the new path and applies the chosen redirect or removal to the old path. Do not serve a stale full article after its access rules become private.</p>
+  </section>
+
+  <section id="selection">
+    <h2>4. How the backend knows which pages to render</h2>
+    <p>Add a page registry. Each record represents one URL on one site. The same Prateek article on main-site and on his WLS has two records.</p>
+    <pre>siteId:              prateek
+path:                /post/prateek/article/&lt;id&gt;
+pageType:            POST_DETAIL
+postType:            article
+dependencies:        post:101, branding:prateek, footer:prateek
+desiredRevision:     9
+renderedRevision:    8
+applicationVersion:  wls-v42
+publicStatus:        published
+publishedObject:     pages/article-101/revision-8/index.html</pre>
+    <p>These are proposed fields, not existing backend names. The desired page revision should change when any relevant dependency changes. Store the input versions or a fingerprint of the published snapshot to avoid duplicate work.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Trigger</th><th>Selection rule</th></tr></thead>
+      <tbody>
+        <tr><td>New page</td><td>Create a record for its site and URL. No rendered revision means it needs a first render.</td></tr>
+        <tr><td>Post edit</td><td>Select direct post detail records and reverse dependencies for that post ID.</td></tr>
+        <tr><td>New article in a listing</td><td>Select pages depending on the creator's post collection, even though the new article was absent from their last render.</td></tr>
+        <tr><td>Footer or menu edit</td><td>Select records with that site-specific footer or menu dependency.</td></tr>
+        <tr><td>Code release for articles</td><td>Select post detail records with <code>postType = article</code>, plus other affected page types declared by the release.</td></tr>
+        <tr><td>Broad shared code change</td><td>Select all eligible records for the affected application.</td></tr>
+      </tbody>
+    </table></div>
+    <p>Record dependencies when a renderer or page service loads data. Also declare collection dependencies for feeds, pagination, and new or removed posts. Start with conservative rules: for example, an article publish can refresh the creator's registered public listing pages rather than attempt field-level optimization.</p>
+    <p>Initially, seed this registry from the existing generated route lists and the SEO post source. Use pagination or a complete export. A periodic reconciliation job compares published routes with the registry to repair missed events, add missing routes, and identify withdrawn pages.</p>
+  </section>
+
+  <section id="worker">
+    <h2>5. What a single render job actually does</h2>
+    <pre>Render job
+  siteId:         prateek
+  path:           /post/prateek/article/&lt;id&gt;
+  targetRevision: 9
+  appVersion:     wls-v42
+  reason:         post-updated</pre>
+    <ol>
+      <li><strong>Resolve the site.</strong> Read its verified hostname and public branding from the backend registry. Derive storage targets on the server, not from arbitrary event URLs.</li>
+      <li><strong>Load a consistent snapshot.</strong> Fetch the intended published post, access state, and page dependencies. Render the anonymous visitor's permitted view.</li>
+      <li><strong>Run the compiled renderer.</strong> Pass the URL, an unrendered HTML shell, site context, and page data into Angular's server rendering entry point. A <code>renderModule</code>-style entry point or Universal engine can return one HTML string. Bundle it with the server artifact.</li>
+      <li><strong>Keep browser startup consistent.</strong> Embed only public initial data through TransferState or an equivalent safe serialization path. The browser must use the same site and page snapshot initially, rather than compiled old data.</li>
+      <li><strong>Validate.</strong> Check expected page identity, canonical hostname, content, status, and referenced assets. Do not publish an error page, loading shell, or private article body as a successful public render.</li>
+      <li><strong>Publish safely.</strong> Write HTML to a new object. Verify the job is still current, then update the page's published pointer. Apply cache refresh rules and mark the revision complete.</li>
+    </ol>
+    <p>Do not use <code>ng run &lt;tenant&gt;:prerender</code> for these content jobs. That is the current combined pipeline. The new worker uses an already built server artifact and must not serve the old prerendered file as its rendering template.</p>
+    <p>Serialize jobs for the same site and path. Use a durable publish event, such as a transactional outbox, retries, and a failed-job queue. An atomic revision check on the published pointer prevents a slow older job from replacing a newer page. A failed render keeps the previous valid page available, except where publication or access rules require removal.</p>
+    <p>The existing global DOM and module-level tenant state require an audit. Use isolated worker processes with one render at a time initially; move to concurrent renders only after proving that tenant data cannot cross between requests.</p>
+  </section>
+
+  <section id="theme">
+    <h2>6. Colors without rebuilding pages</h2>
+    <p>Create a public theme resource for each site, using the six existing variables:</p>
+    <pre>--configBgColor          --configThemeColor
+--configSecondaryBgColor --configPostTextColor
+--configButtonTextColor  --configBgTextColor</pre>
+    <p>Load the theme as a normal stylesheet in the document head, in the correct cascade order. Remove competing inline values and startup code that reapplies compiled colors. Cover pages, article theme controls, and ordinary page components must follow an explicit policy: the published WLS theme is authoritative unless a permitted local preview or reading mode overrides it.</p>
+    <p>The render worker receives site configuration before producing HTML. The browser can receive that public configuration inside the HTML, so a frontend API request is not required to determine the initial tenant identity or colors. A separate theme stylesheet is still a browser asset request.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Condition</th><th>Required behavior</th></tr></thead>
+      <tbody>
+        <tr><td>Strict requirement: only that WLS's colors may appear</td><td>Embed the last published colors for that site as a fallback; fresh theme CSS overrides them. If neither a valid site theme nor its fallback is available, show a neutral unavailable shell instead of the normal WLS UI.</td></tr>
+        <tr><td>Theme asset missing</td><td>Use the same site's last valid fallback, report the failure, and retry. A generic TopFans theme does not meet the strict branding requirement.</td></tr>
+        <tr><td>Site identity missing or hostname unknown</td><td>Reject normal site rendering. Never fall back to another creator or main-site.</td></tr>
+        <tr><td>Visitor already has the page open</td><td>Next load can obtain fresh colors. Updating an open page immediately needs an SSE/WebSocket notification and a stylesheet refresh. Offline visitors cannot receive live updates.</td></tr>
+      </tbody>
+    </table></div>
+    <p><strong>“Instant” needs a defined promise.</strong> A save can publish a small theme without a build, but edge invalidation and propagation are not instantaneous. For strict freshness on new requests, use a theme endpoint or behavior that bypasses caching and reads the published version. For efficient caching, use versioned theme objects with a short-lived or revalidated pointer and accept a measured propagation window.</p>
+    <p>Keep mutable theme/config resources out of stale service-worker caches. Set CloudFront minimum TTL to zero where origin revalidation rules must apply. Do not return <code>index.html</code> for a missing CSS or JSON resource. A raw HTTP failure is preferable to an HTML response masquerading as CSS.</p>
+    <h3>Separate buckets or shared bucket?</h3>
+    <p>With separate distributions and correctly configured site origins, <code>/tenant-theme.css</code> resolves to each site's own file. A shared distribution needs tenant-aware cache routing:</p>
+    <pre>Prateek's verified hostname → siteId prateek
+  /tenant-theme.css → /tenants/prateek/theme/current.css
+
+James's verified hostname → siteId james
+  /tenant-theme.css → /tenants/james/theme/current.css</pre>
+    <p>Perform the rewrite before the cache lookup so the cache uses distinct paths. Validate hostnames, overwrite any client-supplied internal tenant marker, and reject attempts to request another site's internal prefix. Hostname-based routing is not a replacement for backend access control.</p>
+    <p>CloudFront KeyValueStore can hold small routing/version mappings without a function-code deployment. It should not hold full page bodies. CloudFront Functions perform routing here; the Node worker performs Angular rendering. <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/kvs-with-functions.html">AWS KeyValueStore documentation</a>.</p>
+  </section>
+
+  <section id="releases">
+    <h2>7. A feature release with 1,000 WLS sites</h2>
+    <p>Build the generic WLS application once. Build main-site separately if it needs a different artifact. Upload immutable versioned assets once per artifact. Route all sites' release-asset requests to that shared location.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Strategy</th><th>Compilation</th><th>Remaining work</th></tr></thead>
+      <tbody>
+        <tr><td>Current tenant builds</td><td>Up to 1,000 WLS builds</td><td>Prerender and upload for each WLS</td></tr>
+        <tr><td>Shared build copied to tenant buckets</td><td>One WLS build</td><td>1,000 asset copies plus affected HTML renders</td></tr>
+        <tr><td>Recommended shared asset origin</td><td>One WLS build</td><td>One shared asset upload plus affected HTML renders and publication updates</td></tr>
+      </tbody>
+    </table></div>
+    <p>If all 1,000 sites have 50 affected pages, there are still 50,000 HTML renders. A queue spreads that work across measured worker capacity. Do not promise a fixed speed improvement before measuring compilation, data fetches, rendering, uploads, and cache refresh separately.</p>
+    <h3>Keep HTML and its application version together</h3>
+    <p>HTML rendered by <code>v42</code> must reference explicit <code>v42</code> asset paths. HTML rendered by <code>v43</code> references <code>v43</code>. Do not redirect every asset request to whichever version is newest.</p>
+    <p>A shared release pointer alone cannot update already generated HTML. Choose how a release becomes visible:</p>
+    <ul>
+      <li><strong>Scoped page rollout:</strong> publish only affected pages with the new version. Other HTML may remain on the old version. Use this only when both versions can coexist with the backend, route data, navigation, and service-worker policy.</li>
+      <li><strong>Complete site rollout:</strong> stage all required pages for one site with the new version, verify them, and switch its published revision. Use this when every page and SPA session must use a consistent release. This can require rendering more than the visually changed pages.</li>
+    </ul>
+    <p>For the first major shared-app migration, prefer complete site rollouts. Keep old code and page objects for rollback and old browser sessions. A feature flag can enable already released behavior for selected creators; if it affects server-rendered markup, flag changes must also queue the affected renders.</p>
+    <h3>Optional later: render on the first request</h3>
+    <p>A shared SSR origin can render missing or outdated HTML when requested and cache the result. This avoids rendering unvisited pages in advance, but adds runtime infrastructure and first-request latency. An S3-only origin cannot do this by itself. Start with publish-time workers if every public page must already exist as static HTML.</p>
+    <h3>Cache policy</h3>
+    <p>Use long immutable caching for versioned assets and immutable internal HTML objects. Public navigation URLs and version pointers need a freshness policy. Invalidate changed public paths, including aliases and rewritten paths where required, or select a new immutable object via an edge mapping. Cache keys must distinguish site, route, and selected revision. <a href="https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-the-cache-key.html">AWS cache-key guidance</a>.</p>
+    <p>Audit <code>ngsw-config.json</code>, <code>offline.service.js</code>, and the active service-worker registrations. A worker serving a cached app shell can bypass new HTML and theme policies. Public prerendered routes need network behavior compatible with independent content updates, while offline pages must remain explicitly stale.</p>
+  </section>
+
+  <section id="implementation">
+    <h2>8. Implementation order and ownership</h2>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Step</th><th>Changes</th><th>Completion checkpoint</th></tr></thead>
+      <tbody>
+        <tr><td>1. Restrict today's pipeline<br><small>Frontend + CI</small></td><td>Add creator selection and unique job output paths. Filter the deployment list. Fix broad cache headers. Remove duplicate deployment-config declarations and construct validated commands instead of evaluating command strings.</td><td>A Prateek request builds/uploads Prateek only. Invalid selection cannot trigger all sites.</td></tr>
+        <tr><td>2. Prove one-URL rendering<br><small>Frontend</small></td><td>Add a renderer entry point using the pinned Angular/Universal version. Use an unrendered shell and a known server artifact. Initially it may reuse existing tenant artifacts.</td><td>Render one real article URL from a saved build without invoking Angular CLI compilation.</td></tr>
+        <tr><td>3. Supply site and page data<br><small>Frontend + backend</small></td><td>Introduce explicit tenant context. Replace tenant environment reads and generated content dependencies. Initialize browser state from the rendered snapshot. Replace global DOM assumptions and add runtime marketing route resolution.</td><td>The generic WLS renderer produces Prateek and James pages with correct, isolated branding. Main-site still works.</td></tr>
+        <tr><td>4. Separate colors<br><small>Frontend + backend + infrastructure</small></td><td>Publish the six theme variables as a site resource. Remove stale inline/body overrides. Define missing-theme fallback and cache/service-worker rules.</td><td>Prateek's color publish changes his initial page appearance without a build or another site's colors.</td></tr>
+        <tr><td>5. Add selective publishing<br><small>Backend + infrastructure</small></td><td>Seed page registry; add dependency selection, durable publish events, SQS, worker deployment, retries, revision checks, and sitemap updates.</td><td>One Prateek article edit updates its two permitted site copies and registered dependent pages. James stays untouched unless a real dependency exists.</td></tr>
+        <tr><td>6. Share code releases<br><small>CI + infrastructure + frontend</small></td><td>Upload shared release assets, declare affected page types, route versioned assets, stage HTML publication, and retain rollback artifacts.</td><td>An article-layout release renders all eligible article posts without per-creator Angular builds.</td></tr>
+      </tbody>
+    </table></div>
+    <p>For build speed, also use a reproducible install with the committed lockfile, cache dependency downloads and Angular build cache with CI enabled, and preinstall recurring tools in the build image. Avoid rewriting generated files solely to change timestamps. Reuse published content snapshots rather than fetching the full SEO dataset separately for every tenant.</p>
+    <p>The parallel buildspec sets <code>PARALLELISM</code>, while its script reads <code>MAX_JOBS</code>. Align those settings and measure memory use. Keep the required <code>--max_old_space_size=10048</code> for builds. Multiple builds or render processes can exceed host memory even when each process stays below its own heap limit.</p>
+    <p>Keep Angular upgrade work separate from this publishing refactor. A newer build system may improve compilation, but it does not supply page dependency selection or independent HTML publication automatically.</p>
+  </section>
+
+  <section id="checks">
+    <h2>9. Checks before rollout</h2>
+    <ul>
+      <li>Compare raw HTML with JavaScript disabled for main-site, Prateek, and James. Check article content, allowed previews, colors, canonical URL, and metadata.</li>
+      <li>Edit one article. Confirm only its permitted site copies and actual dependent pages change.</li>
+      <li>Publish a new article and a new marketing slug. Test direct visits and Angular navigation without a code build.</li>
+      <li>Publish, edit twice quickly, then unpublish. Confirm failed, duplicate, and older jobs cannot restore stale public content.</li>
+      <li>Change article layout code. Confirm selection includes all eligible article pages and does not miss pages through API pagination.</li>
+      <li>Request Prateek and James alternately through warm caches and parallel workers. Confirm no HTML, theme, or initial data crosses sites.</li>
+      <li>Test missing theme/config, unknown domains, cache propagation, old tabs loading lazy chunks, PWA navigation, and rollback.</li>
+    </ul>
+    <h3>Decisions to confirm during implementation</h3>
+    <p>The backend trigger implementation and live CloudFront settings were not inspected. Confirm the SEO post endpoint's completeness, public visibility rules, existing event mechanism, cache rewrites, and the authoritative domain registry. Decide the acceptable theme propagation delay and whether open pages must update live. Decide whether code releases require a single version per site or permit controlled page-by-page rollout.</p>
+    <p>No <code>CONTEXT.md</code> was found during the discussion. This document uses the existing terms WLS, post, article, prerender, S3, and CloudFront.</p>
+  </section>
+  <footer>
+    <p>Prepared from the repository and the scenarios discussed. All job schemas and storage layouts are proposed examples. This file is static, self-contained, and has no scripts or external assets.</p>
+  </footer>
+</main>
+</body>
+</html>

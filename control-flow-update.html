@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="TopFans Angular control flow migration plan: official schematic, manual fixes, and validation.">
+<title>Control Flow Update · TopFans migration plan</title>
+<style>
+:root{color-scheme:dark;--paper:#131A24;--panel:#1A2331;--ink:#E8EDF4;--muted:#8593A6;--rule:#2A3546;--minus:#F0776F;--plus:#5FCF8F;--focus:#8FB4FF}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.65}h1,h2,h3,p,ul,ol,pre{margin:0}.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}header{display:grid;gap:.75rem}h1{line-height:1.15}h2{padding-bottom:.75rem}h3{padding-bottom:.35rem}p,li,td{color:var(--muted)}a{color:var(--focus);text-underline-offset:.2em}main{padding-top:3rem}section+section{padding-top:2.5rem}.stack{display:grid;gap:1.25rem}.steps{display:grid;gap:1.75rem;padding-left:1.5rem}.steps>li::marker{color:var(--focus);font-weight:700}.steps h3{color:var(--ink)}strong{color:var(--ink);font-weight:600}code{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.9em;color:var(--focus);overflow-wrap:anywhere}pre{padding:1.25rem;background:var(--panel);border:1px solid var(--rule);border-radius:.65rem;overflow:auto;line-height:1.5}pre code{overflow-wrap:normal}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;text-align:left}th,td{padding:.7rem .8rem;vertical-align:top;border-bottom:1px solid var(--rule)}th{font-weight:600;color:var(--ink)}th:first-child,td:first-child{padding-left:0}.note{color:var(--muted)}.scope{color:var(--plus)}footer{padding-top:3rem;color:var(--muted);font-size:.875rem}li+li{padding-top:.35rem}.steps>li+li{padding-top:0}a:focus-visible{outline:2px solid var(--focus);outline-offset:4px;border-radius:3px}@media(max-width:720px){.page{padding-block:3rem}th,td{padding:.6rem}h1{font-size:2rem}}@media print{body{background:white;color:black}p,li,td,footer,.note{color:#333}h1,h2,h3,strong,th{color:black}pre{white-space:pre-wrap}section{break-inside:avoid}}
+</style>
+</head>
+<body><div class="page">
+<header>
+<a href="index.html">← Development notes</a>
+<h1>Control Flow Update</h1>
+<p>Replace legacy Angular template directives with <code>@if</code>, <code>@for</code>, and <code>@switch</code> using the official schematic, targeted manual fixes, and build and behavior validation.</p>
+</header>
+<main>
+<section><h2>Implementation sequence</h2><ol class="steps">
+<li><h3>Record the baseline</h3><p>Preserve unrelated working-tree changes. Inventory external and inline templates, tracking functions, shared template references, and direct directive imports or queries. Record existing main and white-label build failures before migration.</p></li>
+<li><h3>Run Angular's official schematic</h3><p>Preview and apply the control flow migration using the repository's installed Angular CLI. Review migration diagnostics and the changed-file list. Keep routing, styling, module structure, and business logic outside this change.</p></li>
+<li><h3>Review and repair the generated changes</h3><p>Resolve remaining directives and template errors. Preserve aliases, loop context variables, template reuse, and tracking intent. Remove obsolete imports only after checking their uses; retain CommonModule where other directives or pipes need it.</p></li>
+<li><h3>Validate builds and user behavior</h3><p>Build the main and generated white-label projects with the required 10 GB memory setting. Use manual behavior checks for the flows below and verify representative SSR output and hydration where enabled. Karma is configured, but there are currently no .spec.ts or .test.ts files under src; do not assume existing automated test coverage.</p></li>
+<li><h3>Close with evidence</h3><p>Repeat the legacy-syntax scan, classify remaining matches, and review the final diff. Record build results, tested flows, migration warnings, and unresolved failures.</p></li>
+</ol></section>
+<section><h2>Where to start reviewing</h2><div class="stack">
+<p>Prioritize these groups when reviewing the generated changes:</p>
+<ul>
+<li>135 conditional usages with <code>else</code> or <code>then</code>.</li>
+<li>85 conditional <code>as</code> aliases.</li>
+<li>84 loops with <code>trackBy</code>.</li>
+<li>238 loops mentioning <code>index</code>, <code>first</code>, or <code>last</code>.</li>
+<li>15 files using <code>ngSwitch</code>.</li>
+</ul>
+<p>These are current text-scan counts and may include comments. Groups overlap and mix occurrences with files, so they are review priorities, not a count of unique locations. Refresh the inventory before migration and still review the overall diff.</p>
+</div></section>
+<section><h2>Where manual review matters</h2><div class="table-wrap"><table><thead><tr><th scope="col">Area</th><th scope="col">Review requirement</th></tr></thead><tbody>
+<tr><td><strong>Loop tracking</strong></td><td>Preserve existing trackBy semantics. Avoid switching changing lists to index tracking without checking the consequences. Verify insertion, removal, reorder, and item replacement.</td></tr>
+<tr><td><strong>View reuse</strong></td><td><code>@for</code> can retain a view when a tracked property changes on the same object, as documented by Angular. Separately, changing tracking from object identity to an ID can reuse views for replacement objects with that ID. Preserve tracking intent and check state where remounting previously mattered.</td></tr>
+<tr><td><strong>Conditional templates</strong></td><td>Check aliases, nested branches, and shared ng-template references. Preserve templates still used by outlets, queries, or other consumers.</td></tr>
+<tr><td><strong>Switches and wrappers</strong></td><td>Verify cases, defaults, and content outside cases. Check wrappers whose removal could affect styling or content projection.</td></tr>
+<tr><td><strong>Imports and queries</strong></td><td>Review TypeScript references to the old directives. Compilation may not expose a query that now returns no directive.</td></tr>
+</tbody></table></div></section>
+<section><h2>Validation priorities</h2><div class="stack">
+<p>Start with shared components, then focus on heavily changed templates and behavior-sensitive flows.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Flow</th><th scope="col">States to verify</th></tr></thead><tbody>
+<tr><td>Profile and post detail</td><td>Loading, empty and populated content, access restrictions, and conditional actions.</td></tr>
+<tr><td>Messages and post cards</td><td>New items, reorder, selection, retained input state, and media state.</td></tr>
+<tr><td>Shared tables and forms</td><td>Loading and empty rows, sorting, selection, validation errors, and conditional fields.</td></tr>
+<tr><td>Create plan and wallet modal</td><td>Branch changes, validation, case/default content, and opening or closing.</td></tr>
+<tr><td>Marketing and white-label pages</td><td>Tenant content and theme, server-rendered output, client navigation, and hydration where enabled.</td></tr>
+</tbody></table></div>
+<p>Use builds and manual behavior checks as the validation baseline. Add focused regression tests where the migration exposes behavior worth protecting. Use the existing running application; do not start a dev server. Record unavailable tenant configurations or authenticated flows as validation gaps.</p>
+</div></section>
+<section><h2>Completion checks</h2><ul>
+<li>No active legacy control flow directives remain, including inline templates. Classify any remaining comments or examples.</li>
+<li>Main and generated white-label builds pass, with pre-existing failures and unavailable configurations reported separately.</li>
+<li>Selected behavior checks pass for conditionals, switch branches, list updates, and retained state.</li>
+<li>SSR and hydration checks pass for the selected routes where applicable.</li>
+<li>The final diff contains only the migration and necessary fixes, with validation evidence recorded.</li>
+</ul></section>
+</main>
+<footer><a href="https://angular.dev/reference/migrations/control-flow">Angular migration reference</a> · <a href="https://angular.dev/guide/templates/control-flow">Control flow and tracking guidance</a></footer>
+</div></body></html>

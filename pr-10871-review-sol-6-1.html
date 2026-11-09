@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review of PR 10871. Merge recommendation is yes. Main builds and fresh SSR pass; tenant and event replay checks are scheduled after deployment. Serverless is unused.">
+  <title>PR 10871 review-sol-6-1</title>
+  <link rel="canonical" href="https://notes.prateekkumar.site/pr-10871-review-sol-6-1">
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,figure { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 1rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    h3 { padding-bottom: .5rem; }
+    p,li,td,figcaption,.meta { color: var(--muted); }
+    a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--text); }
+    .ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); } .bad { color: var(--pink); }
+    .meta,nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .stack { display: grid; gap: 1rem; }
+    .items { display: grid; gap: 1.75rem; }
+    .item p + p { padding-top: 1rem; }
+    ul,ol { padding-left: 1.25rem; } li + li { padding-top: .6rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; }
+    th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); } tbody th { font-weight: 500; }
+    tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a href="/">All notes</a>
+    <div><h1>PR 10871 review-sol-6-1</h1><p>The main application builds, renders a fresh server request, and starts in the browser. Merge now, with tenant and event replay checks scheduled after deployment.</p></div>
+    <div class="meta"><span>Reviewed 30 September 2026</span><span>10 changed files</span><span>108 additions, 126 deletions</span></div>
+    <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10871">PR 10871</a> · Base <code>d885efb055</code> · Reviewed head <code>8d2a75fc01</code></p>
+    <nav aria-label="Review sections"><a href="#verdict">Merge recommendation</a><a href="#findings">Findings</a><a href="#contracts">Migration contracts</a><a href="#checks">Checks and limits</a><a href="#after-deploy">After deployment</a></nav>
+  </header>
+  <main>
+    <section id="verdict" class="stack">
+      <h2>Merge recommendation</h2>
+      <p class="ok">Yes. Merge it now under the agreed validation plan.</p>
+      <p>I found no newly introduced blocking defect in the core bootstrap conversion. The missing <code>BootstrapContext</code> from the earlier plan is fixed, and both main application builds pass.</p>
+      <p>The maintainer confirmed that serverless is unused and that tenant and event replay checks will happen after merging, once the change is deployed. Those checks remain unverified, but they are now scheduled deployment checks rather than merge prerequisites.</p>
+      <p>This recommendation replaces the earlier hold based on that clarification. The reviewed code and test results are unchanged. GitHub reports the same reviewed head open and mergeable, with no listed status checks. The active Express SSR path passed the fresh-render check.</p>
+    </section>
+
+    <section id="findings" class="stack">
+      <h2>Findings</h2>
+      <p class="ok">No new P1 or P2 code defect confirmed in the reviewed changes.</p>
+      <div class="items">
+        <div class="item">
+          <h3>Fresh SSR succeeds, with warnings inherited from the base</h3>
+          <p>A direct request to <code>/creators?key=x</code> returns HTTP 200 with the header, creator route content, and Angular hydration attributes. The development build has zero prerendered routes, so this response exercises the new server bootstrap. It does not reuse a prerendered page.</p>
+          <p>The server logs <code>NG05001</code> because hydration and blocking initial navigation are both configured, and <code>NG0100</code> for a header theme binding that changes during checking. I built the base commit and requested the same route. It returns HTTP 200 and logs the same codes and theme error. These are existing issues, not findings against this conversion.</p>
+        </div>
+        <div class="item">
+          <h3>Serverless is unused</h3>
+          <p><code>TopFans:serverless:dev</code> stops before compilation because the referenced <code>environment.dev.ts</code> is absent. That environment file is also absent from the base commit. I left environment files unchanged.</p>
+          <p><code>TopFans:serverless:production</code> reaches compilation but fails on SCSS imports such as <code>@use 'tools' as *</code>. The separate target lacks the main build's SCSS include paths. I ran the same target on the base commit. Both versions fail on the same 98 styles, so this is an existing build failure.</p>
+          <p>The maintainer confirmed that serverless is unused. These failures are retained here as historical test results. They do not block the active Express deployment or this merge.</p>
+        </div>
+        <div class="item">
+          <h3>Firebase retirement changes every direct function request</h3>
+          <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8d2a75fc01845bd57070e25ff94c615f4324245a/functions/index.js#L12">The function now returns HTTP 501</a>. That is intentional in the PR, rather than an accidental leftover import.</p>
+          <p>The checked-in Hosting rewrite points to <code>/index.html</code> and does not invoke this function. With serverless excluded from the used deployment paths by the maintainer, this intentional retirement is outside the active Express deployment and is not a merge blocker.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="contracts" class="stack">
+      <h2>Migration contracts</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Contract</th><th scope="col">Review result</th></tr></thead>
+        <tbody>
+          <tr><td>Client and shell</td><td><code>AppComponent</code> becomes standalone and imports its template dependencies. <code>bootstrapApplication</code> replaces module bootstrap. Delayed startup and the smooth-scroll polyfill remain.</td></tr>
+          <tr><td>Server bootstrap</td><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8d2a75fc01845bd57070e25ff94c615f4324245a/src/main.server.ts#L22">The bootstrap forwards context as the third argument</a>, matching <a href="https://angular.dev/errors/NG0401">Angular's SSR requirement</a>. Named and default exports both exist. The server DOM and Zone imports retain their order.</td></tr>
+          <tr><td>Root providers</td><td>Zone change detection, shared providers, the white-label initializer, HTTP interceptor order, PrimeNG, pipes, services, base href, and URL serializer remain in the application config.</td></tr>
+          <tr><td>Store</td><td>The five reducer keys and both disabled immutability checks remain. The browser exposes all five keys after startup.</td></tr>
+          <tr><td>Hydration</td><td><code>withEventReplay()</code> and <code>withNoHttpTransferCache()</code> remain on the config shared by client and server. Provider preservation is confirmed. Replay and DOM reuse still need their own checks.</td></tr>
+          <tr><td>Third-party setup</td><td>Animations move to <code>provideAnimations()</code>. Modal, Toastr, and Stripe configuration move through <code>importProvidersFrom</code>. Service-worker script, enabled flag, and registration strategy remain.</td></tr>
+          <tr><td>Serverless API</td><td>The renderer now uses <a href="https://angular.dev/api/platform-server/renderApplication">renderApplication</a> with the shared bootstrap. The named bootstrap is re-exported. This unused path has no runtime acceptance result.</td></tr>
+          <tr><td>Scope</td><td>The root NgModules and compiler <code>entryModule</code> are removed. Routes and decorator APIs are unchanged. Source scans find no remaining root-module bootstrap references.</td></tr>
+        </tbody>
+      </table></div>
+    </section>
+
+    <section id="checks" class="stack">
+      <h2>Checks and limits</h2>
+      <p>These results come from detached checkouts of the PR head and base. I used the main checkout's installed Angular 21.2.23 dependencies and a 10 GB Node heap. Compilation and browser startup are separate from full product acceptance.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead>
+        <tbody>
+          <tr><td>TypeScript</td><td class="ok"><code>tsc -p tsconfig.app.json --noEmit</code> and the corresponding server config check both pass.</td></tr>
+          <tr><td>Angular template compilation</td><td class="ok"><code>ngc -p tsconfig.app.json --noEmit</code> passes.</td></tr>
+          <tr><td>Main development build</td><td class="ok">Application build passes in 30.7 seconds with prerendering disabled.</td></tr>
+          <tr><td>Main production build</td><td class="ok">Application build passes in 51.6 seconds with prerendering disabled. The initial browser bundle is 8.93 MB.</td></tr>
+          <tr><td>Fresh development SSR</td><td class="ok"><code>/creators?key=x</code> returns HTTP 200, rendered shell and route content, and hydration attributes. No <code>NG0401</code>.</td></tr>
+          <tr><td>Base SSR comparison</td><td>Base development build passes in 41.2 seconds. The same request returns HTTP 200 and reproduces <code>NG05001</code> and the same <code>NG0100</code> theme error.</td></tr>
+          <tr><td>Browser startup</td><td class="ok">Root and header Angular instances exist. The development toolbar instantiates. Zone change detection is active.</td></tr>
+          <tr><td>Shared modal</td><td class="ok">The existing screenshot-information modal opens and closes. Its injected common service and router are the same instances used by the root component.</td></tr>
+          <tr><td>Store keys</td><td class="ok"><code>userProfile</code>, <code>refreshKeys</code>, <code>otherUserProfile</code>, <code>cache</code>, and <code>apiCache</code> are present at runtime.</td></tr>
+          <tr><td>Whitespace and stale references</td><td class="ok">The diff passes the whitespace check. No remaining root-module bootstrap references or application <code>@NgModule</code> declarations.</td></tr>
+          <tr><td>Serverless development build</td><td>Unused deployment path. The attempted build fails because <code>environment.dev.ts</code> is absent in the checked-in source.</td></tr>
+          <tr><td>Serverless production build</td><td>Unused deployment path. Head and base both fail on the same 98 SCSS imports. No new failing stylesheet in the PR.</td></tr>
+          <tr><td>Prerender, DOM reuse, and event replay</td><td class="warn">Scheduled after deployment. Rendered hydration data and a running browser do not prove that Angular reused every SSR node or replayed an early interaction.</td></tr>
+          <tr><td>Generated white-label project</td><td class="warn">Scheduled after deployment. No generated-tenant build or fresh tenant SSR render in this review.</td></tr>
+          <tr><td>Signed-in routes and integrations</td><td class="warn">Authenticated lazy-route modals, Stripe initialization, toast behavior, and production service-worker registration were not exercised.</td></tr>
+        </tbody>
+      </table></div>
+      <p>The shared-modal check covers one public root service path. It does not cover every modal or the shared pipe providers used by signed-in features. The browser check confirms startup after the SSR response, but makes no claim about early event replay.</p>
+    </section>
+
+    <section id="after-deploy" class="stack">
+      <h2>After deployment</h2>
+      <ol>
+        <li>Build and freshly render one existing generated tenant. Confirm tenant configuration and branding, rather than only dist-folder selection.</li>
+        <li>Prerender representative routes. Check DOM reuse on a prerendered page and a freshly rendered page. Queue a click before hydration finishes and verify replay.</li>
+        <li>Exercise a shared modal from an authenticated lazy route, plus Toastr, Stripe startup, and service-worker registration. Add results and the tested commit to the PR.</li>
+      </ol>
+      <p>The first two checks are the maintainer's agreed validation after deployment. The integration smoke checks can accompany that pass. No further code fix was identified in this review.</p>
+    </section>
+  </main>
+  <footer>
+    <p>Recommendation applies to <code>8d2a75fc01845bd57070e25ff94c615f4324245a</code>. <a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/d885efb055773bb6e00b786bf0180cf35f09633f...8d2a75fc01845bd57070e25ff94c615f4324245a">Reviewed comparison</a> · <a href="/appmodule-standalone-conversion">Author's conversion note</a>.</p>
+  </footer>
+</div>
+</body>
+</html>

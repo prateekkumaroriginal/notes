@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Angular 16 upgrade explained</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --page: #090d14;
+      --panel: #101722;
+      --panel-soft: #151f2d;
+      --ink: #e8edf5;
+      --muted: #9eabc0;
+      --line: #29364a;
+      --accent: #70b7ff;
+      --accent-soft: #142b43;
+      --green: #63d69a;
+      --green-soft: #102b20;
+      --amber: #f3c969;
+      --amber-soft: #302613;
+      --red: #ff8e96;
+      --code: #0a111b;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--page); }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 85% 0%, rgba(45, 115, 180, .16), transparent 28rem),
+        var(--page);
+      font: 15px/1.62 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 32px));
+      margin: 32px auto;
+      padding: 44px 52px;
+      background: rgba(16, 23, 34, .96);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 24px 70px rgba(0, 0, 0, .35);
+    }
+
+    header {
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      max-width: 850px;
+      margin: 10px 0 14px;
+      font-size: clamp(30px, 5vw, 48px);
+      line-height: 1.08;
+      letter-spacing: -.035em;
+    }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: 23px;
+      line-height: 1.25;
+      letter-spacing: -.015em;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    p { margin: 8px 0 15px; }
+
+    .lead {
+      max-width: 820px;
+      color: #cbd6e7;
+      font-size: 18px;
+    }
+
+    .muted { color: var(--muted); }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 9px;
+      padding: 20px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    nav a {
+      color: var(--muted);
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    section {
+      padding: 30px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    section:last-of-type { border-bottom: 0; }
+
+    code {
+      color: #b9dcff;
+      background: var(--code);
+      border: 1px solid #223145;
+      border-radius: 5px;
+      padding: 2px 6px;
+      font: .88em/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+      overflow-wrap: anywhere;
+    }
+
+    pre {
+      margin: 14px 0;
+      padding: 16px 18px;
+      color: #cae4ff;
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: 13px/1.65 ui-monospace, SFMono-Regular, Consolas, monospace;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-top: 24px;
+    }
+
+    .metric, .card {
+      background: var(--panel-soft);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+    }
+
+    .metric { padding: 15px; }
+
+    .metric strong {
+      display: block;
+      color: var(--green);
+      font-size: 17px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 9px;
+      margin: 18px 0;
+    }
+
+    .flow div {
+      position: relative;
+      min-height: 92px;
+      padding: 13px;
+      background: var(--accent-soft);
+      border: 1px solid #275177;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+
+    .flow strong {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--accent);
+    }
+
+    .table-wrap { overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 11px 13px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #c8d7ea;
+      background: #172231;
+      font-weight: 650;
+    }
+
+    td { background: #0e1621; }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .card { padding: 17px; }
+    .card p { margin: 0; color: var(--muted); }
+
+    .note {
+      margin: 18px 0;
+      padding: 14px 17px;
+      background: var(--green-soft);
+      border: 1px solid #275d43;
+      border-left: 4px solid var(--green);
+      border-radius: 7px;
+    }
+
+    .note.warning {
+      background: var(--amber-soft);
+      border-color: #665426;
+      border-left-color: var(--amber);
+    }
+
+    .note p { margin: 0; }
+
+    .status {
+      display: inline-block;
+      min-width: 52px;
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    .status.warn { color: var(--amber); }
+
+    ul { margin: 10px 0 0; padding-left: 21px; }
+    li { margin: 7px 0; }
+
+    footer {
+      margin-top: 12px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 820px) {
+      main { width: 100%; margin: 0; padding: 28px 20px; border: 0; border-radius: 0; }
+      .metrics, .flow, .cards { grid-template-columns: 1fr; }
+      .flow div { min-height: auto; }
+    }
+
+    @media print {
+      :root { color-scheme: light; }
+      body, main { background: white; color: #17202c; box-shadow: none; }
+      main { width: 100%; margin: 0; padding: 0; border: 0; }
+      nav { display: none; }
+      .metric, .card, td, th, .flow div, pre, code { background: #f5f7fa; color: #17202c; }
+      section, header, footer, .metric, .card, td, th, .flow div, pre, code { border-color: #cbd3dd; }
+      .muted, .card p { color: #4c5969; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div class="eyebrow">Commit 24736f6e5f plus final checklist cleanup · 11 September 2026</div>
+      <h1>Angular 16 upgrade explained</h1>
+      <p class="lead">The application moved from Angular 15.2 to 16.2 as a controlled first step. Framework packages, build tools, SSR, and Angular-dependent UI libraries now agree on one compatible version set. The final Angular update-guide cleanup is also applied.</p>
+      <div class="metrics">
+        <div class="metric"><strong>16.2.12</strong><span>Angular framework</span></div>
+        <div class="metric"><strong>16.2.16</strong><span>Angular CLI</span></div>
+        <div class="metric"><strong>18.20.8</strong><span>Node.js baseline</span></div>
+        <div class="metric"><strong>0 legacy refs</strong><span>Final 15 to 16 API scan</span></div>
+      </div>
+    </header>
+
+    <nav aria-label="Document contents">
+      <a href="#shape">Upgrade shape</a>
+      <a href="#versions">Versions</a>
+      <a href="#code">Code changes</a>
+      <a href="#tooling">Build and tooling</a>
+      <a href="#validation">Validation</a>
+      <a href="#follow-up">Follow-up</a>
+    </nav>
+
+    <section id="shape">
+      <h2>1. What the upgrade does</h2>
+      <p>The change keeps the existing NgModule application and Universal SSR architecture. It updates the version contract around them and applies the compatibility edits required by Angular 16.</p>
+      <div class="flow" aria-label="Upgrade sequence">
+        <div><strong>Runtime</strong>Pin Angular, RxJS, TypeScript, Zone.js, and Node.js.</div>
+        <div><strong>Libraries</strong>Align Material, NgRx, PrimeNG, Bootstrap, forms, media, and Stripe packages.</div>
+        <div><strong>Migrations</strong>Apply Angular's router, CLI, and module cleanup migrations.</div>
+        <div><strong>Compatibility</strong>Update SSR imports and APIs changed by newer UI libraries.</div>
+        <div><strong>Proof</strong>Compile development, optimized production, and SSR bundles.</div>
+      </div>
+      <div class="note">
+        <p>No product feature or route was intentionally redesigned. The work changes framework contracts and build behavior while preserving the application's current structure.</p>
+      </div>
+    </section>
+
+    <section id="versions">
+      <h2>2. Version changes and why they moved together</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Package group</th><th>Before</th><th>After</th><th>Reason</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Angular framework</td><td><code>15.2.10</code></td><td><code>16.2.12</code></td><td>Moves core, compiler, forms, router, browser, server, service worker, and related packages as one synchronized set.</td></tr>
+            <tr><td>CLI and build tools</td><td><code>15.2.11</code></td><td><code>16.2.16</code></td><td>Keeps workspace builders and migrations compatible with Angular 16.</td></tr>
+            <tr><td>Material and CDK</td><td><code>15.2.9</code></td><td><code>16.2.14</code></td><td>Matches Angular 16 and supplies the current component and drag-drop APIs.</td></tr>
+            <tr><td>TypeScript</td><td><code>4.9.5</code></td><td><code>5.1.6</code></td><td>Uses the newest TypeScript line accepted by Angular 16.2.</td></tr>
+            <tr><td>RxJS</td><td><code>7.5.7</code></td><td><code>7.8.x</code></td><td>Satisfies upgraded library peers, including the Angular 16 audio player.</td></tr>
+            <tr><td>Zone.js</td><td><code>0.11.x</code></td><td><code>0.13.3</code></td><td>Matches Angular 16 and changes the supported Node entry point used by SSR.</td></tr>
+            <tr><td>Node.js</td><td><code>20</code> in Docker</td><td><code>18.20.8</code></td><td>Angular 16 officially supports Node 18, while Node 20 is outside its documented build range. The same version is recorded in <code>.nvmrc</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Angular-dependent packages</h3>
+      <p class="muted">Material alone was not enough. Packages with Angular peer dependencies also had to move to compatible releases.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Area</th><th>Aligned packages</th></tr></thead>
+          <tbody>
+            <tr><td>State and UI</td><td><code>@ngrx/store 16.3</code>, <code>primeng 16.9</code>, <code>ngx-bootstrap 11</code>, <code>@ng-bootstrap/ng-bootstrap 15</code>, <code>@ng-select/ng-select 11</code></td></tr>
+            <tr><td>Forms and input</td><td><code>ngx-mask 16</code>, <code>ngx-intl-tel-input 15</code>, <code>ng-multiselect-dropdown 1.0</code>, <code>ngx-material-timepicker 13</code></td></tr>
+            <tr><td>Media and display</td><td><code>ngx-audio-player 16</code>, <code>ngx-owl-carousel-o 16</code>, <code>ngx-infinite-scroll 16</code>, <code>ngx-device-detector 6</code></td></tr>
+            <tr><td>Payments and icons</td><td><code>ngx-stripe 16</code>, <code>@stripe/stripe-js 3</code>, <code>@fortawesome/angular-fontawesome 0.13</code></td></tr>
+            <tr><td>New explicit runtime dependencies</td><td><code>domino 2.1.8</code> for SSR and <code>luxon 3.7</code> for the upgraded time picker</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="code">
+      <h2>3. Source changes required by Angular 16</h2>
+      <div class="cards">
+        <article class="card">
+          <h3>Router guard interfaces removed</h3>
+          <p>Angular 15.2 deprecated class interfaces such as <code>CanActivate</code> and <code>CanDeactivate</code>. The migration removes those imports and <code>implements</code> clauses. Existing <code>canActivate</code> and <code>canDeactivate</code> methods remain, so route behavior stays structurally compatible.</p>
+        </article>
+        <article class="card">
+          <h3>Obsolete entry component metadata removed</h3>
+          <p><code>entryComponents</code> was deleted from <code>SharedModule</code>. Ivy discovers dynamically created components without that NgModule list.</p>
+        </article>
+        <article class="card">
+          <h3>SSR Zone.js import updated</h3>
+          <p><code>zone.js/dist/zone-node</code> became <code>zone.js/node</code> in both <code>server.ts</code> and <code>serverless.ts</code>. The old deep import is not exported by Zone.js 0.13.</p>
+        </article>
+        <article class="card">
+          <h3>PrimeNG removal API updated</h3>
+          <p>The custom multiselect calls <code>removeOption(item, event)</code> instead of the removed <code>removeChip(item, event)</code> method.</p>
+        </article>
+        <article class="card">
+          <h3>ngx-mask registration updated</h3>
+          <p>The wallet module imports standalone mask directive and pipe classes, then registers <code>provideNgxMask()</code>. This replaces the older <code>NgxMaskModule.forRoot()</code> pattern.</p>
+        </article>
+        <article class="card">
+          <h3>Unused View Engine package removed</h3>
+          <p><code>ngx-drag-and-drop-lists</code> and its module import were removed. Messages already uses Angular CDK drag-drop, and Angular 16 no longer runs the old compatibility compiler.</p>
+        </article>
+        <article class="card">
+          <h3>Transfer state imports moved</h3>
+          <p><code>TransferState</code> and <code>makeStateKey</code> now come from <code>@angular/core</code> in the platform service and both cache services. Angular 16 moved these public APIs out of <code>@angular/platform-browser</code>.</p>
+        </article>
+        <article class="card">
+          <h3>Server transition wrapper removed</h3>
+          <p><code>BrowserModule.withServerTransition({ appId: 'serverApp' })</code> became <code>BrowserModule</code>. Each white-label site is a separate build, so this application does not need an <code>APP_ID</code> to distinguish multiple Angular applications on one page.</p>
+        </article>
+        <article class="card">
+          <h3>Last guard interface removed</h3>
+          <p><code>WhitelabelSiteOnlyGuard</code> no longer imports or implements the deprecated <code>CanActivate</code> interface. Its <code>canActivate()</code> method and routing behavior are unchanged.</p>
+        </article>
+      </div>
+      <div class="note warning">
+        <p>The two white-label generated constant files only received new generation timestamps. Their exported data did not change.</p>
+      </div>
+    </section>
+
+    <section id="tooling">
+      <h2>4. Build and developer tooling changes</h2>
+      <ul>
+        <li><code>angular.json</code> now records explicit <code>buildOptimizer</code> values for server and serverless configurations. Optimized targets use <code>true</code>; development uses <code>false</code>.</li>
+        <li><code>tsconfig.json</code> points <code>typeRoots</code> to <code>node_modules/@types</code>, allowing TypeScript 5.1 to resolve Node declarations during browser and SSR compilation.</li>
+        <li>Angular ESLint builder, schematics, and template parser packages were added. Two invalid trailing commas were removed from <code>.eslintrc.json</code>, so the lint command now reaches source validation.</li>
+        <li><code>package-lock.json</code> was regenerated to lock the Angular 16-compatible dependency tree.</li>
+      </ul>
+      <h3>Developer setup</h3>
+      <pre>nvm use
+npm install
+npm run build-dev</pre>
+      <p class="muted"><code>npm run build-dev</code> still depends on a local <code>src/environments/environment.dev.ts</code>. That file was absent during validation, so the checked-in development and production configurations were used directly.</p>
+    </section>
+
+    <section id="validation">
+      <h2>5. What passed, and what remains visible</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Check</th><th>Result</th><th>What it proves</th></tr></thead>
+          <tbody>
+            <tr><td>Dependency tree</td><td><span class="status">Passed</span></td><td><code>npm ls --depth=0</code> found no missing or invalid root packages.</td></tr>
+            <tr><td>Development browser build</td><td><span class="status">Passed</span></td><td>Re-run on 11 September after the final import, BrowserModule, and route-guard cleanup.</td></tr>
+            <tr><td>Production browser build</td><td><span class="status">Passed</span></td><td>Optimization, index generation, hashing, and service-worker generation complete after the final cleanup.</td></tr>
+            <tr><td>Development SSR build</td><td><span class="status">Passed</span></td><td>Universal, Zone.js, Domino, server entry points, and server-side lazy chunks compile after the final cleanup.</td></tr>
+            <tr><td>Changed TypeScript files</td><td><span class="status">Passed</span></td><td>The files touched by the migration pass ESLint with the repository's required 10 GB heap.</td></tr>
+            <tr><td>Whole-project lint</td><td><span class="status warn">Backlog</span></td><td>Lint now runs and reports 92 existing template errors, mainly loose equality and negated async-pipe expressions.</td></tr>
+            <tr><td>White-label builds</td><td><span class="status warn">Unavailable</span></td><td>The project list contained only <code>TopFans</code>; no generated white-label project existed to compile.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note warning">
+        <p>The latest optimized initial bundle is <code>10.62 MB</code>, which is <code>635.06 kB</code> above the configured 10 MB warning threshold. The build still succeeds. CommonJS dependency, unused Stripe source, and one CSS compatibility warning also remain.</p>
+      </div>
+    </section>
+
+    <section id="follow-up">
+      <h2>6. Recommended follow-up</h2>
+      <ol>
+        <li>Smoke-test login, route guards, wallet input masks, custom multiselect chip removal, Stripe checkout, audio playback, and SSR page loads in a deployed environment.</li>
+        <li>Generate one representative white-label project and run its browser and SSR builds before release.</li>
+        <li>Resolve the 92 template lint errors as a separate cleanup change so behavior edits stay reviewable.</li>
+        <li>Measure the production initial bundle and remove or lazy-load enough code to return below the 10 MB warning budget.</li>
+        <li>Plan the next one-major-at-a-time migration. Angular 16 is an intermediate compatibility stop rather than a currently supported destination.</li>
+      </ol>
+    </section>
+
+    <footer>
+      Based on commit <code>24736f6e5f</code>, <code>upgrade Ang 15 =&gt; 16</code>, plus the final Angular 16 update-guide cleanup verified on 11 September 2026.
+    </footer>
+  </main>
+</body>
+</html>

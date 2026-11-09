@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Port Resolve_build_size_19 onto Angular 19</title>
+  <style>
+    :root {
+      --page: #0f141c;
+      --text: #e7edf5;
+      --muted: #9aa8ba;
+      --rule: #2d394a;
+      --blue: #8fb4ff;
+      --green: #65d69a;
+      --yellow: #e8c56b;
+      --red: #f0837c;
+      --code: #111720;
+      --sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    main {
+      width: min(920px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 48px 0 88px;
+    }
+
+    header {
+      display: grid;
+      gap: 14px;
+      padding-bottom: 28px;
+      border-bottom: 1px solid var(--rule);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      line-height: 1.2;
+    }
+
+    header p {
+      margin: 0;
+      max-width: 68ch;
+      color: var(--muted);
+    }
+
+    section {
+      padding-top: 36px;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+
+    p {
+      max-width: 72ch;
+      margin: 0 0 12px;
+    }
+
+    ol, ul {
+      max-width: 72ch;
+      margin: 0;
+      padding-left: 20px;
+    }
+
+    li { margin: 6px 0; }
+
+    code {
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.07);
+      font-family: var(--mono);
+      font-size: 0.88em;
+      padding: 1px 5px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th, td {
+      padding: 8px 12px 8px 0;
+      border-bottom: 1px solid var(--rule);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .ok { color: var(--green); }
+    .warn { color: var(--yellow); }
+    .no { color: var(--red); }
+    .note { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Port Resolve_build_size_19 onto this Angular 19 branch</h1>
+      <p>Yes. Stay on Angular 19 and PrimeNG 17. Keep the lazy CSS you already shipped. Copy their JS splits. PrimeNG 19, Lara, and <code>PrimeNgLoaderService</code> wait for the Angular 20 upgrade. Measure after each slice so a broken import does not hide behind a smaller bundle.</p>
+    </header>
+
+    <section>
+      <h2>Where you are</h2>
+      <p>Current branch is <code>feature/release-0.0.23/16-17-18-19</code> at <code>eddf08efa8</code>. <code>package.json</code> has <code>@angular/core</code> <code>~19.2.25</code> and CLI <code>~19.2.27</code>. That is Angular 19.</p>
+      <p>PrimeNG is still <code>~17.18.15</code>. Their size-fix branch is Angular 19.2.25 with PrimeNG 19.1.4 and <code>@primeng/themes</code>. Same Angular major. Different PrimeNG. That is the only hard mismatch.</p>
+      <p>This branch already has <code>inject: false</code> vendor CSS, <code>LazyVendorCssDirective</code>, and per-widget <code>loadFor*</code> calls. They do not. There is no <code>@defer</code> here. <code>SharedModule</code> still imports intl-tel, emoji-mart, color picker, timepicker, OTP, IVS, share buttons, mentions, all three video players, profile, post-submit, mobile-input, and custom-multiselect. The header still static-imports the three marketing JSON files.</p>
+    </section>
+
+    <section>
+      <h2>Copy / skip</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>From their branch</th>
+            <th>Here</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>DeferredIntlTelInputComponent</code> plus <code>@defer (on idle)</code>, remove <code>NgxIntlTelInputModule</code> from shared</td>
+            <td class="ok">Copy. Keep <code>loadForIntlTel()</code> and the directive.</td>
+          </tr>
+          <tr>
+            <td><code>EmojiMartPickerComponent</code> plus <code>@defer (on immediate)</code>, remove <code>PickerModule</code> from shared</td>
+            <td class="ok">Copy. Keep <code>loadForEmojiMart()</code>.</td>
+          </tr>
+          <tr>
+            <td>Header <code>await import()</code> of marketing / pro / comparison data</td>
+            <td class="ok">Copy. About 906 kB of source leaves the initial graph.</td>
+          </tr>
+          <tr>
+            <td>Make video players standalone, drop them from shared declarations, <code>@defer (on viewport)</code> in post-card and profile</td>
+            <td class="warn">Copy the idea. Do not copy their imports. Post-card is still an NgModule component. Import each standalone player into <code>SharedModule.imports</code> so the template compiles. Then measure. If video.js is still in initial, move the import onto post-card after it is standalone.</td>
+          </tr>
+          <tr>
+            <td>Move IVS, share buttons, mentions, timepicker, OTP, color picker, profile, post-submit, mobile-input, custom-multiselect out of shared and into the feature that uses them</td>
+            <td class="ok">Copy after the first three slices. This is the compile-error grind, and the rest of the 5 MB.</td>
+          </tr>
+          <tr>
+            <td><code>@defer (on idle)</code> around timepicker, color picker, mobile-input, custom-multiselect in the form builder</td>
+            <td class="ok">Copy once those components are no longer exported from shared.</td>
+          </tr>
+          <tr>
+            <td>Their <code>isPlatformBrowser</code> CSS loader and the <code>app.component</code> <code>setTimeout(0)</code> preload</td>
+            <td class="no">Skip. Keep the directive and the SSR <code>&lt;link&gt;</code> behavior you just fixed.</td>
+          </tr>
+          <tr>
+            <td>PrimeNG 17 to 19, <code>@primeng/themes</code>, Lara, <code>PrimeNgLoaderService</code></td>
+            <td class="warn">Deferred. Do this during the Angular 20 upgrade. This branch keeps PrimeNG 17 CSS via <code>lazy-primeng-theme</code> / <code>lazy-primeng</code> / <code>lazy-primeicons</code>.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>1. Baseline</h2>
+      <p>Record <code>ng build --configuration=qa --prerender=false</code> initial / lazy / <code>styles</code>. Prerender does not change chunk bytes. Do not commit the prefetch dirt in <code>prerender.routes.txt</code>, marketing generated files, or <code>environment.ts</code>.</p>
+    </section>
+
+    <section>
+      <h2>2. Phone, then emoji, then marketing JSON</h2>
+      <p>Three small, independent cuts. Do them in this order. Rebuild after each one.</p>
+      <ol>
+        <li>Add <code>src/app/components/deferred-intl-tel-input/</code>. Only this file imports <code>NgxIntlTelInputModule</code>. Swap every <code>&lt;ngx-intl-tel-input&gt;</code> to <code>@defer (on idle) { &lt;app-deferred-intl-tel-input&gt; }</code>. Remove the module from <code>SharedModule</code>. Call sites: mobile-input, personal-info, contact-us, advertise, customer-information.</li>
+        <li>Add <code>src/app/components/emoji-mart-picker/</code>. Same pattern with <code>@defer (on immediate)</code> inside the existing <code>showEmojiPicker</code> guard in messages and chat-comments. Remove <code>PickerModule</code> from shared.</li>
+        <li>In the header, delete the static imports of <code>MARKETING_PAGE_DATA</code>, <code>MARKETING_PRO_PAGE_DATA</code>, and <code>COMPARISON_PAGE_DATA</code>. Load them with <code>await import()</code> in the three listing methods. Port <code>applyAsyncSafe()</code> if SSR change detection complains.</li>
+      </ol>
+      <p class="note">Expect <code>chunk-SA2WMUN6</code>-class intl-tel to leave initial after step 1. Emoji and the 906 kB marketing files after 2 and 3. Phone fields will appear after idle. Emoji JS loads when the picker opens. Marketing nav links can fill one tick late.</p>
+    </section>
+
+    <section>
+      <h2>3. Video players</h2>
+      <p>Set <code>standalone: true</code> on v1, v2, and v3. Move them from <code>SharedModule.declarations</code> to <code>SharedModule.imports</code>. Add <code>@defer (on viewport)</code> with a placeholder in post-card and profile. Keep <code>loadForVideoPlayer()</code>.</p>
+      <p>Click a feed video and a profile video before calling this done. Their size-fix branch removed the players from shared and left post-card as a module component with <code>CUSTOM_ELEMENTS_SCHEMA</code>. That can compile and still not instantiate the player. If video.js is still in the initial table, post-card is still dragging it. Make post-card standalone next and import the player only there.</p>
+    </section>
+
+    <section>
+      <h2>4. The rest of SharedModule</h2>
+      <p>One vendor or widget per commit. After you remove it from shared, the first build tells you every feature that still needs it. Put the import on that feature module or standalone component. Then wrap the form-builder cases in <code>@defer (on idle)</code>.</p>
+      <p>Suggested order: color picker, timepicker, OTP, mentions, share buttons, IVS if the video slice did not already take it, mobile-input, custom-multiselect, post-submit, <code>ProfileComponent</code>.</p>
+      <p>Comments, welcome-video, sponsored-ad, and the alert-modal carousel can get viewport or idle <code>@defer</code> after that. Those are below-fold wins, not the initial-table win.</p>
+    </section>
+
+    <section>
+      <h2>Deferred until Angular 20</h2>
+      <p>Do not bump <code>primeng</code>, do not add <code>@primeng/themes</code>, and do not add <code>PrimeNgLoaderService</code> on this branch. PrimeNG 17 stays. Theme CSS stays on the existing lazy bundles and <code>LazyVendorCssDirective</code>.</p>
+      <p>When this app moves to Angular 20, that upgrade owns PrimeNG 20, the Lara preset, and whether Lara is eager in <code>AppModule</code> or loaded later. Doing it now would mix a theme migration into a module-graph cut.</p>
+    </section>
+
+    <section>
+      <h2>Check after each slice</h2>
+      <ul>
+        <li>QA compile with <code>--prerender=false</code>. Initial raw should fall. <code>styles</code> should stay near 1.81 MB. Monetize / insights / messages should stay flat.</li>
+        <li>Contact-us and personal-info: phone field appears, validates, country picker works, flag CSS loads.</li>
+        <li>Messages: emoji picker opens, CSS arrives, send still works.</li>
+        <li>Public header: marketing, pro, and comparison listing links populate.</li>
+        <li>Home feed and a profile: video plays, mute works, no empty custom element.</li>
+        <li>A page with <code>p-carousel</code> or custom-multiselect: PrimeNG 17 CSS still lands through the directive.</li>
+        <li>A toast still has toastr CSS. A datepicker still has bootstrap datepicker CSS.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Risks</h2>
+      <ul>
+        <li>Removing something from <code>SharedModule</code> without adding it at the use site. The build fails. That is the point. Fix the import, do not put it back in shared.</li>
+        <li>Video player <code>@defer</code> with no standalone import. Size looks good, player never boots.</li>
+        <li>Idle phone fields on a busy main thread. Short blank, then the input. Accept it or switch those sites to <code>on immediate</code> if QA hates the hole.</li>
+        <li>Prerendered HTML will not contain deferred blocks. Phone was already client-only via <code>cs.isBrowser</code>. Videos and emoji become client-only too. Fine for those widgets. Do not <code>@defer</code> SEO text.</li>
+        <li>Header marketing data becomes async. Possible empty mega-menu for one tick, and an extra SSR change-detection pass.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Assumptions</h2>
+      <ul>
+        <li>Goal is a smaller first load on this Angular 19 branch, not a merge of <code>Resolve_build_size_19</code>.</li>
+        <li>PrimeNG stays at 17 until the Angular 20 upgrade. Their 6.80 / 1.14 MB initial is the shape to chase, not a number this branch must hit. PrimeNG 17 vs 19 will not match byte-for-byte.</li>
+        <li>Idle delay on phone and viewport delay on offscreen video are acceptable. Say so if they are not. Those triggers are easy to change after the splits exist.</li>
+      </ul>
+    </section>
+  </main>
+</body>
+</html>

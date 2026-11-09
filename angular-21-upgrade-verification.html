@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Release verification checklist for the TopFans Angular 21 upgrade.">
+  <title>Verify the Angular 21 upgrade</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --accent: #68d7ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    ul,
+    ol,
+    pre,
+    table {
+      margin: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    th,
+    strong {
+      color: var(--text);
+    }
+
+    a {
+      color: var(--accent);
+      text-underline-offset: 0.2em;
+    }
+
+    code {
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      padding: 0.1rem 0.35rem;
+    }
+
+    h1 code,
+    h2 code,
+    h3 code {
+      background: none;
+      padding: 0;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .release {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+
+    nav {
+      padding-top: 2rem;
+    }
+
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    main {
+      padding-top: 3rem;
+    }
+
+    section + section {
+      padding-top: 2.5rem;
+    }
+
+    h2 {
+      padding-bottom: 0.75rem;
+    }
+
+    h3 {
+      padding-bottom: 0.5rem;
+    }
+
+    .lede {
+      padding-bottom: 1.25rem;
+    }
+
+    section ul:not(.evidence),
+    section ol {
+      display: grid;
+      gap: 0.6rem;
+      padding-left: 1.25rem;
+    }
+
+    .group + .group {
+      padding-top: 1.75rem;
+    }
+
+    pre {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 0.65rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      padding: 1.25rem;
+      white-space: pre-wrap;
+    }
+
+    .command-note {
+      padding-top: 0.75rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.75rem 1rem 0.75rem 0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 0.85rem;
+    }
+
+    td:first-child {
+      width: 27%;
+      color: var(--text);
+    }
+
+    .evidence {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem 2rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .evidence span {
+      display: block;
+      color: var(--text);
+    }
+
+    footer {
+      padding-top: 3rem;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        padding-block: 3rem;
+      }
+
+      .evidence {
+        grid-template-columns: 1fr;
+      }
+
+      td:first-child {
+        width: 38%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Verify the Angular 21 upgrade</h1>
+      <p>Sign off the TopFans browser, live SSR, the Firebase SDK rewrite, ngx-bootstrap 21, and one white-label tenant. The build, prerender, SSR, and tenant pipelines already pass on the machine; what remains is behaviour only a browser can show.</p>
+      <div class="release" aria-label="Release identity">
+        <span>commit 265d424b74</span>
+        <span>Angular 21.2.23</span>
+        <span>ngx-bootstrap 21.2.2</span>
+        <span>firebase 11.10.0</span>
+        <span>CI Node 20 / npm 10.8.1</span>
+      </div>
+    </header>
+
+    <nav aria-label="Page sections">
+      <ul>
+        <li><a href="#done">Already verified</a></li>
+        <li><a href="#artifact">Artifact</a></li>
+        <li><a href="#firebase">Firebase</a></li>
+        <li><a href="#bootstrap">ngx-bootstrap</a></li>
+        <li><a href="#host">Host listeners</a></li>
+        <li><a href="#product">Product</a></li>
+        <li><a href="#tenant">White-label</a></li>
+        <li><a href="#noise">Known noise</a></li>
+        <li><a href="#stop">Release blockers</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="done">
+        <h2>Already verified on the branch</h2>
+        <p class="lede">These passed against commit <code>265d424b74</code>. Re-run them only if the branch changes.</p>
+        <ul>
+          <li><strong><code>build-qa</code> and <code>build-prod</code> compile.</strong> Initial bundle 12.44 MB raw, 2.00 MB transfer. Angular 20 was 12.34 MB and 1.99 MB. The 10 MB budget warning is pre-existing.</li>
+          <li><strong><code>prerender-all-qa</code> completes.</strong> 1025 routes prerendered, sitemap and robots.txt written, exit 0.</li>
+          <li><strong>Express SSR renders real markup.</strong> <code>/</code>, <code>/creators?key=x</code>, <code>/topfan-vs-patreon</code>, <code>/pricing</code>, <code>/creators/login</code> return 200 with correct titles. <code>/topfan/?key=x</code> is 301, garbage paths are 404. No runtime error in server output.</li>
+          <li><strong>Serverless target compiles.</strong> <code>ng run TopFans:serverless:qa</code> exits 0. Nothing in <code>buildspec-*.yml</code> or <code>deployment_script/</code> uses this target.</li>
+          <li><strong>White-label generation and one tenant build.</strong> <code>generate-white-label-qa</code> produced 25 projects; <code>perfectcrew</code> built and served through SSR with its own title.</li>
+          <li><strong>Clean <code>npm ci</code> applies the patch.</strong> <code>postinstall</code> runs <code>patch-package</code> and ngx-intl-tel-input gets the ngx-bootstrap 21 fix.</li>
+        </ul>
+      </section>
+
+      <section id="artifact">
+        <h2>Use the QA artifact</h2>
+        <p class="lede">Verify against the optimized QA build served by the Express SSR process, the same path pm2 runs in production.</p>
+        <pre>npm ci
+node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng build --configuration=qa --prerender=false
+PORT=4000 node dist/TopFans/server/server.mjs</pre>
+        <p class="command-note">Local Node 24.5 prints an npm 12 warning and cannot run <code>ng update</code>; neither matters for this checklist. CI builds on Node 20 with npm 10.8.1 and <code>.npmrc</code> already sets <code>legacy-peer-deps=true</code>.</p>
+
+        <div class="group">
+          <h3>Release fingerprint</h3>
+          <ul class="evidence">
+            <li><span>Angular</span>Core 21.2.23, CLI and SSR 21.2.24, Material and CDK 21.2.14</li>
+            <li><span>TypeScript</span>5.9.3, zone.js 0.15.1</li>
+            <li><span>Firebase</span><code>firebase</code> 11.10.0 Web SDK, <code>@angular/fire</code> removed</li>
+            <li><span>ngx-bootstrap</span>21.2.2, no more <code>Module.forRoot()</code></li>
+            <li><span>PrimeNG</span>21.1.10, ng-select 21.8.2, ng-bootstrap 20.0.0, ngrx 21.1.1</li>
+            <li><span>FontAwesome</span>angular-fontawesome 4.0.0, svg-core and icon packs 7.3.1</li>
+            <li><span>Patched</span>ngx-intl-tel-input 15.0.0 via <code>patches/</code></li>
+            <li><span>Architecture held</span>NgModules, zone.js via <code>provideZoneChangeDetection()</code> in <code>AppModule</code>, <code>*ngIf</code> templates</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="firebase">
+        <h2>Firebase without AngularFire</h2>
+        <p class="lede"><code>FirebaseService</code> now calls the Web SDK directly. Initialization is lazy, browser-only, and gated on each product's <code>isSupported()</code>. Remote Config updates run inside <code>NgZone.run()</code>. A returning user with a stored token previously never attached <code>onMessage</code>; that is fixed and must be checked, not assumed.</p>
+        <ul>
+          <li><strong>Grant notification permission on a fresh profile.</strong> A token is issued, the register-token API call succeeds, and the console shows no Firebase initialization error.</li>
+          <li><strong>Send a test push while the tab is in the foreground.</strong> Exactly one toast or in-app notification appears. Two means the listener attached twice.</li>
+          <li><strong>Reload as the same user.</strong> The stored token is reused, no second registration call fires, and a foreground push still surfaces once.</li>
+          <li><strong>Background push.</strong> With the tab hidden, the service worker (<code>firebase-messaging-sw.js</code>) shows the system notification and clicking it opens the app.</li>
+          <li><strong>Remote Config drives the UI.</strong> On a page that reads <code>iosPayButtonsConfig</code>, changing the remote value and reloading changes what renders. No manual click should be needed for the view to update.</li>
+          <li><strong>Unsupported browser path.</strong> In Safari private mode or with notifications blocked, the app loads and no unhandled rejection appears.</li>
+          <li><strong>SSR stays clean.</strong> Server output has no <code>IndexedDB</code>, <code>window is not defined</code>, or Firebase provider errors while requesting pages.</li>
+        </ul>
+      </section>
+
+      <section id="bootstrap">
+        <h2>ngx-bootstrap 21 and the phone input</h2>
+        <p class="lede">Two things changed under the application. <code>Module.forRoot()</code> is gone, so every module is imported bare. <code>BsDropdownDirective.isOpen</code> is a getter now, so code that assigned it uses <code>toggle()</code> or <code>hide()</code>. ngx-intl-tel-input still calls <code>forRoot()</code> and is patched.</p>
+
+        <div class="group">
+          <h3>Dropdowns toggled from code</h3>
+          <ul>
+            <li><strong>Home discover filter.</strong> Choosing a filter closes the dropdown and reloads the feed.</li>
+            <li><strong>Forum topic filter.</strong> Same behaviour on the forum page.</li>
+            <li><strong>Collaborators filter.</strong> Selecting a filter closes the menu and the list resets to page one.</li>
+            <li><strong>Post detail actions menu.</strong> After saving an edit the menu closes.</li>
+            <li><strong>Post-submit type menu.</strong> Choosing a post type closes the menu.</li>
+            <li><strong>Info icon popovers.</strong> Opening one closes the previously open one.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h3>Phone number input</h3>
+          <ul>
+            <li><strong>Signup and personal info.</strong> The country dropdown opens, searches, and selects; the dial code updates.</li>
+            <li><strong>Pro contact form.</strong> Same on the marketing pro contact form layout.</li>
+            <li><strong>Lazy vendor CSS.</strong> Flags and the dropdown are styled after the first render; there is no unstyled flash on a cold load.</li>
+          </ul>
+        </div>
+
+        <div class="group">
+          <h3>Modals, datepickers, tabs, accordions</h3>
+          <ul>
+            <li><strong>Alert modal variants.</strong> Confirm, cancel, cross button, and dynamic class all behave; <code>page-hidden</code> is added on open and removed on close.</li>
+            <li><strong>Datepicker and daterange picker.</strong> Open, choose, and clear on the dynamic-form datepicker and any scheduling flow.</li>
+            <li><strong>Tabs and accordion.</strong> Insights tabs and pricing accordions switch content.</li>
+            <li><strong>Typeahead.</strong> The one typeahead usage still filters and selects.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="host">
+        <h2>Host listeners that lost their <code>$event</code> argument</h2>
+        <p class="lede">Angular 21 type-checks host bindings. 49 <code>@HostListener('window:scroll' | 'window:resize', ['$event'])</code> decorators sat on handlers that took no parameters and were changed to pass nothing. Behaviour should be identical; confirm the listeners still fire.</p>
+        <ul>
+          <li><strong>Infinite scroll loads more.</strong> Home feed, creators list, collaborators, block users, basic see-more, merchandise store, VIP offers.</li>
+          <li><strong>Resize handlers.</strong> Home, merchandise store, portfolio, sponsored ad, skyscraper preview modal, VIP offer list, advertisement details switch layout when the window crosses the mobile breakpoint.</li>
+          <li><strong>Table sticky behaviour.</strong> The shared table component reacts to window scroll.</li>
+          <li><strong>Click-outside handlers.</strong> Any component that closes a menu on document click still does so.</li>
+        </ul>
+      </section>
+
+      <section id="product">
+        <h2>Library and product smoke matrix</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Pass when</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Public pages</td>
+                <td>Home, creator login, creator profile, a comparison page, and a marketing page paint without an empty layout or console exception, and stay populated after hydration.</td>
+              </tr>
+              <tr>
+                <td>FontAwesome 7</td>
+                <td>Brand and solid icons render across header, footer, social links, and buttons. A missing icon renders as a blank box and is easy to miss on dark backgrounds.</td>
+              </tr>
+              <tr>
+                <td>PrimeNG 21</td>
+                <td>Custom MultiSelect opens, filters, selects, removes chips, and uses its footer. Image overlay and reels carousels navigate. Checkboxes and radio styling hold.</td>
+              </tr>
+              <tr>
+                <td>ng-select 21</td>
+                <td>A representative select opens, filters, chooses, and clears with the existing theme.</td>
+              </tr>
+              <tr>
+                <td>ng-bootstrap 20</td>
+                <td>Any <code>NgbModal</code> and <code>NgbActiveModal</code> usage opens and closes without an injector error.</td>
+              </tr>
+              <tr>
+                <td>Voice circle recorder</td>
+                <td>Recording starts, the visualizer animates with volume, and stopping produces a playable clip. This component's buffer type changed for TypeScript 5.9.</td>
+              </tr>
+              <tr>
+                <td>ngx-mask, ngx-toastr</td>
+                <td>Masked inputs format as typed; toasts appear and dismiss.</td>
+              </tr>
+              <tr>
+                <td>Owl carousel</td>
+                <td>Marketing carousels move both directions and respect breakpoints.</td>
+              </tr>
+              <tr>
+                <td>QR scanner, device detector</td>
+                <td>The zxing scanner opens the camera where used; mobile and desktop detection still branch correctly.</td>
+              </tr>
+              <tr>
+                <td>Audio player</td>
+                <td>An audio post loads, plays, pauses, seeks, and closes. This package still peers on Material 17.</td>
+              </tr>
+              <tr>
+                <td>IVS live video</td>
+                <td>A live stream page loads the player. <code>ng-ivs</code> still peers on Angular 12.</td>
+              </tr>
+              <tr>
+                <td>Wallet and Stripe</td>
+                <td>Balance and payout forms render. Test checkout and Connect complete against a safe environment.</td>
+              </tr>
+              <tr>
+                <td>Messages</td>
+                <td>Conversation list and thread load; sending text and opening attachment UI do not throw.</td>
+              </tr>
+              <tr>
+                <td>ngrx store</td>
+                <td>State-driven views update after actions; no <code>Store</code> provider error at startup.</td>
+              </tr>
+              <tr>
+                <td>HMR</td>
+                <td>A template or style edit updates under <code>ng serve</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tenant">
+        <h2>Build and render one white-label tenant</h2>
+        <ul>
+          <li><strong>Generate in a disposable working tree.</strong> <code>generate-white-label-qa</code> rewrites <code>angular.json</code>, <code>package.json</code>, <code>src/index.html</code>, and the white-label constants. Do not commit any of it.</li>
+          <li><strong>Build a tenant with the QA configuration.</strong> <code>WEBSITE=&lt;tenant url&gt; ng build &lt;tenant&gt; --configuration=qa --prerender=false</code> with the 10 GB heap.</li>
+          <li><strong>Serve <code>dist/&lt;tenant&gt;/server/server.mjs</code>.</strong> The home page title is the tenant's, not TopFan's, and server output has no runtime error.</li>
+          <li><strong>Repeat the Firebase and phone input checks on the tenant.</strong> Tenant Firebase config and the patched phone input are the two places a tenant can diverge from TopFans.</li>
+          <li><strong>Branding survives hydration.</strong> Logo, colors, login, and cover-page behaviour stay tenant-specific after JavaScript starts.</li>
+        </ul>
+      </section>
+
+      <section id="noise">
+        <h2>Known noise and deliberate holds</h2>
+        <ul>
+          <li><strong>Lint still fails, as it did before.</strong> 890 findings remain from rules already in the v19 recommended set: <code>prefer-standalone</code> 541, template <code>eqeqeq</code> 67, <code>no-output-on-prefix</code> 50, and others. Two rules new in v20 recommended, <code>prefer-inject</code> and <code>template/prefer-control-flow</code>, are turned off with a comment because they are separate migrations.</li>
+          <li><strong>Serverless <code>main.js</code> cannot be required in bare Node.</strong> It fails inside video.js's auto-setup, which needs <code>window.setTimeout</code>. This is unrelated to Angular and the target is not deployed anywhere.</li>
+          <li><strong>Peer warnings from <code>ng update</code>.</strong> <code>ng-ivs</code> peers Angular 12, <code>ngx-audio-player</code> peers Material 17, <code>primeng</code> peered CDK 20 before its own bump. All compiled; both players are on the smoke matrix.</li>
+          <li><strong>Control-flow migration was reverted.</strong> <code>ng update</code> rewrote 659 templates to <code>@if</code> and introduced four template errors. Templates stay on <code>*ngIf</code>.</li>
+          <li><strong><code>generate-static-routes</code> logs 400s.</strong> The QA backend rejects VIP-offer and store lookups for some creators. This is backend data, not a build failure, and the run still exits 0.</li>
+          <li><strong>Sass deprecation warnings dropped from 288 to 226.</strong> Still noisy, still not blocking.</li>
+          <li><strong>Local <code>environment.ts</code> and regenerated marketing constants are not committed.</strong> They are the developer's local QA switch and prefetch output respectively.</li>
+        </ul>
+      </section>
+
+      <section id="stop">
+        <h2>Stop the release if any of these fail</h2>
+        <ul>
+          <li>A foreground push produces zero or two notifications, or a fresh user cannot register a token.</li>
+          <li>The phone country dropdown does not open on signup, or the browser console shows <code>forRoot is not a function</code>.</li>
+          <li>A dropdown toggled from code stays open, or infinite scroll stops loading on the home feed.</li>
+          <li>A permitted host receives an empty <code>&lt;app-root&gt;</code> or server output reports an Angular runtime error.</li>
+          <li>Wallet checkout, Stripe Connect, audio playback, live video, or a representative white-label tenant regresses.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>
+      TopFans branch <code>feature/release-0.0.23/16-17-18-19-20-21</code>. Upgrade commits <code>7b303ed6e1</code> through <code>265d424b74</code>. Plan: <a href="angular-20-to-21-upgrade-plan-fable.html">Angular 20 to 21 upgrade plan, revised</a>.
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PR 10829: three more pages without NgModules</title>
+  <meta name="description" content="What PR 10829 changed, which pages it touches, and a checklist to verify it.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--green); }
+    pre .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > p + .pair { margin-top: 0.75rem; }
+
+    section > * + .table-wrap,
+    section > * + pre,
+    section > * + .pair { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .pair figure { display: grid; gap: 0.5rem; align-content: start; }
+
+    .pair figcaption {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .pair { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10829: three more pages without NgModules</h1>
+      <p>This finishes the single-component feature modules. <code>/advertise</code>, <code>/global/category-creator-listing</code>, and the marketing-pro pages now load their components without a module and a routing module in between. Six files are gone, and nothing a user sees should change.</p>
+      <div class="meta">
+        <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10829">topfan/TopFansLite-WebFrontend#10829</a>
+        <span>base hotfix/release-0.0.23/21-code-refactors</span>
+        <span>12 files, +26 &minus;124</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Before this PR, each page needed three files. A component declared with <code>standalone: false</code>, an NgModule that declared it, and a routing module with a single route. Now the component lists its own imports, and the router loads it directly.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Page</th><th>URLs</th><th>Now loads with</th><th>Component imports</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>advertisement-home</code></td>
+                <td><code>/advertise</code></td>
+                <td><code>loadComponent</code></td>
+                <td><code>CommonModule</code>, <code>SharedModule</code>, <code>FaqComponent</code>, <code>ButtonComponent</code></td>
+              </tr>
+              <tr>
+                <td><code>global</code></td>
+                <td><code>/global/category-creator-listing</code></td>
+                <td><code>loadChildren</code> with <code>global.routes.ts</code></td>
+                <td><code>CommonModule</code>, <code>SharedModule</code></td>
+              </tr>
+              <tr>
+                <td><code>marketing-pro-page</code></td>
+                <td><code>/pro</code>, <code>/refer</code>, <code>/apps/*</code></td>
+                <td><code>loadComponent</code>, generated</td>
+                <td><code>CommonModule</code>, <code>MarketingPageSharedModule</code>, <code>FaqComponent</code></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>advertisement-home dropped six unused imports</h2>
+        <p>Its module imported form, select, modal, accordion, multiselect, and video modules. The template uses <strong>none</strong> of them. It uses buttons, the FAQ, a circle icon, and two directives from <code>SharedModule</code>.</p>
+        <div class="pair">
+          <figure>
+            <figcaption class="bad">Before, the module</figcaption>
+<pre><code>imports: [
+  FormsModule,
+  NgSelectModule,
+  ModalModule,
+  AccordionModule,
+  NgMultiSelectDropDownModule.forRoot(),
+  NgIvsModule,
+  SharedModule,
+  CommonModule,
+  FaqComponent,
+  ButtonComponent,
+  AdvertisementHomeRoutingModule
+]</code></pre>
+          </figure>
+          <figure>
+            <figcaption class="ok">After, the component</figcaption>
+<pre><code>@Component({
+  selector: 'app-advertisement-home',
+  imports: [
+    CommonModule,
+    SharedModule,
+    FaqComponent,
+    ButtonComponent
+  ]
+})</code></pre>
+          </figure>
+        </div>
+        <p>If the template had needed one of the dropped modules, the build would have failed. Standalone components don't get <code>CUSTOM_ELEMENTS_SCHEMA</code> from anywhere, so an unknown tag is a compile error. The build passed.</p>
+      </section>
+
+      <section>
+        <h2>global kept a routes file</h2>
+        <p>The other pages had a child route with an empty path, so the component could move up to the parent route. <code>global</code>'s child route has a real path, <code>category-creator-listing</code>. The app route stays <code>global</code> with <code>loadChildren</code>, and the child moved into a plain <code>Routes</code> array. <code>link-in-bio-fan-preview</code> did the same in PR 10826.</p>
+<pre><code><span class="del">- import('./modules/global/global.module').then((m) =&gt; m.GlobalModule)</span>
+<span class="add">+ import('./modules/global/global.routes').then((m) =&gt; m.GLOBAL_ROUTES)</span></code></pre>
+        <p>The module also imported <code>RouterModule</code>, but the template has no router directives, so the component doesn't import it.</p>
+      </section>
+
+      <section>
+        <h2>Marketing-pro routes are generated</h2>
+        <p><code>scripts/prefetch-marketing-pages.mjs</code> runs before every QA, staging, and prod build. It fetches published pro pages and writes <code>marketing-pro-page-routes.generated.ts</code>. Pro slugs can be nested, like <code>apps/music-artists-fan-club</code>, so the script builds a tree. Parent segments get <code>children</code>, and each leaf loads the page. The PR changes the leaf template in the script and the committed generated file together.</p>
+        <p>I found a <span class="warn">stale file</span> along the way. The committed routes list two <code>/apps/*</code> pages, but the committed data file only has <code>apps/music-band-fan-club</code>. So on a local build without a fresh prefetch, the pro pages load the component, find no data, and redirect to not-found. This was already true before the PR. Deployed builds regenerate both files, so they don't hit it.</p>
+      </section>
+
+      <section>
+        <h2>What stayed the same</h2>
+        <ul>
+          <li><strong>Route data.</strong> The marketing-pro component finds <code>marketingProSlug</code> by walking up <code>route.parent</code>. The data now sits on the component's own route, one step closer.</li>
+          <li><strong>Case-insensitive URLs.</strong> The <code>apps</code> parent has <code>children</code>, so it matches a prefix. Each leaf has no <code>children</code> array and must match the rest of the URL. That was true for the old <code>loadChildren</code> leaves too.</li>
+          <li><strong>The category listing's data.</strong> The search bar puts the chosen category in <code>DataService</code>, then navigates. <code>DataService</code> is a root singleton with a <code>BehaviorSubject</code>, so the standalone component reads the same instance.</li>
+          <li><strong>Initial bundle.</strong> 12.30 MB on both the base branch and this branch.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>How it was tested</h2>
+        <p>I built the base branch and this branch with <code>ng build --configuration=qa --prerender=false</code>, started the SSR server from each, and requested the same URLs.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>URL</th><th>Base</th><th>This PR</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/advertise</code></td><td>200, <code>app-advertisement-home</code></td><td class="ok">same</td></tr>
+              <tr><td><code>/Advertise</code></td><td>404</td><td class="ok">same</td></tr>
+              <tr><td><code>/global/category-creator-listing</code></td><td>200, <code>app-creator-category-listing</code></td><td class="ok">same</td></tr>
+              <tr><td><code>/global</code></td><td>200, falls through to a later route</td><td class="ok">same</td></tr>
+              <tr><td><code>/apps/music-artists-fan-club</code></td><td>404, stale data</td><td class="ok">same</td></tr>
+              <tr><td><code>/apps/sports-teams-nil-collectives-membership</code></td><td>404, stale data</td><td class="ok">same</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Then I ran <code>npm run prefetch-pages-qa</code> to get fresh data and rebuilt. The script wrote <code>loadComponent</code> for all six pro routes, top-level and nested. None of the three generated route files uses <code>loadChildren</code> anymore.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>URL, fresh QA data</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/pro</code></td><td class="ok">200, page, FAQ, contact form</td></tr>
+              <tr><td><code>/refer</code></td><td class="ok">200, page only</td></tr>
+              <tr><td><code>/apps/music-artists-fan-club</code></td><td class="ok">200, page, FAQ, contact form</td></tr>
+              <tr><td><code>/Apps/Music-Artists-Fan-Club</code></td><td class="ok">200, page, FAQ, contact form</td></tr>
+              <tr><td><code>/apps/music-band-fan-club</code></td><td class="ok">200, page, FAQ, contact form</td></tr>
+              <tr><td><code>/apps/sports-teams-nil-collectives-membership</code></td><td class="ok">200, page, FAQ, contact form</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>/refer</code> hiding the FAQ and contact form is intentional. The template skips both when the slug is <code>refer</code>. I reverted the regenerated data afterward, so the PR doesn't include it.</p>
+      </section>
+
+      <section>
+        <h2>Affected areas</h2>
+        <p>All three are public pages. Nobody needs to log in to test them.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Risk</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Advertise page</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Six imports removed. The build proves the template compiles, but only clicking proves the buttons and FAQ behave after hydration.</td>
+              </tr>
+              <tr>
+                <td>Category creator listing</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Reached from the header search bar, with state passed through a service. It has search, infinite scroll, and a back button.</td>
+              </tr>
+              <tr>
+                <td>Marketing-pro pages</td>
+                <td><span class="tag low">Low</span></td>
+                <td>Same imports as before, minus the module wrapper. The route shape changed in a generated file.</td>
+              </tr>
+              <tr>
+                <td>Prefetch script</td>
+                <td><span class="tag low">Low</span></td>
+                <td>Runs before every deployed build. Already exercised against QA.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Test each page two ways. Load the URL directly, which renders on the server and then hydrates. Then reach it by clicking from another page, which makes the browser fetch the lazy chunk. My curl test only covered the first way. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Advertise page, <code>/advertise</code></h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="ad-render"><span>The banner, both "why advertise" sections, the call-to-action banner, the FAQ, and the category tiles all render.</span></label></li>
+              <li><label><input type="checkbox" data-id="ad-register"><span>Each of the four buttons opens the advertiser registration page in a new tab.</span></label></li>
+              <li><label><input type="checkbox" data-id="ad-faq"><span>The FAQ items expand and collapse.</span></label></li>
+              <li><label><input type="checkbox" data-id="ad-category"><span>Clicking a category tile goes to its page.</span></label></li>
+              <li><label><input type="checkbox" data-id="ad-images"><span>Images load, and right-click is blocked on the protected ones.</span></label></li>
+              <li><label><input type="checkbox" data-id="ad-wl"><span>On a white-label domain, <code>/advertise</code> still redirects to the white-label home.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Category creator listing, <code>/global/category-creator-listing</code></h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="gl-search"><span>In the header search, type a category and pick it from the suggestions. The listing page opens with creators for that category.</span></label></li>
+              <li><label><input type="checkbox" data-id="gl-filter"><span>Typing in the page's search box filters the list. The close icon clears it.</span></label></li>
+              <li><label><input type="checkbox" data-id="gl-scroll"><span>Scrolling to the bottom loads the next page of creators.</span></label></li>
+              <li><label><input type="checkbox" data-id="gl-card"><span>Clicking a creator opens their profile.</span></label></li>
+              <li><label><input type="checkbox" data-id="gl-back"><span>The back arrow returns to the previous page.</span></label></li>
+              <li><label><input type="checkbox" data-id="gl-empty"><span>A category with no creators shows the empty state with the circle icon.</span></label></li>
+              <li><label><input type="checkbox" data-id="gl-again"><span>Pick a second category from the search bar while already on the page. The list replaces itself.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag low">Low</span> Marketing-pro pages, <code>/pro</code>, <code>/refer</code>, <code>/apps/*</code></h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="pro-render"><span>On a build with fresh prefetch data, <code>/pro</code> and one <code>/apps/*</code> page render their sections.</span></label></li>
+              <li><label><input type="checkbox" data-id="pro-faq"><span><code>/pro</code> shows the pro FAQ. An <code>/apps/*</code> page shows the FAQ too.</span></label></li>
+              <li><label><input type="checkbox" data-id="pro-form"><span>The contact form at the bottom submits.</span></label></li>
+              <li><label><input type="checkbox" data-id="pro-refer"><span><code>/refer</code> renders without the FAQ and without the contact form.</span></label></li>
+              <li><label><input type="checkbox" data-id="pro-case"><span>A mixed-case URL like <code>/Apps/Music-Artists-Fan-Club</code> still works.</span></label></li>
+              <li><label><input type="checkbox" data-id="pro-wl"><span>On a white-label domain, these redirect to the white-label home.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag low">Low</span> Prefetch script</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="pf-run"><span>After <code>npm run prefetch-pages-qa</code>, <code>marketing-pro-page-routes.generated.ts</code> uses <code>loadComponent</code> and imports <code>marketing-pro-page.component</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="pf-deploy"><span>The next QA deploy builds cleanly. That's the first time the script's output meets a real build.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3>On every page</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="all-console"><span>The console has no hydration errors (<code>NG05xx</code>) and no "is not a known element" errors.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-source"><span>View source shows the page content, not an empty shell.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-nav"><span>Reaching the page by an in-app link works the same as loading it directly.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-wl"><span>At least one white-label project builds, and the three pages behave there.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Not tested</h2>
+        <ul>
+          <li>Nobody has clicked through these pages in a browser yet. That's what the checklist is for.</li>
+          <li>No white-label project was built.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What's next</h2>
+        <p>No single-component feature modules are left. The remaining ones have 3 to 75 components each, and every one of them imports <code>SharedModule</code>. I'd make <code>SharedModule</code>'s 147 declarations standalone before converting those, so each new component can import only what it uses.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "pr-10829-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PR 10826: five pages without NgModules</title>
+  <style>
+    :root {
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      --sans: "Helvetica Neue", Arial, sans-serif;
+      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    body {
+      margin: 0;
+      font: 16px/1.5 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 48px 28px 80px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 28px;
+      margin-bottom: 36px;
+    }
+
+    .kicker {
+      color: var(--dim);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin: 0 0 10px;
+    }
+
+    .kicker a { color: var(--focus); text-decoration: none; }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 620;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px;
+      line-height: 1.2;
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      max-width: 64ch;
+    }
+
+    h2 {
+      font-size: 13px;
+      font-weight: 620;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin: 44px 0 14px;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 22px 0 8px;
+    }
+
+    p { margin: 0 0 12px; max-width: 72ch; }
+
+    ul, ol {
+      margin: 0 0 14px;
+      padding-left: 1.2em;
+    }
+
+    li { margin: 0 0 7px; }
+
+    li::marker { color: var(--dim); }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    pre {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      margin: 0 0 14px;
+      font: 13px/1.55 var(--mono);
+    }
+
+    pre code {
+      background: none;
+      padding: 0;
+      font-size: inherit;
+    }
+
+    .del { color: var(--minus); }
+    .add { color: var(--plus); }
+    .cm { color: var(--dim); }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .pair pre { margin: 0; }
+
+    .label {
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      margin: 0 0 6px;
+    }
+
+    .label.old { color: var(--minus); }
+    .label.new { color: var(--plus); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 18px;
+      font-size: 14px;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--dim);
+      font-weight: 550;
+      font-size: 12px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 0 0 12px;
+    }
+
+    .card p:last-child { margin-bottom: 0; }
+
+    .sev {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 3px;
+      padding: 2px 6px;
+      margin-right: 8px;
+      vertical-align: 1px;
+    }
+
+    .sev-crit { color: var(--minus); background: var(--minus-bg); }
+    .sev-warn { color: var(--focus); background: var(--focus-bg); }
+    .sev-ok { color: var(--plus); background: var(--plus-bg); }
+    .sev-info { color: var(--muted); background: rgba(133, 147, 166, 0.13); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin: 0 0 16px;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+
+    .stat b {
+      display: block;
+      font-size: 22px;
+      letter-spacing: -0.03em;
+      margin-bottom: 2px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13.5px;
+    }
+
+    footer {
+      margin-top: 48px;
+      padding-top: 18px;
+      border-top: 1px solid var(--rule);
+      color: var(--dim);
+      font-size: 13px;
+    }
+
+    footer a { color: var(--focus); }
+
+    @media (max-width: 720px) {
+      .wrap { padding: 28px 18px 56px; }
+      .pair, .grid { grid-template-columns: 1fr; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <article class="wrap">
+    <header>
+      <p class="kicker"><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10826">PR #10826</a> · audit item 4 · 23 Sep 2026</p>
+      <h1>Five pages no longer need an NgModule</h1>
+      <p class="lede">Each of these pages had one component, one module that declared it, and one routing module with a single empty-path route. That's two files of ceremony per page. The PR deletes them and lets the router load the component directly.</p>
+    </header>
+
+    <div class="grid">
+      <div class="stat"><b>10</b><span>module files deleted</span></div>
+      <div class="stat"><b>&minus;148</b><span>net lines (142 added, 290 removed)</span></div>
+      <div class="stat"><b>12.30 MB</b><span>initial bundle, unchanged</span></div>
+    </div>
+
+    <h2>The pattern</h2>
+    <p>Here is <code>comparison-page</code> before and after. The other pages follow the same shape.</p>
+
+    <div class="pair">
+      <div>
+        <p class="label old">Before, three files</p>
+<pre><code><span class="cm">// comparison-page.module.ts</span>
+@NgModule({
+  declarations: [ComparisonPageComponent],
+  imports: [
+    CommonModule,
+    ComparisonPageRoutingModule,
+    MarketingPageSharedModule
+  ],
+  schemas: [CUSTOM_ELEMENTS_SCHEMA]
+})
+
+<span class="cm">// comparison-page-routing.module.ts</span>
+const routes = [
+  { path: '', component: ComparisonPageComponent }
+];
+
+<span class="cm">// component</span>
+@Component({
+  selector: 'app-comparison-page',
+  standalone: false
+})</code></pre>
+      </div>
+      <div>
+        <p class="label new">After, one file</p>
+<pre><code><span class="cm">// component</span>
+@Component({
+  selector: 'app-comparison-page',
+  imports: [
+    CommonModule,
+    MarketingPageSharedModule
+  ]
+})
+
+<span class="cm">// route</span>
+{
+  path: 'topfan-vs-patreon',
+  loadComponent: () =&gt;
+    import('.../comparison-page.component')
+      .then((m) =&gt; m.ComparisonPageComponent),
+  data: { comparisonSlug: 'topfan-vs-patreon' }
+}</code></pre>
+      </div>
+    </div>
+
+    <p>Dropping <code>CUSTOM_ELEMENTS_SCHEMA</code> matters more than it looks. That schema tells the compiler to accept any unknown tag, so a missing import just renders an empty element at runtime. Without it, a missing import fails the build. The build passed, which means every tag in these five templates now resolves to a real component.</p>
+
+    <h2>What each page imports now</h2>
+    <table>
+      <thead>
+        <tr><th>Page</th><th>Routes</th><th>Component imports</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>comparison-page</code></td>
+          <td>7 generated slugs</td>
+          <td><code>CommonModule</code>, <code>MarketingPageSharedModule</code></td>
+        </tr>
+        <tr>
+          <td><code>marketing-page</code></td>
+          <td>14 generated slugs</td>
+          <td><code>CommonModule</code>, <code>MarketingPageSharedModule</code></td>
+        </tr>
+        <tr>
+          <td><code>sub-page-view</code></td>
+          <td>white-label root matcher, <code>PROFILE_SUB_PAGE</code></td>
+          <td><code>CommonModule</code>, <code>SharedModule</code>, <code>MarketingPageSharedModule</code></td>
+        </tr>
+        <tr>
+          <td><code>link-in-bio-fan-preview</code></td>
+          <td><code>/bio/:userName</code></td>
+          <td><code>CommonModule</code>, <code>SharedModule</code>, four preview components</td>
+        </tr>
+        <tr>
+          <td><code>creators-home</code></td>
+          <td><code>/creator</code>, <code>/creators</code></td>
+          <td><code>CommonModule</code>, <code>NgIvsModule</code>, <code>SharedModule</code>, <code>MarketingPageSharedModule</code>, <code>FaqComponent</code>, <code>ButtonComponent</code>, <code>BookDemoFormComponent</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note"><code>SharedModule</code> is still there on three of them. Splitting it is audit item 10. These components import it whole for now, the same way their old modules did.</p>
+
+    <h2>The one that kept a routes file</h2>
+    <p><code>link-in-bio-fan-preview</code> had two child routes, not one. <code>:userName</code> renders the preview. A wildcard sends anything else to the not-found page. <code>loadComponent</code> can only load one component, so those two routes moved into <code>link-in-bio-fan-preview.routes.ts</code>, a plain exported <code>Routes</code> array. The app router still uses <code>loadChildren</code> for it, but it now loads that array instead of an NgModule.</p>
+<pre><code><span class="del">- loadChildren: () =&gt; import('./.../link-in-bio-fan-preview.module').then(m =&gt; m.LinkInBioFanPreviewModule)</span>
+<span class="add">+ loadChildren: () =&gt; import('./.../link-in-bio-fan-preview.routes').then((m) =&gt; m.LINK_IN_BIO_FAN_PREVIEW_ROUTES)</span></code></pre>
+
+    <h2>Generated routes</h2>
+    <p>The marketing and comparison routes don't live in <code>app-routing.module.ts</code>. <code>scripts/prefetch-marketing-pages.mjs</code> fetches published slugs from the API and writes <code>marketing-page-routes.generated.ts</code> and <code>comparison-page-routes.generated.ts</code>. If I'd only edited the generated files, the next <code>npm run build-prod</code> would regenerate them with imports of modules that no longer exist, and the build would break.</p>
+    <p>So the PR changes the template in the script and the two generated files together. <code>generate-static-routes.mjs</code> and <code>generate-sitemap.mjs</code> also read those files, but they only regex out the slug arrays, so they don't care how the routes load.</p>
+
+    <h2>The surprise in creators-home</h2>
+    <div class="card">
+      <h3><span class="sev sev-warn">Behavior change</span> <code>/creators/login</code> used to render the login page</h3>
+      <p><code>CreatorsHomeModule</code> imported <code>AuthModule</code> and <code>SetupProfileModule</code>. Neither exported anything the template used. But both import their own routing modules, and <code>RouterModule.forChild</code> registers routes through a multi-provider. When the router lazy-loaded <code>CreatorsHomeModule</code>, it collected every route in that module's injector. So the real route table under <code>/creators</code> looked like this:</p>
+<pre><code>''  CreatorsHomeComponent          <span class="cm">// first in the list, so /creators still worked</span>
+''  AuthLandingComponent           <span class="cm">// from AuthRoutingModule</span>
+    'login'          LoginComponent
+    'signup'         SignUpComponent
+    'verify-by-otp'  VerifyByOtpComponent
+    ...
+''  SetupLandingComponent          <span class="cm">// from SetupProfileRoutingModule</span>
+    'setup-profile'    SetupProfileComponent
+    'content-creator'  ContentCreatorSetupComponent
+    'confirm-creator'  ConfirmYourCreatorComponent</code></pre>
+      <p>The same list was under <code>/creator</code>. I'm fairly sure nobody meant this. Nothing in the code navigates there. The signup button goes to <code>auth/creators-signup</code> from the root, and <code>Application.confirmCreator</code> is an absolute <code>/edit-preference/...</code> path. <code>prerender.routes.txt</code> and the sitemap don't list any <code>/creators/*</code> URL either.</p>
+      <p>A standalone component's imports don't feed the router, so these routes are gone now. <code>/creators/login</code> falls through to the profile sub-page route and renders <code>app-sub-page-view</code>. If someone bookmarked one of those URLs, that's what they'll see.</p>
+    </div>
+
+    <h2>Things I checked that didn't change</h2>
+    <div class="card">
+      <p><span class="sev sev-ok">Same</span> <strong>Route data lookup.</strong> The marketing and comparison components read <code>marketingSlug</code> and <code>comparisonSlug</code> by walking up <code>route.parent</code> until they find it. Before, the data sat on the parent of the component's route. Now it sits on the component's own route. The loop finds it one step earlier.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-ok">Same</span> <strong>Case-insensitive URLs.</strong> <code>withCaseInsensitivePaths</code> turns each path into a matcher. A route without a <code>children</code> array counts as a leaf and has to match the whole URL. <code>loadChildren</code> routes never had a <code>children</code> array either, so <code>/Athletes</code> matches and <code>/athletes/extra</code> doesn't, exactly as before.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-ok">Same</span> <strong>Modal service.</strong> An earlier commit on this branch fixed a bug where two <code>BsModalService</code> instances fought over one dialog. I checked ngx-bootstrap 21's <code>ModalModule</code>. It provides nothing, so the service still comes from the root injector. Dropping <code>ModalModule</code> from creators-home can't create a second instance.</p>
+    </div>
+    <div class="card">
+      <p><span class="sev sev-ok">Same</span> <strong>Initial bundle.</strong> I built the base branch and this branch with the QA config. Both report 12.30 MB initial. The routes still use dynamic <code>import()</code>, so none of these pages moved into the first load.</p>
+    </div>
+
+    <h2>How it was tested</h2>
+    <ul>
+      <li><code>ng build --configuration=qa --prerender=false</code> passes with no errors.</li>
+      <li>I started the SSR server from that build and requested each route with curl.</li>
+    </ul>
+    <table>
+      <thead>
+        <tr><th>URL</th><th>Status</th><th>Rendered</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>/creators</code></td><td>200</td><td><code>app-creators-home</code></td></tr>
+        <tr><td><code>/creator</code></td><td>200</td><td><code>app-creators-home</code></td></tr>
+        <tr><td><code>/athletes</code></td><td>200</td><td><code>app-marketing-page</code></td></tr>
+        <tr><td><code>/topfan-vs-patreon</code></td><td>200</td><td><code>app-comparison-page</code></td></tr>
+        <tr><td><code>/bio/prateek</code></td><td>200</td><td><code>app-link-in-bio-fan-preview</code></td></tr>
+        <tr><td><code>/bio</code></td><td>404</td><td><code>app-not-found</code></td></tr>
+        <tr><td><code>/creators/login</code></td><td>200</td><td><code>app-sub-page-view</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Not tested</h2>
+    <ul>
+      <li>Nobody has clicked through these pages in a browser yet. The next section lists what to click. SSR proves the components render. It doesn't prove the video player, the book-demo modal, or the link-in-bio carousels behave after hydration.</li>
+      <li>No white-label project was built. They share <code>src/app</code>, so the risk is low, but the repo rules ask for it.</li>
+      <li><code>npm run build-dev</code> fails on the base branch too, because <code>src/environments/environment.dev.ts</code> doesn't exist. That's unrelated to this PR, and someone should fix it.</li>
+    </ul>
+
+    <h2>Affected areas and what to verify</h2>
+    <p>Everything below is public and works without logging in. Test each page two ways. Load the URL directly, which renders through SSR and then hydrates. Then reach it by clicking a link from another page, which makes the browser fetch the lazy chunk. The second path is the one my curl test never touched.</p>
+
+    <table>
+      <thead>
+        <tr><th>Area</th><th>Risk</th><th>Why</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Creators home</td>
+          <td><span class="sev sev-crit">High</span></td>
+          <td>Most imports changed. Four modals, a video player, and query-param actions.</td>
+        </tr>
+        <tr>
+          <td>Link in bio</td>
+          <td><span class="sev sev-warn">Medium</span></td>
+          <td>New routes file. Five kinds of product preview, each from a different import.</td>
+        </tr>
+        <tr>
+          <td>Sub-pages</td>
+          <td><span class="sev sev-warn">Medium</span></td>
+          <td>Two routes, one of them a custom matcher that only fires on white-label domains.</td>
+        </tr>
+        <tr>
+          <td>Marketing pages</td>
+          <td><span class="sev sev-info">Low</span></td>
+          <td>Same imports as before. The route shape changed in a generated file.</td>
+        </tr>
+        <tr>
+          <td>Comparison pages</td>
+          <td><span class="sev sev-info">Low</span></td>
+          <td>Same as marketing pages.</td>
+        </tr>
+        <tr>
+          <td>Prefetch script</td>
+          <td><span class="sev sev-info">Low</span></td>
+          <td>Runs before every QA, staging, and prod build. It rewrites two route files.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card">
+      <h3><span class="sev sev-crit">High</span> Creators home, <code>/creators</code> and <code>/creator</code></h3>
+      <p>The old module imported <code>FormsModule</code>, <code>NgSelectModule</code>, <code>ModalModule</code>, <code>AccordionModule</code>, and <code>NgMultiSelectDropDownModule</code>. The template uses none of them, so the component doesn't import them. Modals opened through <code>BsModalService</code> don't need <code>ModalModule</code> in the opener, but clicking each one is the only real proof.</p>
+      <ul>
+        <li>"Apply now" opens the creator requirements modal. Check all three copies, in the marketing section, the button row, and the bottom of the page.</li>
+        <li>"Request demo" goes to the request-demo page.</li>
+        <li>"Watch video" opens the video player modal and plays.</li>
+        <li>On the non-marketing layout, the IVS player at the top loads and plays.</li>
+        <li>The book-demo form modal opens, submits, and shows the thank-you modal. The thank-you "Close" button closes it.</li>
+        <li><code>?watch_demo_video=true</code>, <code>?apply_now=true</code>, and <code>?watch_sizzle_video=true</code> each open their modal on load, then disappear from the URL.</li>
+        <li><code>?key=&lt;creator username&gt;</code> shows the referee card with the creator's photo and name. Clicking the photo opens their profile.</li>
+        <li>The FAQ accordion expands. The testimonial cards scroll and expand on hover.</li>
+        <li>On a white-label domain, <code>/creators</code> still redirects to the white-label home.</li>
+        <li>Try <code>/creators/login</code>. It should now render the sub-page view, not the login page. That's expected. Flag it if anyone depends on the old URL.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-warn">Medium</span> Link in bio, <code>/bio/:userName</code></h3>
+      <p>Use a creator whose link-in-bio has at least one of each product type. Each type renders through a different component, and a missing import shows up as a blank tile.</p>
+      <ul>
+        <li>Banner, profile photo, name, tick icon, and bio text all show. Clicking the name or photo opens the profile.</li>
+        <li>Social icons show and open the right links in a new tab.</li>
+        <li>A specific store item renders its card and opens on click.</li>
+        <li>A portfolio item renders. Clicking an individual item opens it with the player.</li>
+        <li>A feed content item renders and opens its modal.</li>
+        <li>A general action item renders the monetize carousel.</li>
+        <li>A welcome video item renders its preview.</li>
+        <li>External links open in a new tab.</li>
+        <li>The footer says "Powered by" normally and "Get your own platform" when the bio has a referral link.</li>
+        <li>Check a mobile width. The layout switches to the mobile product list.</li>
+        <li><code>/bio/&lt;unknown user&gt;</code> goes to not-found. <code>/bio/a/b</code> also goes to not-found, through the wildcard in the new routes file.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-warn">Medium</span> Sub-pages, <code>/:id/:subPageUrl</code> and white-label roots</h3>
+      <ul>
+        <li>On the main site, open a creator's published sub-page at <code>/&lt;username&gt;/&lt;sub-page&gt;</code>. The loader shows, then the page renders with the cover page header and footer.</li>
+        <li>Add <code>?preview=true</code> to an unpublished sub-page while logged in as its owner. It renders the draft.</li>
+        <li>On a white-label domain, open <code>/&lt;sub-page&gt;</code> with a single segment. This goes through <code>whiteLabelRootSubPageMatcher</code>, which returns nothing on the main site, so you can only test it on a white-label build.</li>
+        <li>On a white-label domain, <code>/&lt;username&gt;/&lt;sub-page&gt;</code> redirects to <code>/&lt;sub-page&gt;</code> and keeps the query string. This check reads the <code>id</code> param through <code>route.pathFromRoot</code>, and that param now sits on the component's own route.</li>
+        <li>On a white-label domain, a single-segment slug that isn't a sub-page but is a username goes to that profile. Anything else goes to not-found.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-info">Low</span> Marketing pages, 14 slugs</h3>
+      <ul>
+        <li>Open a few, for example <code>/home</code>, <code>/athletes</code>, and <code>/music-artists</code>. Sections render, and the animated counters and scroll-in effects run.</li>
+        <li>Mixed case still works, for example <code>/Athletes</code>.</li>
+        <li>Reach one from another page without a full reload, for example by following an in-app link, and check it renders.</li>
+        <li>On a white-label domain, they redirect to the white-label home. In the installed PWA, logged out, they redirect to the referrer login.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-info">Low</span> Comparison pages, 7 slugs</h3>
+      <ul>
+        <li>Open <code>/topfan-vs-patreon</code> and one more. The comparison tables and hero render with the competitor logo.</li>
+        <li>Click through from the header's comparison list. That's the client-side lazy-load path.</li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <h3><span class="sev sev-info">Low</span> Prefetch script</h3>
+      <ul>
+        <li>Run <code>npm run prefetch-pages-qa</code>. The two generated route files should still say <code>loadComponent</code> and import the <code>.component</code> files. The only diff should be the timestamp and any slugs the API added or removed.</li>
+        <li>The next QA deploy builds cleanly. That run is the first time the script output meets the build.</li>
+      </ul>
+    </div>
+
+    <h3>On every page</h3>
+    <ul>
+      <li>Open the console. There should be no <code>NG0500</code>-series hydration errors and no "is not a known element" errors.</li>
+      <li>View the page source. The SSR HTML should contain the page content, not an empty shell.</li>
+      <li>Build at least one white-label project and repeat the creators, marketing, and sub-page checks there.</li>
+    </ul>
+
+    <h2>What's next</h2>
+    <p>The remaining feature modules are bigger. <code>creators</code> has 3 components, <code>post-detail</code> and <code>setup-profile</code> have 6 each, and the list climbs from there. Each one will hit <code>SharedModule</code>. I think the <code>SharedModule</code> split (item 10) should start before the big ones, or every converted component will import 650 lines of declarations it mostly doesn't use.</p>
+
+    <footer>
+      <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10826">PR #10826</a> · base <code>hotfix/release-0.0.23/21-code-refactors</code> · see also <a href="angular-21-practices-audit.html">the audit</a> and <a href="angular-21-next-step.html">the plan</a>
+    </footer>
+  </article>
+</body>
+</html>

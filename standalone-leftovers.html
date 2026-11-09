@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leftovers after the SharedModule work</title>
+  <meta name="description" content="What is still left after SharedModule, the form builder, and PR 10847. What is worth another PR, and what I would leave.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); line-height: 1.55; }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1.05rem; color: var(--text); }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + * { padding-top: 0; }
+
+    section > h3 { padding-top: 1.35rem; }
+
+    section > * + .table-wrap { padding-top: 0; margin-top: 0.75rem; }
+
+    section > .table-wrap + * { margin-top: 0.75rem; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.5rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 640px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.do { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+    .tag.done { background: rgba(142, 230, 162, 0.14); color: var(--green); }
+    .tag.maybe { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.skip { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Leftovers after the SharedModule work</h1>
+      <p>SharedModule is gone. The last feature NgModule is gone. <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10847">PR 10847</a> is merged. <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">PR 10849</a> loads the 54 public marketing layouts with <code>import()</code>. Notes for that change are in <a href="lazy-marketing-layouts.html">public marketing pages load only the layouts they use</a>. What is left is either a bootstrap rewrite that does not shrink routes, or a few kilobytes I would not open a PR for.</p>
+      <div class="meta">
+        <span>after 3645b6d5ee, <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">PR 10849</a></span>
+        <span>25 Sep 2026</span>
+        <span><a href="standalone-routes-whats-left.html">status of the finished plan</a></span>
+        <span><a href="lazy-marketing-layouts.html">layout split notes</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>The list</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Leftover</th>
+                <th>What I would do</th>
+                <th>Why</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><a href="lazy-marketing-layouts.html">54 marketing layout components on every public marketing page</a></td>
+                <td><span class="tag done">Done</span></td>
+                <td>Marketing is 0.03 MB. Comparison is 0.03 MB. Home is 1.76 MB because promotional.routes still statically owns landing, detail, and search. The unused layouts stay off the wire.</td>
+              </tr>
+              <tr>
+                <td>White-label cover pages still fetch <code>ProfileComponent</code></td>
+                <td><span class="tag maybe">Ride along</span></td>
+                <td>The constructor starts the 1.85 MB profile import on every white-label site, including published cover pages that never render it.</td>
+              </tr>
+              <tr>
+                <td><code>comparison-layout.utils</code> imports the editor field file</td>
+                <td><span class="tag maybe">Ride along</span></td>
+                <td>A public preview helper pulls a 935-line editor constants file. Small. Same graph as the layouts.</td>
+              </tr>
+              <tr>
+                <td><code>AppModule</code> and <code>AppServerModule</code></td>
+                <td><span class="tag skip">Skip</span></td>
+                <td>Last two NgModules. High risk. Almost no download win. This is cleanliness, not a size change.</td>
+              </tr>
+              <tr>
+                <td>Post-price leftover after dashboard</td>
+                <td><span class="tag skip">Leave</span></td>
+                <td>About 4 KB. It is <code>custom-input-list</code> sitting with add-lock, not unused decorator imports.</td>
+              </tr>
+              <tr>
+                <td>Four portfolio info icons stay 16 pixels</td>
+                <td><span class="tag skip">Leave</span></td>
+                <td>Dead <code>[infoIconSize]</code> bindings. Visual, not a bundle issue. Always been this way.</td>
+              </tr>
+              <tr>
+                <td>Older <code>console.log</code> calls</td>
+                <td><span class="tag skip">Leave</span></td>
+                <td>Hygiene in files these steps already touched. Not a leftover of the plan.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>The 54 layouts</h2>
+        <p>Done. <a href="lazy-marketing-layouts.html">The notes</a> have the measured sizes. <a href="lazy-marketing-layouts-code.html">The code walk</a> is the three files. The public preview loads unique visible layout ids with literal <code>import()</code> calls, renders them with <code>ngComponentOutlet</code>, and holds <code>PendingTasks</code> until they finish. Header stays static because it projects the welcome-video modal. The editor still imports the full catalog.</p>
+        <p>Marketing and comparison dropped to 0.03 MB. Home dropped to 1.76 MB, not because unused layouts still download, but because <code>promotional.routes.ts</code> still statically imports landing, promotional, promotional-detail, and search-result. SSR title, description, and <code>app-*-layout</code> counts match the 10847 HTML.</p>
+      </section>
+
+      <section>
+        <h2>Cover pages still fetch Profile</h2>
+        <p><code>PromotionalLandingComponent</code> starts <code>import('@shared/components/profile/profile.component')</code> in the constructor whenever <code>hasWhiteLabelConfig()</code> is true. <code>PendingTasks</code> keeps SSR open until that chunk loads. That is correct for the profile fallback. It is wasted work on a site whose build flag says the cover page is published.</p>
+        <p>Before 10847 those sites already had Profile in the landing graph, so this is not a new download. We made it possible to skip the chunk and then did not skip it. On a published cover site, SSR also waits for 1.85 MB it will not put in the HTML.</p>
+        <p>The fix is to start the import in <code>loadLanding()</code> only when the landing state is the profile fallback. Keep <code>PendingTasks</code> on that path. Preview mode comes from query params after <code>ngOnInit</code>, so the constructor is the wrong place anyway.</p>
+        <p>This did not ride along with the layout split. I would still not make it its own PR unless we are already in that file.</p>
+      </section>
+
+      <section>
+        <h2>The editor constants leak</h2>
+        <p><code>comparison-layout.utils.ts</code> is 162 lines of read helpers. Column labels, row indexes, logo application. Public cover preview imports it. So do the CMS section list and the editor.</p>
+        <p>Those helpers import field-name functions from <code>comparison-page-section-layout-fields.constants.ts</code>. That file is 935 lines and 29 KB of editor copy, plus form-builder field types. A visitor on a cover page does not need "Add Feature Block".</p>
+        <p>Move the read helpers into a file that does not import the editor. Leave the editor file on the CMS. This is a split, not a redesign. It did not go in the layout PR. It does not belong alone.</p>
+      </section>
+
+      <section>
+        <h2>Why I would not do bootstrapApplication next</h2>
+        <p><code>main.ts</code> still calls <code>bootstrapModule(AppModule)</code>. The server build wraps that in <code>AppServerModule</code>. <code>server.ts</code>, <code>serverless.ts</code>, and <code>functions/index.js</code> all name that module. <code>provideZoneChangeDetection()</code> lives in <code>AppModule</code> on purpose, so the server gets the same scheduler.</p>
+        <p>Moving to <code>bootstrapApplication</code> means rewriting client bootstrap, server bootstrap, hydration, the white-label <code>APP_INITIALIZER</code>, Stripe, Toastr, the store, and the service worker. Header, sidebar, footer, and Stripe stay in the initial bundle either way. The download does not move. The failure mode is "the app does not start" or "SSR HTML changes on every route".</p>
+        <p>Do it if the goal is "zero NgModules". Do not do it because a route is heavy. Those are different jobs.</p>
+      </section>
+
+      <section>
+        <h2>The small ones</h2>
+        <p>The post-price 4 KB leftover from PR 10841 is <code>custom-input-list</code> compiled with add-lock. Dynamic-importing the camera modal did not remove it. Pulling ImageCropper out of the decorator will not either. Splitting add-lock is a real change for a rounding error.</p>
+        <p>Four portfolio templates bind <code>[infoIconSize]="18"</code> on a component that has no such input. The icon stays 16 pixels. <code>CUSTOM_ELEMENTS_SCHEMA</code> used to hide that. Adding the input is a one-line visual fix if someone asks. It is not leftover SharedModule work.</p>
+        <p>Some files these PRs touched still have <code>console.log</code> from before. Stripping them is fine in a file we already have open. It is not a follow-up PR.</p>
+      </section>
+
+      <section>
+        <h2>If we keep going</h2>
+        <p>The layout leftover is done. I would not open a PR for the cover Profile fetch or the 29 KB editor constants unless we are already in those files. I would not start <code>bootstrapApplication</code> to shrink a route.</p>
+        <p>If we are done chasing first-visit JS, stop. The SharedModule plan is finished. Everything above is optional.</p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

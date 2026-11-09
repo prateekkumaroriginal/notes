@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Complete Angular chunk sizes from npm run prerender-all-qa.">
+  <title>prerender-all-qa chunk sizes</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    h1, h2, p, ul, pre, code { margin: 0; }
+    h1, h2 { color: var(--text); }
+    a { color: var(--blue); text-underline-offset: 0.2em; }
+    code {
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--green);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      padding: 0.1rem 0.35rem;
+    }
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+    header { display: grid; gap: 0.75rem; }
+    header p { font-size: 1.05rem; }
+    .meta {
+      display: grid;
+      gap: 0.35rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+    .meta span { color: var(--amber); }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; font-size: 1.35rem; }
+    .lede { padding-bottom: 1.75rem; }
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: pre;
+    }
+    .bundle { color: var(--pink); font-weight: 700; }
+    .head { color: var(--pink); }
+    .file { color: var(--green); }
+    .name { color: var(--muted); }
+    .size { color: var(--blue); }
+    .bar { color: var(--line); }
+    .total-label { color: var(--text); }
+    .blank { color: transparent; }
+    .facts { display: grid; gap: 0.65rem; padding: 0; list-style: none; }
+    .facts strong { color: var(--text); font-weight: 650; }
+    .n { color: var(--amber); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>prerender-all-qa chunk sizes</h1>
+      <p>Complete browser and server chunk list from the QA prerender build. The CLI truncates lazy files. This page prints every chunk, with Brotli 11 transfer sizes matching Angular's estimate.</p>
+      <div class="meta" aria-label="Build identity">
+        <div><span>command</span> npm run prerender-all-qa</div>
+        <div><span>duration</span> 531.555 seconds</div>
+        <div><span>routes</span> 1023 prerendered</div>
+        <div><span>finished</span> 2026-09-17 14:45:47 UTC</div>
+      </div>
+    </header>
+    <main>
+      <section>
+        <h2>Named entry files</h2>
+        <p class="lede">Hashed equivalents of the old <code>main.chunk.js</code> family.</p>
+        <ul class="facts">
+          <li><strong>main</strong> <code>main-RBOWESMQ.js</code> <span class="n">293.22 kB</span> raw, <span class="n">55.80 kB</span> transfer</li>
+          <li><strong>polyfills</strong> <code>polyfills-O2UPSM5X.js</code> <span class="n">35.10 kB</span> raw, <span class="n">11.54 kB</span> transfer</li>
+          <li><strong>styles</strong> <code>styles-IBYVYGQJ.css</code> <span class="n">1.81 MB</span> raw, <span class="n">143.16 kB</span> transfer</li>
+          <li><strong>scripts</strong> <code>scripts-7G52Q4FJ.js</code> <span class="n">3.88 kB</span> raw, <span class="n">1.37 kB</span> transfer</li>
+          <li><strong>main.server</strong> <code>main.server.mjs</code> <span class="n">845 bytes</span> raw</li>
+        </ul>
+      </section>
+      <section>
+        <h2>Browser bundles</h2>
+        <p class="lede">21 initial files totaling <span class="n">12.43 MB</span> raw / <span class="n">2.00 MB</span> transfer. 98 lazy files totaling <span class="n">13.43 MB</span> raw / <span class="n">2.19 MB</span> transfer.</p>
+        <pre><code><span class="bundle">Browser bundles</span>
+<span class="head">Initial chunk files     | Names                        |  Raw size | Estimated transfer size</span>
+<span class="file">chunk-L6YFPSTP.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.92 MB</span><span class="bar"> | </span><span class="size">              564.25 kB</span>
+<span class="file">chunk-GWLBTPGY.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.48 MB</span><span class="bar"> | </span><span class="size">              714.32 kB</span>
+<span class="file">chunk-55ZTUUKP.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.91 MB</span><span class="bar"> | </span><span class="size">              318.57 kB</span>
+<span class="file">styles-IBYVYGQJ.css    </span><span class="bar"> | </span><span class="name">styles                      </span><span class="bar"> | </span><span class="size">  1.81 MB</span><span class="bar"> | </span><span class="size">              143.16 kB</span>
+<span class="file">chunk-SA2WMUN6.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">675.29 kB</span><span class="bar"> | </span><span class="size">              121.69 kB</span>
+<span class="file">main-RBOWESMQ.js       </span><span class="bar"> | </span><span class="name">main                        </span><span class="bar"> | </span><span class="size">293.22 kB</span><span class="bar"> | </span><span class="size">               55.80 kB</span>
+<span class="file">chunk-V3X6SNIO.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">155.99 kB</span><span class="bar"> | </span><span class="size">               33.70 kB</span>
+<span class="file">chunk-BALE6STL.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 70.24 kB</span><span class="bar"> | </span><span class="size">               13.14 kB</span>
+<span class="file">chunk-PI6PTF3A.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 58.31 kB</span><span class="bar"> | </span><span class="size">               11.16 kB</span>
+<span class="file">polyfills-O2UPSM5X.js  </span><span class="bar"> | </span><span class="name">polyfills                   </span><span class="bar"> | </span><span class="size"> 35.10 kB</span><span class="bar"> | </span><span class="size">               11.54 kB</span>
+<span class="file">chunk-SUPBVECM.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.97 kB</span><span class="bar"> | </span><span class="size">                1.48 kB</span>
+<span class="file">scripts-7G52Q4FJ.js    </span><span class="bar"> | </span><span class="name">scripts                     </span><span class="bar"> | </span><span class="size">  3.88 kB</span><span class="bar"> | </span><span class="size">                1.37 kB</span>
+<span class="file">chunk-3X4VHHFO.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.96 kB</span><span class="bar"> | </span><span class="size">                1.09 kB</span>
+<span class="file">chunk-FKB7ZDFG.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.12 kB</span><span class="bar"> | </span><span class="size">              886 bytes</span>
+<span class="file">chunk-C4L5Q4AB.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.90 kB</span><span class="bar"> | </span><span class="size">              767 bytes</span>
+<span class="file">chunk-TO36GMJM.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.66 kB</span><span class="bar"> | </span><span class="size">              684 bytes</span>
+<span class="file">chunk-ZYTE6SFD.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.25 kB</span><span class="bar"> | </span><span class="size">              623 bytes</span>
+<span class="file">chunk-MR5PBCPQ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.21 kB</span><span class="bar"> | </span><span class="size">              524 bytes</span>
+<span class="file">chunk-Q6H4OYN2.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.17 kB</span><span class="bar"> | </span><span class="size">              528 bytes</span>
+<span class="file">chunk-V33EHGYF.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">464 bytes</span><span class="bar"> | </span><span class="size">              283 bytes</span>
+<span class="file">chunk-CNJ3TT65.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 34 bytes</span><span class="bar"> | </span><span class="size">               38 bytes</span>
+
+<span class="blank">                       </span><span class="bar"> | </span><span class="total-label">Initial total               </span><span class="bar"> | </span><span class="size"> 12.43 MB</span><span class="bar"> | </span><span class="size">                2.00 MB</span>
+
+<span class="head">Lazy chunk files        | Names                        |  Raw size | Estimated transfer size</span>
+<span class="file">chunk-KIJ24HWW.js      </span><span class="bar"> | </span><span class="name">heic-to                     </span><span class="bar"> | </span><span class="size">  2.52 MB</span><span class="bar"> | </span><span class="size">              425.87 kB</span>
+<span class="file">chunk-TVWIQQGL.js      </span><span class="bar"> | </span><span class="name">monetize-module             </span><span class="bar"> | </span><span class="size">  1.38 MB</span><span class="bar"> | </span><span class="size">              227.49 kB</span>
+<span class="file">chunk-JR3HZ6XD.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.14 MB</span><span class="bar"> | </span><span class="size">              170.33 kB</span>
+<span class="file">chunk-XU4TABFU.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.11 MB</span><span class="bar"> | </span><span class="size">              114.11 kB</span>
+<span class="file">chunk-ZOHTUC4B.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.05 MB</span><span class="bar"> | </span><span class="size">              103.09 kB</span>
+<span class="file">chunk-5DE7JHB6.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">912.66 kB</span><span class="bar"> | </span><span class="size">              130.19 kB</span>
+<span class="file">chunk-PIZ5VXKE.js      </span><span class="bar"> | </span><span class="name">insights-module             </span><span class="bar"> | </span><span class="size">708.92 kB</span><span class="bar"> | </span><span class="size">              158.80 kB</span>
+<span class="file">chunk-3GHSUZHN.js      </span><span class="bar"> | </span><span class="name">amazon-ivs-web-broadcast    </span><span class="bar"> | </span><span class="size">619.22 kB</span><span class="bar"> | </span><span class="size">              143.48 kB</span>
+<span class="file">chunk-EBU6SUNG.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">520.10 kB</span><span class="bar"> | </span><span class="size">               82.11 kB</span>
+<span class="file">chunk-PNRZ7AH5.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">397.94 kB</span><span class="bar"> | </span><span class="size">               52.09 kB</span>
+<span class="file">chunk-4D7T7C54.js      </span><span class="bar"> | </span><span class="name">whitelabel-cover-page-module</span><span class="bar"> | </span><span class="size">313.79 kB</span><span class="bar"> | </span><span class="size">               41.87 kB</span>
+<span class="file">chunk-H3NA4QUP.js      </span><span class="bar"> | </span><span class="name">messages-module             </span><span class="bar"> | </span><span class="size">306.79 kB</span><span class="bar"> | </span><span class="size">               57.86 kB</span>
+<span class="file">chunk-HIF26JFK.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">303.20 kB</span><span class="bar"> | </span><span class="size">               48.51 kB</span>
+<span class="file">chunk-RWLYVMV4.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">217.83 kB</span><span class="bar"> | </span><span class="size">               43.34 kB</span>
+<span class="file">chunk-CJJVYH7S.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">136.48 kB</span><span class="bar"> | </span><span class="size">               15.63 kB</span>
+<span class="file">chunk-ZDVGUQKM.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">111.13 kB</span><span class="bar"> | </span><span class="size">               20.55 kB</span>
+<span class="file">chunk-YGEJEB6V.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">103.99 kB</span><span class="bar"> | </span><span class="size">               21.06 kB</span>
+<span class="file">lazy-material-theme.css</span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">103.71 kB</span><span class="bar"> | </span><span class="size">                7.62 kB</span>
+<span class="file">chunk-MQEC62GO.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 92.48 kB</span><span class="bar"> | </span><span class="size">               21.24 kB</span>
+<span class="file">chunk-VQ3ODRND.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 90.76 kB</span><span class="bar"> | </span><span class="size">               18.87 kB</span>
+<span class="file">chunk-ZHKBD7TN.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 87.69 kB</span><span class="bar"> | </span><span class="size">               18.61 kB</span>
+<span class="file">chunk-IGQR2YJO.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 80.90 kB</span><span class="bar"> | </span><span class="size">               13.44 kB</span>
+<span class="file">chunk-VZ3H3HD6.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 78.18 kB</span><span class="bar"> | </span><span class="size">               16.16 kB</span>
+<span class="file">lazy-quill-emoji.css   </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 73.37 kB</span><span class="bar"> | </span><span class="size">               11.36 kB</span>
+<span class="file">chunk-D4MQVH4W.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 64.83 kB</span><span class="bar"> | </span><span class="size">               11.86 kB</span>
+<span class="file">chunk-NA34FSPZ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 60.21 kB</span><span class="bar"> | </span><span class="size">               14.18 kB</span>
+<span class="file">chunk-7TDNANJT.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 59.79 kB</span><span class="bar"> | </span><span class="size">                7.98 kB</span>
+<span class="file">chunk-OUHZBS64.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 57.11 kB</span><span class="bar"> | </span><span class="size">                9.26 kB</span>
+<span class="file">lazy-videojs.css       </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 46.93 kB</span><span class="bar"> | </span><span class="size">               10.93 kB</span>
+<span class="file">chunk-MRUVB5MX.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 41.36 kB</span><span class="bar"> | </span><span class="size">                9.69 kB</span>
+<span class="file">chunk-RUMH3L37.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 40.00 kB</span><span class="bar"> | </span><span class="size">                9.46 kB</span>
+<span class="file">chunk-SNICMBJF.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 39.06 kB</span><span class="bar"> | </span><span class="size">                8.31 kB</span>
+<span class="file">chunk-NGQUCEPC.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 37.72 kB</span><span class="bar"> | </span><span class="size">               14.30 kB</span>
+<span class="file">chunk-ZYLL42DD.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 37.66 kB</span><span class="bar"> | </span><span class="size">                7.09 kB</span>
+<span class="file">chunk-RDRL52XV.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 32.43 kB</span><span class="bar"> | </span><span class="size">                8.90 kB</span>
+<span class="file">chunk-MOWIXWHG.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 27.84 kB</span><span class="bar"> | </span><span class="size">                7.91 kB</span>
+<span class="file">chunk-A5HIJN3S.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 26.67 kB</span><span class="bar"> | </span><span class="size">                7.58 kB</span>
+<span class="file">lazy-quill-snow.css    </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 21.91 kB</span><span class="bar"> | </span><span class="size">                2.90 kB</span>
+<span class="file">lazy-intl-tel-input.css</span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 19.64 kB</span><span class="bar"> | </span><span class="size">                1.80 kB</span>
+<span class="file">lazy-bs-datepicker.css </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 18.67 kB</span><span class="bar"> | </span><span class="size">                2.95 kB</span>
+<span class="file">chunk-P6LRNQKQ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 18.59 kB</span><span class="bar"> | </span><span class="size">                3.42 kB</span>
+<span class="file">chunk-RFFZ4ECS.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 18.00 kB</span><span class="bar"> | </span><span class="size">                3.40 kB</span>
+<span class="file">chunk-RG5P5QNX.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 16.71 kB</span><span class="bar"> | </span><span class="size">                4.40 kB</span>
+<span class="file">chunk-5CUZNYVV.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 14.50 kB</span><span class="bar"> | </span><span class="size">                3.88 kB</span>
+<span class="file">chunk-NJ5KPOQU.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 14.45 kB</span><span class="bar"> | </span><span class="size">                3.31 kB</span>
+<span class="file">chunk-3ILGPOID.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 14.05 kB</span><span class="bar"> | </span><span class="size">                4.06 kB</span>
+<span class="file">lazy-primeicons.css    </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 13.20 kB</span><span class="bar"> | </span><span class="size">                2.40 kB</span>
+<span class="file">chunk-ZZAJFPD2.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 12.99 kB</span><span class="bar"> | </span><span class="size">                4.16 kB</span>
+<span class="file">chunk-YZWRWRIW.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 11.62 kB</span><span class="bar"> | </span><span class="size">                2.98 kB</span>
+<span class="file">chunk-V3AULIN2.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 10.60 kB</span><span class="bar"> | </span><span class="size">                2.52 kB</span>
+<span class="file">chunk-BQJMBBRR.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 10.29 kB</span><span class="bar"> | </span><span class="size">                3.05 kB</span>
+<span class="file">chunk-U5GM4HQW.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 10.04 kB</span><span class="bar"> | </span><span class="size">                2.59 kB</span>
+<span class="file">chunk-JJZ63XL3.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.85 kB</span><span class="bar"> | </span><span class="size">                2.30 kB</span>
+<span class="file">chunk-P2A5NDEW.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.70 kB</span><span class="bar"> | </span><span class="size">                2.49 kB</span>
+<span class="file">lazy-ng-select.css     </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.62 kB</span><span class="bar"> | </span><span class="size">                1.16 kB</span>
+<span class="file">chunk-LWQ4G554.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.36 kB</span><span class="bar"> | </span><span class="size">                2.80 kB</span>
+<span class="file">chunk-VPR2BRPE.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.05 kB</span><span class="bar"> | </span><span class="size">                2.36 kB</span>
+<span class="file">lazy-emoji-mart.css    </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  7.45 kB</span><span class="bar"> | </span><span class="size">                1.49 kB</span>
+<span class="file">chunk-DP2P5YVW.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  7.16 kB</span><span class="bar"> | </span><span class="size">                2.42 kB</span>
+<span class="file">chunk-ZK3OH67S.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.85 kB</span><span class="bar"> | </span><span class="size">                2.10 kB</span>
+<span class="file">chunk-VUL46V5E.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.80 kB</span><span class="bar"> | </span><span class="size">                2.36 kB</span>
+<span class="file">chunk-572QMXH4.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.80 kB</span><span class="bar"> | </span><span class="size">                2.22 kB</span>
+<span class="file">chunk-SF2NLECS.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.24 kB</span><span class="bar"> | </span><span class="size">                2.04 kB</span>
+<span class="file">chunk-TV2F5YDS.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.23 kB</span><span class="bar"> | </span><span class="size">                1.90 kB</span>
+<span class="file">lazy-toastr.css        </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  5.38 kB</span><span class="bar"> | </span><span class="size">                1.77 kB</span>
+<span class="file">chunk-L4Y5P5DA.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  5.24 kB</span><span class="bar"> | </span><span class="size">                1.74 kB</span>
+<span class="file">chunk-67DCFOQD.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  5.17 kB</span><span class="bar"> | </span><span class="size">                1.74 kB</span>
+<span class="file">chunk-7EHXHZML.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.77 kB</span><span class="bar"> | </span><span class="size">                1.64 kB</span>
+<span class="file">chunk-R6WDKXKB.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.75 kB</span><span class="bar"> | </span><span class="size">                1.48 kB</span>
+<span class="file">chunk-LMU5JWNJ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.15 kB</span><span class="bar"> | </span><span class="size">                1.28 kB</span>
+<span class="file">chunk-2AHVS2RT.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.04 kB</span><span class="bar"> | </span><span class="size">                1.18 kB</span>
+<span class="file">chunk-Y7BEGBUJ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.78 kB</span><span class="bar"> | </span><span class="size">                1.41 kB</span>
+<span class="file">chunk-RO746XS7.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.76 kB</span><span class="bar"> | </span><span class="size">                1.56 kB</span>
+<span class="file">lazy-owl-carousel.css  </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.73 kB</span><span class="bar"> | </span><span class="size">              867 bytes</span>
+<span class="file">chunk-PASSYSNA.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.64 kB</span><span class="bar"> | </span><span class="size">                1.35 kB</span>
+<span class="file">chunk-6NL2XNDB.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.09 kB</span><span class="bar"> | </span><span class="size">                1.22 kB</span>
+<span class="file">chunk-MWEGPMS6.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.83 kB</span><span class="bar"> | </span><span class="size">                1.03 kB</span>
+<span class="file">chunk-XCRDHBJ3.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.66 kB</span><span class="bar"> | </span><span class="size">                1.18 kB</span>
+<span class="file">chunk-HIRG2LGL.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.45 kB</span><span class="bar"> | </span><span class="size">              851 bytes</span>
+<span class="file">chunk-FIEIT542.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.06 kB</span><span class="bar"> | </span><span class="size">              777 bytes</span>
+<span class="file">chunk-6DYYETHZ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.96 kB</span><span class="bar"> | </span><span class="size">              824 bytes</span>
+<span class="file">chunk-VXMJRJLB.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.63 kB</span><span class="bar"> | </span><span class="size">              756 bytes</span>
+<span class="file">chunk-UHWVB5QV.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.46 kB</span><span class="bar"> | </span><span class="size">              521 bytes</span>
+<span class="file">chunk-MLN7ZJ24.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.13 kB</span><span class="bar"> | </span><span class="size">              310 bytes</span>
+<span class="file">chunk-JCZQKJ5G.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.08 kB</span><span class="bar"> | </span><span class="size">              303 bytes</span>
+<span class="file">lazy-owl-theme.css     </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">917 bytes</span><span class="bar"> | </span><span class="size">              252 bytes</span>
+<span class="file">chunk-ZOS4XQFY.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">849 bytes</span><span class="bar"> | </span><span class="size">              253 bytes</span>
+<span class="file">chunk-M2C4GAEC.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">767 bytes</span><span class="bar"> | </span><span class="size">              332 bytes</span>
+<span class="file">chunk-6PBZBDDN.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">602 bytes</span><span class="bar"> | </span><span class="size">              212 bytes</span>
+<span class="file">chunk-UHIH67N7.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">543 bytes</span><span class="bar"> | </span><span class="size">              190 bytes</span>
+<span class="file">chunk-FZR4YAJA.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">535 bytes</span><span class="bar"> | </span><span class="size">              279 bytes</span>
+<span class="file">chunk-2Z533SYP.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">404 bytes</span><span class="bar"> | </span><span class="size">              162 bytes</span>
+<span class="file">chunk-RZ6R7J3K.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">346 bytes</span><span class="bar"> | </span><span class="size">              154 bytes</span>
+<span class="file">chunk-KOQVI2XU.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">325 bytes</span><span class="bar"> | </span><span class="size">              152 bytes</span>
+<span class="file">chunk-IEDEQXD7.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">271 bytes</span><span class="bar"> | </span><span class="size">              134 bytes</span>
+<span class="file">chunk-ZNR6KJAF.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">207 bytes</span><span class="bar"> | </span><span class="size">              117 bytes</span>
+<span class="file">chunk-TELTDCAV.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">194 bytes</span><span class="bar"> | </span><span class="size">              121 bytes</span>
+<span class="file">chunk-3MPI3INJ.js      </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 83 bytes</span><span class="bar"> | </span><span class="size">               76 bytes</span>
+
+<span class="blank">                       </span><span class="bar"> | </span><span class="total-label">Lazy total                  </span><span class="bar"> | </span><span class="size"> 13.43 MB</span><span class="bar"> | </span><span class="size">                2.19 MB</span>
+<span class="blank">                       </span><span class="bar"> | </span><span class="total-label">All chunks                  </span><span class="bar"> | </span><span class="size"> 25.86 MB</span><span class="bar"> | </span><span class="size">                4.19 MB</span></code></pre>
+      </section>
+      <section>
+        <h2>Server bundles</h2>
+        <p class="lede">22 initial files totaling <span class="n">11.64 MB</span> raw. 89 lazy files totaling <span class="n">13.14 MB</span> raw. No transfer column, matching the CLI.</p>
+        <pre><code><span class="bundle">Server bundles</span>
+<span class="head">Initial chunk files             | Names                        |  Raw size</span>
+<span class="file">chunk-CG76BLRY.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.92 MB</span>
+<span class="file">chunk-JW5FDGML.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.52 MB</span>
+<span class="file">chunk-KJ7BTZ3M.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.93 MB</span>
+<span class="file">chunk-MLVCMF47.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.02 MB</span>
+<span class="file">chunk-OL6KTHN5.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">675.33 kB</span>
+<span class="file">polyfills.server.mjs           </span><span class="bar"> | </span><span class="name">polyfills.server            </span><span class="bar"> | </span><span class="size">267.20 kB</span>
+<span class="file">chunk-OW6RAFKZ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">156.03 kB</span>
+<span class="file">chunk-CC2ARJKV.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 70.28 kB</span>
+<span class="file">chunk-5IY3COCY.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 58.35 kB</span>
+<span class="file">chunk-WFWCGZXL.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 11.92 kB</span>
+<span class="file">server.mjs                     </span><span class="bar"> | </span><span class="name">server                      </span><span class="bar"> | </span><span class="size">  8.78 kB</span>
+<span class="file">chunk-PGQHADUX.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.41 kB</span>
+<span class="file">chunk-HNDOMED5.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.99 kB</span>
+<span class="file">chunk-VQG2VS55.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.93 kB</span>
+<span class="file">chunk-NYYFWALR.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.70 kB</span>
+<span class="file">chunk-ERVX5FCU.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.28 kB</span>
+<span class="file">chunk-VBIL7JHG.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.25 kB</span>
+<span class="file">chunk-SDLNN2JI.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.21 kB</span>
+<span class="file">main.server.mjs                </span><span class="bar"> | </span><span class="name">main.server                 </span><span class="bar"> | </span><span class="size">845 bytes</span>
+<span class="file">chunk-GJJBM4QN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">498 bytes</span>
+<span class="file">chunk-5B4QRQ2H.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">141 bytes</span>
+<span class="file">chunk-NIJHEAVN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 67 bytes</span>
+
+<span class="blank">                               </span><span class="bar"> | </span><span class="total-label">Initial total               </span><span class="bar"> | </span><span class="size"> 11.64 MB</span>
+
+<span class="head">Lazy chunk files                | Names                        |  Raw size</span>
+<span class="file">chunk-XESWMAAD.mjs             </span><span class="bar"> | </span><span class="name">heic-to                     </span><span class="bar"> | </span><span class="size">  2.52 MB</span>
+<span class="file">chunk-SPJN4S3O.mjs             </span><span class="bar"> | </span><span class="name">monetize-module             </span><span class="bar"> | </span><span class="size">  1.38 MB</span>
+<span class="file">chunk-GEIESN73.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.14 MB</span>
+<span class="file">chunk-R4QPHGEL.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.11 MB</span>
+<span class="file">chunk-2R6GB5LY.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.05 MB</span>
+<span class="file">chunk-SSXL2WMY.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">912.81 kB</span>
+<span class="file">chunk-6I5ER7AO.mjs             </span><span class="bar"> | </span><span class="name">insights-module             </span><span class="bar"> | </span><span class="size">708.98 kB</span>
+<span class="file">chunk-LX7SU7HQ.mjs             </span><span class="bar"> | </span><span class="name">amazon-ivs-web-broadcast    </span><span class="bar"> | </span><span class="size">619.25 kB</span>
+<span class="file">chunk-2DLCWDSN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">520.15 kB</span>
+<span class="file">chunk-UF2HGLWP.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">397.98 kB</span>
+<span class="file">chunk-23KCSV6Z.mjs             </span><span class="bar"> | </span><span class="name">whitelabel-cover-page-module</span><span class="bar"> | </span><span class="size">313.84 kB</span>
+<span class="file">chunk-M6VNACKU.mjs             </span><span class="bar"> | </span><span class="name">messages-module             </span><span class="bar"> | </span><span class="size">306.85 kB</span>
+<span class="file">chunk-YDKAN7SI.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">303.24 kB</span>
+<span class="file">chunk-2EG3GEQG.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">217.86 kB</span>
+<span class="file">chunk-IS5CPR55.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">136.52 kB</span>
+<span class="file">chunk-3OT674U7.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">111.17 kB</span>
+<span class="file">chunk-LJMTPV7R.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">104.03 kB</span>
+<span class="file">chunk-LO6OYEFJ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 92.53 kB</span>
+<span class="file">chunk-QHYG7262.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 90.79 kB</span>
+<span class="file">chunk-BFTXEFKF.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 87.73 kB</span>
+<span class="file">chunk-54OAGLMR.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 80.94 kB</span>
+<span class="file">chunk-C27DOPYD.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 78.22 kB</span>
+<span class="file">chunk-CHL3QR4B.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 64.90 kB</span>
+<span class="file">chunk-LOPBJC3B.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 60.25 kB</span>
+<span class="file">chunk-YBEDMPYG.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 59.91 kB</span>
+<span class="file">chunk-KXXIGNT7.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 57.15 kB</span>
+<span class="file">chunk-RBIVSBQQ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 41.41 kB</span>
+<span class="file">chunk-SNUNS7GD.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 40.08 kB</span>
+<span class="file">chunk-QVEMXBLG.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 39.10 kB</span>
+<span class="file">chunk-N4ARNDSZ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 37.76 kB</span>
+<span class="file">chunk-2J34AQCY.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 37.70 kB</span>
+<span class="file">chunk-2DLIGNNG.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 32.47 kB</span>
+<span class="file">chunk-H3ATRNEJ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 27.88 kB</span>
+<span class="file">chunk-GJDEXMQI.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 26.71 kB</span>
+<span class="file">chunk-RL5LXKSH.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 18.64 kB</span>
+<span class="file">chunk-XBJWNXDA.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 18.05 kB</span>
+<span class="file">chunk-5UL67ELX.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 16.74 kB</span>
+<span class="file">chunk-4MF6TMOK.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 14.54 kB</span>
+<span class="file">chunk-7CVCAWRQ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 14.49 kB</span>
+<span class="file">chunk-ZMCUEVYI.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 14.10 kB</span>
+<span class="file">chunk-VMGWTRVM.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 13.03 kB</span>
+<span class="file">angular-app-manifest.mjs       </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 12.78 kB</span>
+<span class="file">chunk-XQHBH3JC.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 12.08 kB</span>
+<span class="file">chunk-FQVEQRQN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 11.66 kB</span>
+<span class="file">chunk-DUR4YHW5.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 10.64 kB</span>
+<span class="file">chunk-F4OWRTDF.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 10.33 kB</span>
+<span class="file">chunk-WSOVDA45.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size"> 10.08 kB</span>
+<span class="file">chunk-E54NCTLM.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.88 kB</span>
+<span class="file">chunk-PWEFKDX4.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.74 kB</span>
+<span class="file">chunk-QUXV6TDX.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.40 kB</span>
+<span class="file">chunk-ZJ7HN3EN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  8.10 kB</span>
+<span class="file">chunk-EDBAYDCK.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  7.21 kB</span>
+<span class="file">chunk-HI5V2WQR.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.89 kB</span>
+<span class="file">chunk-LSGSVOLG.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.85 kB</span>
+<span class="file">chunk-2FM7IUDT.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.84 kB</span>
+<span class="file">chunk-PZJLWGDT.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.28 kB</span>
+<span class="file">chunk-LYIYZSHP.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  6.28 kB</span>
+<span class="file">chunk-KZVFQH47.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  5.27 kB</span>
+<span class="file">chunk-CDZMVHNF.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  5.21 kB</span>
+<span class="file">chunk-BSXJ74U6.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.81 kB</span>
+<span class="file">chunk-QKE5H74K.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.79 kB</span>
+<span class="file">chunk-FNKZ75OK.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.18 kB</span>
+<span class="file">chunk-F3WDYO4L.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  4.09 kB</span>
+<span class="file">chunk-GTRDVH4N.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.82 kB</span>
+<span class="file">chunk-QEAIFOMI.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.80 kB</span>
+<span class="file">chunk-E7V3TYQN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.67 kB</span>
+<span class="file">chunk-JQX2GEW4.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  3.13 kB</span>
+<span class="file">chunk-QBJLQWXM.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.87 kB</span>
+<span class="file">chunk-5FT5ARQY.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.71 kB</span>
+<span class="file">chunk-JEI2VADK.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.48 kB</span>
+<span class="file">chunk-UQHICPEJ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.10 kB</span>
+<span class="file">chunk-GSID2C5V.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  2.00 kB</span>
+<span class="file">chunk-DSVF2JHV.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.67 kB</span>
+<span class="file">chunk-OVCWQ63H.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.50 kB</span>
+<span class="file">chunk-AW6ASNMJ.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.20 kB</span>
+<span class="file">chunk-TTE3CX2P.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">  1.15 kB</span>
+<span class="file">chunk-653QUFN4.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">911 bytes</span>
+<span class="file">chunk-Z42UDW46.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">803 bytes</span>
+<span class="file">chunk-FQPLXHVA.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">655 bytes</span>
+<span class="file">chunk-AUEDUBC4.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">594 bytes</span>
+<span class="file">chunk-Y5GDM5TN.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">569 bytes</span>
+<span class="file">chunk-ZISAMTUW.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">450 bytes</span>
+<span class="file">chunk-343YLRTP.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">390 bytes</span>
+<span class="file">chunk-7QGTYGL3.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">368 bytes</span>
+<span class="file">chunk-YLQ5UOW7.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">312 bytes</span>
+<span class="file">chunk-NHPJWUH4.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">246 bytes</span>
+<span class="file">angular-app-engine-manifest.mjs</span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">236 bytes</span>
+<span class="file">chunk-SHAALHOW.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">232 bytes</span>
+<span class="file">chunk-K2FO3RAW.mjs             </span><span class="bar"> | </span><span class="name">-                           </span><span class="bar"> | </span><span class="size">118 bytes</span>
+
+<span class="blank">                               </span><span class="bar"> | </span><span class="total-label">Lazy total                  </span><span class="bar"> | </span><span class="size"> 13.14 MB</span>
+<span class="blank">                               </span><span class="bar"> | </span><span class="total-label">All chunks                  </span><span class="bar"> | </span><span class="size"> 24.78 MB</span></code></pre>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

@@ -1,0 +1,469 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Angular 18 upgrade explained</title>
+  <style>
+    :root {
+      color-scheme: dark only;
+      --page: #0d1117;
+      --ink: #e6edf3;
+      --muted: #8b949e;
+      --line: #30363d;
+      --panel: #161b22;
+      --code: #010409;
+      --accent: #58a6ff;
+      --ok: #3fb950;
+      --warn: #d29922;
+      --bad: #f85149;
+      --add: #3fb950;
+      --del: #f85149;
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      color-scheme: dark;
+      background: var(--page);
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--page);
+      font: 14.5px/1.55 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(960px, calc(100% - 32px));
+      margin: 28px auto 48px;
+      padding: 36px 40px 44px;
+      color: var(--ink);
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    header {
+      padding-bottom: 22px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(26px, 4vw, 36px);
+      line-height: 1.12;
+      letter-spacing: -.03em;
+    }
+
+    header p {
+      margin: 0;
+      max-width: 48rem;
+      color: var(--muted);
+    }
+
+    h2 {
+      margin: 32px 0 12px;
+      font-size: 18px;
+      letter-spacing: -.015em;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 14.5px;
+    }
+
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0 0 12px; padding-left: 1.2rem; }
+    li + li { margin-top: 7px; }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      font-size: 12.5px;
+      padding: .08rem .32rem;
+      color: var(--accent);
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 0 0 12px;
+      padding: 12px 14px;
+      color: var(--ink);
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      font: 12.5px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+    }
+
+    .diff .meta { color: var(--muted); }
+    .diff .del { color: var(--del); }
+    .diff .add { color: var(--add); }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+      margin: 0 0 12px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      background: var(--code);
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .bad { color: var(--bad); }
+
+    .note {
+      margin: 14px 0;
+      padding: 12px 14px;
+      background: var(--code);
+      border: 1px solid var(--line);
+      border-radius: 6px;
+    }
+
+    footer {
+      margin-top: 28px;
+      padding-top: 16px;
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Migration</p>
+      <h1>Angular 17 to 18</h1>
+      <p>The working tree is on Angular 18.2 with NgModules, the application builder, and custom Express SSR kept. PrimeNG stays 17. Ship the source hunks below. Do not ship env or prefetch artifacts.</p>
+    </header>
+
+    <section>
+      <h2>Implementation</h2>
+      <p>Node 20.19.6, TypeScript 5.4.5, and Zone 0.14.10 already met Angular 18. Those were left alone. Angular 18.2 accepts TypeScript 5.4 and 5.5 and rejects 5.6.</p>
+      <p><code>ng update @angular/core@18 @angular/cli@18</code> then <code>@angular/material@18</code>, with 10GB old-space. The application-builder schematic was refused. The HttpClient schematic was refused and reverted if it ran. <code>server.ts</code> was not replaced by CLI output. Hand edits only for what 18 actually broke.</p>
+      <p>Libraries that publish an Angular 18 line were bumped. PrimeNG, <code>ngx-quill</code>, and <code>ngx-intl-tel-input</code> stayed on the current majors. <code>@khajegan/ngx-audio-player</code> stayed 17.1.0. <code>@cotufa82/ng-ivs</code> stayed as a legacy peer.</p>
+      <p>Compile used <code>--configuration=development</code> and qa with <code>--prerender=false</code>. Production proof used <code>npm run prerender-all-qa</code>. <code>npm run build-dev</code> was not used; <code>environment.dev.ts</code> is still missing. Docker was not used.</p>
+    </section>
+
+    <section>
+      <h2>Kept on purpose</h2>
+      <ul>
+        <li>NgModules. No standalone rewrite. No <code>standalone: false</code> flags (those are v19).</li>
+        <li><code>@angular-devkit/build-angular:application</code>. Already in <code>angular.json</code>.</li>
+        <li>Custom Express in <code>server.ts</code>. White-label still picked from <code>dist/</code>.</li>
+        <li><code>HttpClientModule</code> in <code>AppModule</code> and <code>FormSelectComponent</code>. Interceptors still use <code>HTTP_INTERCEPTORS</code>.</li>
+        <li>Hydration off. No <code>provideClientHydration</code>. No <code>ngZoneEventCoalescing</code>.</li>
+        <li>Material 2 with prebuilt <code>indigo-pink</code>.</li>
+        <li>PrimeNG 17.18.15 and <code>saga-blue</code>. PrimeNG 18 dropped that theme and wants <code>providePrimeNG</code>.</li>
+        <li><code>functions/</code> and the webpack <code>serverless</code> target untouched. Live path is <code>serve:ssr</code> / S3 prerender.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Verification diffs</h2>
+      <p>Against HEAD on 15 Sep 2026, these are the upgrade source hunks: create-plan, <code>server.ts</code>, <code>app.component.ts</code>, <code>wallet.module.ts</code>, and <code>angular.json</code>. If git shows more than these plus <code>package.json</code> / <code>package-lock.json</code>, something extra is in the tree.</p>
+
+      <h3>create-plan Free DMs radio</h3>
+      <p>Angular 18 rejects banana-box on <code>AbstractControl.value</code>. The same radio already has <code>formControlName="free_dms_count"</code>, so those two lines were not the live binding. Create Plan enablement did not change. Empty 1 Month Total Price with the card collapsed still disables the button. That is old <code>checkFormDisable</code> behavior, not an 18 regression.</p>
+      <p>A scan of <code>src/**/*.html</code> found no other <code>[(ngModel)]</code> on <code>.get(...).value</code>, <code>.controls[...].value</code>, or any <code>.value</code> getter, and no other <code>formControlName</code> plus <code>ngModel</code> pair. Remaining <code>.get('x').value</code> uses are one-way (<code>*ngIf</code>, <code>ngClass</code>, interpolation, <code>[value]</code>, <code>[disabled]</code>). Those stay.</p>
+      <pre class="diff">
+<span class="meta">diff --git a/src/app/modules/monetize/components/create-plan/create-plan.component.html b/src/app/modules/monetize/components/create-plan/create-plan.component.html</span>
+<span class="meta">@@ -2003,8 +2003,6 @@</span>
+                   &gt;
+                     &lt;input
+                       [value]="dm.value"
+<span class="del">-                    [(ngModel)]="createPlanForm.get('free_dms_count').value"</span>
+<span class="del">-                    [ngModelOptions]="{ standalone: true }"</span>
+                       (change)="freeDirectMessagesChange(dm.value)"
+                       type="radio"
+                       formControlName="free_dms_count"
+</pre>
+
+      <h3>SSR shell path</h3>
+      <p>Angular 18 writes the client shell as <code>index.csr.html</code> when prerender is off. Prerendered routes still use <code>index.html</code>. Express must prefer the CSR file for <code>installServerDom</code> and <code>CommonEngine.documentFilePath</code> or live SSR serves the wrong document.</p>
+      <pre class="diff">
+<span class="meta">diff --git a/server.ts b/server.ts</span>
+<span class="add">+function getBrowserIndexHtml(distFolder: string): string {</span>
+<span class="add">+  const csrIndex = join(distFolder, 'index.csr.html');</span>
+<span class="add">+  if (fs.existsSync(csrIndex)) {</span>
+<span class="add">+    return csrIndex;</span>
+<span class="add">+  }</span>
+<span class="add">+  return join(distFolder, 'index.html');</span>
+<span class="add">+}</span>
+
+   export function app(): express.Express {
+     const distFolder = getDistFolder();
+<span class="del">-  const template = fs.readFileSync(join(distFolder, 'index.html')).toString();</span>
+<span class="add">+  const indexHtml = getBrowserIndexHtml(distFolder);</span>
+<span class="add">+  const template = fs.readFileSync(indexHtml).toString();</span>
+     installServerDom(template);
+
+     return commonEngine.render({
+       bootstrap: AppServerModule,
+<span class="del">-        documentFilePath: join(distFolder, 'index.html'),</span>
+<span class="add">+        documentFilePath: indexHtml,</span>
+       url: `${protocol}://${headers.host}${originalUrl}`,
+</pre>
+
+      <h3>DOMPurify under esbuild</h3>
+      <p>The Angular 18 esbuild pipeline does not accept the default DOMPurify import. Namespace import plus <code>.default</code> fallback keeps sanitize working on client and server.</p>
+      <pre class="diff">
+<span class="meta">diff --git a/src/app/app.component.ts b/src/app/app.component.ts</span>
+<span class="del">-import DOMPurify from 'dompurify';</span>
+<span class="add">+import * as DOMPurifyNs from 'dompurify';</span>
+
+<span class="add">+type DomPurifySanitize = {</span>
+<span class="add">+  sanitize: (dirty: string, cfg: { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[] }) =&gt; string;</span>
+<span class="add">+};</span>
+<span class="add">+</span>
+<span class="add">+const DOMPurify: DomPurifySanitize =</span>
+<span class="add">+  (DOMPurifyNs as { default?: DomPurifySanitize }).default ??</span>
+<span class="add">+  (DOMPurifyNs as DomPurifySanitize);</span>
+</pre>
+
+      <h3>ngx-mask 18</h3>
+      <p>ngx-mask 18 removed <code>IConfig</code>. The unused wallet <code>options</code> export was dropped. <code>provideNgxMask()</code> is unchanged.</p>
+      <pre class="diff">
+<span class="meta">diff --git a/src/app/modules/wallet/wallet.module.ts b/src/app/modules/wallet/wallet.module.ts</span>
+<span class="del">-import { NgxMaskDirective, NgxMaskPipe, provideNgxMask, IConfig } from 'ngx-mask';</span>
+<span class="add">+import { NgxMaskDirective, NgxMaskPipe, provideNgxMask } from 'ngx-mask';</span>
+
+<span class="del">-export const options: Partial&lt;IConfig&gt; = {</span>
+<span class="del">-  thousandSeparator: "'"</span>
+<span class="del">-};</span>
+</pre>
+
+      <h3>angular.json localize polyfill</h3>
+      <p>CLI 18 wants <code>@angular/localize/init</code> first in the TopFans <code>polyfills</code> array. White-label projects copy that from TopFans. <code>src/polyfills.ts</code> already imported it; the array entry is the CLI contract. This is the only <code>angular.json</code> hunk. Other projects still use the string <code>src/polyfills.ts</code> polyfill option.</p>
+      <pre class="diff">
+<span class="meta">diff --git a/angular.json b/angular.json</span>
+<span class="meta">index c82ccd58e5..6162bc74b4 100644</span>
+<span class="meta">--- a/angular.json</span>
+<span class="meta">+++ b/angular.json</span>
+<span class="meta">@@ -41,6 +41,7 @@</span>
+             "outputPath": "dist/TopFans",
+             "index": "src/index.html",
+             "polyfills": [
+<span class="add">+              "@angular/localize/init",</span>
+               "src/polyfills.ts"
+             ],
+             "tsConfig": "tsconfig.app.json",
+</pre>
+    </section>
+
+    <section>
+      <h2>Package moves</h2>
+      <p>Lockfile belongs with <code>package.json</code>. TypeScript and Zone did not move.</p>
+      <table>
+        <thead>
+          <tr>
+            <th>Package</th>
+            <th>17</th>
+            <th>18 tree</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>core / compiler / animations / forms / router / material / CDK</td>
+            <td>17.3.12 / Material 17.3.10</td>
+            <td>18.2.14</td>
+          </tr>
+          <tr>
+            <td>CLI / SSR / PWA / build-angular / architect</td>
+            <td>17.3.17</td>
+            <td>18.2.21</td>
+          </tr>
+          <tr>
+            <td>Angular ESLint</td>
+            <td>17.5.3</td>
+            <td>18.4.3</td>
+          </tr>
+          <tr>
+            <td><code>@angular/fire</code></td>
+            <td>17.1.0</td>
+            <td>18.0.1</td>
+          </tr>
+          <tr>
+            <td><code>@ngrx/store</code></td>
+            <td>17.2.0</td>
+            <td>18.1.1. Store only. No effects.</td>
+          </tr>
+          <tr>
+            <td><code>ngx-bootstrap</code></td>
+            <td>12.0.0</td>
+            <td>18.1.3</td>
+          </tr>
+          <tr>
+            <td><code>@ng-bootstrap/ng-bootstrap</code></td>
+            <td>16.0.0</td>
+            <td>17.0.1</td>
+          </tr>
+          <tr>
+            <td><code>@ng-select/ng-select</code></td>
+            <td>12.0.7</td>
+            <td>13.9.1</td>
+          </tr>
+          <tr>
+            <td><code>ngx-toastr</code></td>
+            <td>14.3.0</td>
+            <td>19.1.0. Toast is OnPush now.</td>
+          </tr>
+          <tr>
+            <td><code>ngx-mask</code></td>
+            <td>16.4.2</td>
+            <td>18.0.4</td>
+          </tr>
+          <tr>
+            <td><code>ngx-stripe</code></td>
+            <td>17.2.0</td>
+            <td>18.1.0</td>
+          </tr>
+          <tr>
+            <td>fontawesome / owl / infinite-scroll / device-detector / zxing scanner</td>
+            <td>0.14.1 / 17 / 17 / 7 / 17</td>
+            <td>0.15.0 / 18 / 18 / 8 / 18</td>
+          </tr>
+          <tr>
+            <td>PrimeNG</td>
+            <td>17.18.15</td>
+            <td class="ok">Kept 17.18.15</td>
+          </tr>
+          <tr>
+            <td><code>ngx-quill</code> / <code>ngx-intl-tel-input</code> / audio player</td>
+            <td>16.2.1 / 15 / 17.1.0</td>
+            <td class="ok">Kept. Quill 2 and PrimeNG 18 are later PRs</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="note">
+        <p><code>package.json</code> also adds <code>prerender-existing</code>. That script is not required for Angular 18. Drop it from the PR unless you want the helper.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Do not ship</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Path</th>
+            <th>Why</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>src/environments/environment.ts</code></td>
+            <td>Local env. Committed files must not pick up machine URLs or secrets.</td>
+          </tr>
+          <tr>
+            <td><code>prerender.routes.txt</code> and <code>src/app/constants/*generated*</code> / marketing page data</td>
+            <td>Prefetch / generate-static output from <code>prerender-all-qa</code>. Restore before commit.</td>
+          </tr>
+          <tr>
+            <td><code>angular-18-upgrade.html</code>, <code>create-plan-ngmodel-change.html</code></td>
+            <td>Local plan files. Not app runtime.</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Already proven</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>development build and qa with <code>--prerender=false</code></td>
+            <td class="ok">Passed</td>
+          </tr>
+          <tr>
+            <td><code>npm run prerender-all-qa</code></td>
+            <td class="ok">Passed. Both <code>index.html</code> and <code>index.csr.html</code> exist</td>
+          </tr>
+          <tr>
+            <td>Live SSR on <code>dist/TopFans/server/server.mjs</code></td>
+            <td class="ok">Unknown route 404. Trailing slash 301. <code>?key=</code> rendered. Shell is <code>index.csr.html</code></td>
+          </tr>
+          <tr>
+            <td>One QA white-label tenant</td>
+            <td class="ok"><code>doug-h</code> cloned, qa build succeeded, theme <code>#8b5cf6</code>, login branded. Generator artifacts restored after smoke</td>
+          </tr>
+          <tr>
+            <td>17 product checks on 18</td>
+            <td class="ok"><code>/music</code> to <code>/music-artists</code>. Wallet bank-details still redirects. Login, forgot-password, overlays render. Live Stripe checkout was not run</td>
+          </tr>
+          <tr>
+            <td>Create Plan radios</td>
+            <td class="ok">Compile unblocked. Selection still goes through <code>formControlName</code>. Button disable with empty 1 Month price is unchanged</td>
+          </tr>
+          <tr>
+            <td><code>ng lint</code> / <code>ng test</code></td>
+            <td class="warn">Not a 17 gate. Lint OOMs. No spec files. Do not claim they passed</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Not in this PR</h2>
+      <ul>
+        <li>PrimeNG 18 theme rewrite</li>
+        <li>Quill 2 / ngx-quill 18</li>
+        <li>Update of <code>@cotufa82/ng-ivs</code></li>
+        <li>Hydration, <code>event-dispatch</code>, <code>provideHttpClient</code></li>
+        <li>Material 3</li>
+        <li>Standalone rewrite</li>
+        <li><code>functions/</code> and webpack serverless</li>
+        <li>Recreating <code>environment.dev.ts</code></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Before merge</h2>
+      <ul>
+        <li>Restore prefetch-generated files so the PR diff is only the hunks above plus packages.</li>
+        <li>Leave <code>environment.ts</code> out of the commit.</li>
+        <li>Decide whether <code>prerender-existing</code> stays.</li>
+        <li>QA: Create Plan still needs 1 Month opened and Total Price filled. That is not an 18 bug.</li>
+        <li>Live Stripe, logged-in audio, and logged-in video were not exercised.</li>
+      </ul>
+    </section>
+
+    <footer>
+      Companion to <a href="angular-18-upgrade-verification.html">Verify the Angular 18 upgrade</a>.
+      Branch <code>feature/release-0.0.23/version-16-17-18</code>.
+      Official guide: https://angular.dev/update-guide?v=17.0-18.0&amp;l=3.
+      Status as of 15 Sep 2026.
+    </footer>
+  </main>
+</body>
+</html>

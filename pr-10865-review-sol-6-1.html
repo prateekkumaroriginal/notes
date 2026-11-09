@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10865 review-sol-6-1</title>
+<meta name="description" content="Updated review of PR 10865. Skeleton tracking is fixed and compilation passes. Signed-in QA remains unchecked, and the PR is still closed.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10865-review-sol-6-1">
+<link rel="stylesheet" href="/code-blocks.css">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+
+.bad { color: var(--pink); }
+section > pre, section > details { margin-top: 1rem; }
+summary { cursor: pointer; color: var(--blue); border-radius: .3rem; }
+details ul { padding-top: 1rem; }
+</style><script src="/copy-code.js" defer></script>
+</head><body><div class="page">
+<header><a href="/">All notes</a>
+<div><h1>PR 10865 review-sol-6-1</h1><p>The updated commit fixes the skeleton tracking regression. Signed-in QA is still pending.</p></div>
+<div class="meta"><span>Re-reviewed 30 September 2026</span><span>Update changes 48 skeleton templates</span><span>87 tracking expressions replaced</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10865">PR 10865</a> · Base <code>d885efb055</code> · Current head <code>faba9aee2f</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#resolved">Resolved finding</a><a href="#checks">Checks and limits</a><a href="#before-merge">Before merging</a></nav>
+</header><main>
+<section id="verdict"><h2>Should I merge it now? No.</h2>
+<p class="ok">The code finding is fixed. I found no new blocking code defect in the update.</p>
+<p>I would still wait for the signed-in QA results. The migration changes 550 HTML templates and the price-display inline template, including payments, messages, modal content, and dynamic forms. The PR checklist remains unchecked, and the author's verification note still says logged-in product checks were not run.</p>
+<p>GitHub reports PR 10865 closed on 30 September 2026, with no merge timestamp. It also lists no status checks or submitted reviews. Reopen the PR, or use its replacement, after recording the remaining QA results.</p>
+</section>
+<section id="resolved"><h2>The skeleton tracking finding is resolved</h2>
+<p>Commit <code>faba9aee2f</code> changes discarded placeholder items to <code>track $index</code>. I checked the full incremental diff. All 87 replacements are confined to skeleton HTML templates, and every other character in those files is unchanged.</p>
+<p>All <span class="ok">45 previously flagged loops across 23 templates</span> now track the index. The update also changes 42 other discarded-item loops. These loops render placeholder slots, so index tracking fits their use.</p>
+<p>The original <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e6d8ff44e4c23362003d3ae5cfc5f5c9deb562a3/src/app/components/skeleton/block-users-skeleton/block-users-skeleton.component.html#L10">block-users loop</a> tracked the value from <code>Array(4)</code>. Every value was <code>undefined</code>, which produced duplicate keys. The <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/faba9aee2f2cca5efac76d96cdb682517862eb7a/src/app/components/skeleton/block-users-skeleton/block-users-skeleton.component.html#L10">updated loop</a> assigns each slot its own index.</p>
+<p>I rendered four exact templates from the base, first PR commit, and updated commit using Angular 21.2.23. All four preserve their skeleton element counts. The first PR commit produces <code>NG0955</code>; the updated commit produces none.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Skeleton</th><th scope="col">Elements in each version</th><th scope="col">First PR warnings</th><th scope="col">Updated warnings</th></tr></thead><tbody><tr><td>block-users-skeleton</td><td>14</td><td>1</td><td class="ok">0</td></tr><tr><td>notifications-skeleton</td><td>74</td><td>10</td><td class="ok">0</td></tr><tr><td>privacy-password-skeleton</td><td>20</td><td>4</td><td class="ok">0</td></tr><tr><td>fan-management-skeleton</td><td>119</td><td>8</td><td class="ok">0</td></tr></tbody></table></div>
+<p>The notifications and fan-management checks cover nested loops. The base has zero duplicate-key warnings in all four cases. None of the updated reproductions produced another warning.</p>
+<p>These checks use small test components with the arrays from the original component classes. Child elements use an unknown-element schema. The checks verify Angular loop rendering and diagnostics, rather than child-component styles or the full application's hydration.</p>
+</section>
+<section id="checks"><h2>Checks and limits</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead><tbody>
+<tr><td>Incremental diff</td><td class="ok">Only 87 item-to-index tracking replacements across 48 skeleton templates.</td></tr>
+<tr><td>Original finding</td><td class="ok">All 45 flagged loops now use <code>$index</code>.</td></tr>
+<tr><td>Runtime regression checks</td><td class="ok">Four updated templates preserve the base element counts and produce zero <code>NG0955</code> warnings. The first PR version still reproduces the warnings.</td></tr>
+<tr><td>Angular compilation</td><td class="ok"><code>ngc -p tsconfig.app.json --noEmit</code> passes on a clean checkout of <code>faba9aee2f</code> with the installed Angular 21.2.23 dependencies and a 10 GB heap.</td></tr>
+<tr><td>Template parsing</td><td class="ok">All 550 changed HTML templates parse without errors.</td></tr>
+<tr><td>Template comparison</td><td class="ok">Normalized element counts, binding expressions, event handlers, and text remain consistent with the base. Formatting differences and redundant expression parentheses are ignored.</td></tr>
+<tr><td>Control flow scan</td><td class="ok">747 loops, with counts matching the base. No missing normalized condition expressions, duplicate switch-case expressions, or removed references still queried in the corresponding component files.</td></tr>
+<tr><td>Git whitespace check</td><td class="ok">Both the incremental and full diffs pass.</td></tr>
+<tr><td>Main and white-label production builds</td><td>The <a href="/control-flow-update-verification.html">author's verification note</a> reports main QA passing in 60.6 seconds and Perfect Crew QA passing in 51.8 seconds. These are the original migration results. I did not rerun the production builds for this update.</td></tr>
+<tr><td>Full-product SSR and browser hydration</td><td>The author reports public-page SSR and logged-out TopFans and Perfect Crew checks. This re-review independently runs the focused skeleton SSR checks only.</td></tr>
+<tr><td>Signed-in product QA</td><td class="warn">Still unchecked in the PR and marked not run in the verification note.</td></tr>
+</tbody></table></div>
+<p>The full PR still changes 562 files. The TypeScript changes are the inline price-display migration and 11 tracking-method signature changes. I found no additional blocking defect in the hand-converted table, VIP offer list, post-payment, post-detail, or info-modal templates during the first review. This update changes only skeleton tracking.</p>
+<p>Expression scans and compilation cannot prove that every branch renders in the right state. They also cannot verify payment completion, form validation, message view identity, or modal interaction.</p>
+</section>
+<section id="before-merge"><h2>Before merging</h2><ol>
+<li>Complete and record the signed-in checks on TopFans and a generated white-label project. Cover message insertion and reorder, table selection and drag, wallet and post-payment branches, plan creation, dynamic forms, modal opening and closing, and skeleton dismissal.</li>
+<li>Reopen PR 10865, or carry the reviewed commits into its replacement. Record the tested commit and tenant with the QA results.</li>
+</ol><p>The skeleton finding no longer needs a code fix. The remaining reason to wait is the missing product QA evidence and the PR's closed state.</p></section>
+</main><footer>Recommendation applies to <code>faba9aee2f2cca5efac76d96cdb682517862eb7a</code>. <a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/e6d8ff44e4c23362003d3ae5cfc5f5c9deb562a3...faba9aee2f2cca5efac76d96cdb682517862eb7a">Reviewed update</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/d885efb055773bb6e00b786bf0180cf35f09633f...faba9aee2f2cca5efac76d96cdb682517862eb7a">Full comparison</a>.</footer>
+</div></body></html>

@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10879-grok-4-7</title>
+<meta name="description" content="Review of draft PR 10879. The modal injector tokens keep signal inputs intact. Three livestream checkout opens still throw. Do not merge yet.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10879-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--pink); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10879-grok-4-7</h1><p>Leave this draft unmerged. The token trick is right, and three livestream checkout opens still throw the moment the modal comes back.</p></div>
+<div class="meta"><span>Reviewed 1 October 2026</span><span>Draft</span><span>33 files</span><span>629 additions, 143 deletions</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10879">PR 10879</a> · Base <code>5449fe850e</code> on <code>hotfix/release-0.0.23/wls-21-priority</code> · Head <code>a073ce250cff</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#fix">What the tokens fix</a><a href="#throw">What still throws</a><a href="#callers">Callers I traced</a><a href="#limits">What I did not run</a></nav></header>
+<main>
+<section id="verdict"><h2>Should I merge it now? No.</h2>
+<p class="bad">No.</p>
+<p>GitHub still has it as a draft, with a clean merge state and zero check runs. The description says tests were skipped. I would not put that on a hotfix branch today.</p>
+<p>The code change is the right shape for this bug. I would merge a later revision after the three <code>closeModal</code> subscriptions below are gone or real, and after one signed-in pass of Send Tip plus a mobile livestream checkout.</p></section>
+<section id="fix"><h2>What the tokens fix</h2>
+<p>ng-bootstrap 20 creates the modal component with <code>options.injector</code> as the parent injector. A token provided there is visible to <code>inject()</code> while field initializers run. <code>input(default)</code> then keeps that value, because these modals are not opened with a template binding.</p>
+<p>The old code did <code>modalRef.componentInstance.isModalView = true</code> after <code>open()</code>. That replaces the signal function with a boolean. The next <code>isModalView()</code> throws <span class="bad">is not a function</span>. Same failure for <code>loggedInUserData</code>, <code>userType</code>, <code>showMessageArea</code>, <code>priorTipCloseResult</code>, and the livestream preview inputs.</p>
+<p>Send Tip now reads <code>SEND_TIP_MODAL_DATA</code>. Checkout and preview modals each have their own token. Routed pages inject with <code>optional: true</code> and fall back to the old defaults, so a normal page visit stays unchanged.</p>
+<p><code>data</code> on the tip dialog is still a decorator <code>@Input()</code>. Minimum tip and monetization can keep assigning <code>componentInstance.data</code>. <code>currencyConversionData</code> is a plain field. Reels still opens the same dialog through the Material bottom sheet and <code>MAT_BOTTOM_SHEET_DATA</code>.</p>
+<p>The fundraiser store picker binds <code>modalHeader</code> and <code>apiEndPoint</code> in the template and types the <code>viewChild</code>. Those two are signal inputs, so writing them on the component instance was the same class of bug. Livestream and messages still assign <code>disabledOptionsByTab</code>, which is a decorator <code>@Input()</code>.</p></section>
+<section id="throw"><h2>Three opens still throw</h2>
+<p>After <code>open()</code> returns, the active livestream screen subscribes to <code>componentInstance.closeModal</code> for order payment, customer information, and shipping options. Those three classes have no <code>closeModal</code> output. The subscription throws before the click handler finishes.</p>
+<p>That line is already on the base commit <code>5449fe850e</code>. It was easy to miss because the signal assignment threw first, on a later change detection. This pull request removes that throw, so execution now reaches <code>closeModal.subscribe</code>. The modal node is already in the document. The handler still errors, and nothing is listening for dismiss.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Opener</th><th>Component</th><th><code>closeModal</code></th></tr></thead>
+<tbody>
+<tr><td>Order payment</td><td><code>OrderPaymentComponent</code></td><td class="bad">Missing. Subscribe at line 851.</td></tr>
+<tr><td>Merchandise customer info</td><td><code>CustomerInformationComponent</code></td><td class="bad">Missing. Subscribe at line 952.</td></tr>
+<tr><td>Shipping options</td><td><code>ShippingOptionsComponent</code></td><td class="bad">Missing. Subscribe at line 987.</td></tr>
+<tr><td>Customize experience, ticket preview, ticket customer info, portfolio, share details</td><td>Those five components</td><td class="ok"><code>output()</code> is declared. Subscribe is valid.</td></tr>
+</tbody>
+</table></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/a073ce250cff47ddeaaa15e33c138ea437682b28/src/app/modules/dashboard/components/live-stream/active-livestream/active-livestream.component.ts#L821-L990">Livestream checkout opens</a></p>
+<p>The other <code>componentInstance</code> writes in that block are decorator inputs: product ids, <code>userProfile</code>, <code>queryParamData</code>, <code>redirect</code>, <code>paymentType</code>, <code>creatorId</code>, <code>contentSk</code>. Those assignments do not replace a signal.</p></section>
+<section id="callers"><h2>Send Tip callers</h2>
+<p>Seven <code>NgbModal.open(SendtipdialogComponent)</code> sites now pass the token. I compared each payload with the assignments it replaced.</p>
+<div class="table-wrap"><table>
+<thead><tr><th>Caller</th><th>Token fields</th></tr></thead>
+<tbody>
+<tr><td>Home, forum, forum post, search</td><td><code>data</code>, <code>loggedInUserData</code></td></tr>
+<tr><td>Post detail, profile</td><td>Those, plus <code>userType</code> and <code>priorTipCloseResult</code></td></tr>
+<tr><td>Livestream chat</td><td>Those, plus <code>userType</code> and <code>showMessageArea: false</code></td></tr>
+</tbody>
+</table></div>
+<p>Profile's <code>LocalCommonEnums</code> is an import alias of <code>CommonEnums</code>, so guest vs logged still matches the dialog's comparison. Passing <code>priorTipCloseResult ?? null</code> matches the old input default when the reopen payload is absent.</p>
+<p>Chat tips and the three livestream post-payment opens pass <code>POST_PAYMENT_MODAL_DATA</code>. Chat sets <code>isModalView</code> only. Livestream also sets <code>isActiveLiveStreaming</code>. That matches the old assignments.</p></section>
+<section id="limits"><h2>What I did not run</h2>
+<ul>
+<li>I read the pull request diff at <code>a073ce250cff</code> and the ng-bootstrap 20 modal stack in <code>node_modules</code>. The custom injector is the parent of the component injector.</li>
+<li>I did not run <code>ngc</code>, the unit tests, a browser session, or a white-label build. The pull request has no status checks.</li>
+<li>A dirty local <code>environment.ts</code> is not in the pull request.</li>
+</ul>
+<p>Before a yes, drop or implement those three <code>closeModal</code> subscriptions, mark the pull request ready, and click through Send Tip on home, a livestream chat tip with the message box hidden, and a phone-width merchandise checkout.</p></section>
+</main>
+<footer>Recommendation applies to draft <code>a073ce250cff47ddeaaa15e33c138ea437682b28</code>.</footer>
+</div></body></html>

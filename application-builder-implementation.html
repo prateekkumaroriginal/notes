@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Application builder implementation</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #121418;
+      --panel: #1b1e24;
+      --border: #2a2f38;
+      --text: #e8eaed;
+      --muted: #9aa3b2;
+      --accent: #8ab4f8;
+      --code-bg: #0e1014;
+      --pill-bg: #252a33;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.5 ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    header, main { max-width: 880px; margin: 0 auto; padding: 28px 24px; }
+    header {
+      border-bottom: 1px solid var(--border);
+    }
+    h1 { font-size: 22px; font-weight: 650; margin: 0 0 8px; }
+    header p { margin: 0; color: var(--muted); }
+    h2 {
+      font-size: 15px;
+      font-weight: 650;
+      margin: 28px 0 10px;
+      padding-top: 8px;
+    }
+    p { margin: 0 0 12px; }
+    ul, ol { margin: 0 0 12px; padding-left: 20px; }
+    li { margin-bottom: 6px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 16px;
+      font-size: 13px;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: var(--panel); color: var(--muted); font-weight: 600; }
+    code, .pill {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+    }
+    .pill {
+      display: inline-block;
+      background: var(--pill-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--accent);
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 12px 14px;
+      overflow-x: auto;
+      margin: 0 0 16px;
+    }
+    pre code { color: #d7dde8; font-size: 12px; line-height: 1.45; }
+    .note { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Application builder implementation</h1>
+    <p>TopFans now builds browser, SSR, and prerender with one Angular 17 <span class="pill">application</span> builder. Webpack <span class="pill">server</span>, <span class="pill">serve-ssr</span>, and <span class="pill">prerender</span> targets are gone.</p>
+  </header>
+  <main>
+    <h2>What shipped</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Before (Path A)</th>
+          <th>After (Path B)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Client: <span class="pill">browser-esbuild</span></td>
+          <td>Client + SSR + optional SSG: <span class="pill">application</span></td>
+        </tr>
+        <tr>
+          <td>SSR: <span class="pill">ng run TopFans:server</span> → <span class="pill">dist/TopFans/server/main.js</span></td>
+          <td>Same <span class="pill">ng build</span> writes <span class="pill">dist/TopFans/server/server.mjs</span></td>
+        </tr>
+        <tr>
+          <td>SSG: <span class="pill">ng run TopFans:prerender:qa</span></td>
+          <td><span class="pill">PRERENDER=true ng build --configuration=qa</span></td>
+        </tr>
+        <tr>
+          <td>S3 still uploads <span class="pill">dist/TopFans/browser/</span></td>
+          <td>Same folder. <span class="pill">outputPath</span> is now the parent <span class="pill">dist/TopFans</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="note">Karma and the leftover <span class="pill">serverless</span> Webpack target were left alone. Docker still runs <span class="pill">build-stage:ssr</span> then <span class="pill">serve:ssr</span>.</p>
+
+    <h2>1. One architect target</h2>
+    <p>In <span class="pill">angular.json</span>, <span class="pill">main</span> becomes <span class="pill">browser</span>, polyfills become an array, and SSR/prerender are build options. <span class="pill">serviceWorker: true</span> is invalid on this schema; production-like configs use the config path.</p>
+    <pre><code>"builder": "@angular-devkit/build-angular:application",
+"options": {
+  "outputPath": "dist/TopFans",
+  "browser": "src/main.ts",
+  "polyfills": ["src/polyfills.ts"],
+  "server": "src/main.server.ts",
+  "ssr": { "entry": "server.ts" },
+  "prerender": false,
+  "externalDependencies": ["domino", "express", "compression", "helmet"]
+}</code></pre>
+    <p><span class="pill">development</span> keeps <span class="pill">prerender: false</span>. QA / staging / production set:</p>
+    <pre><code>"prerender": {
+  "routesFile": "prerender.routes.txt",
+  "discoverRoutes": false
+}</code></pre>
+    <p>Fast compiles pass <span class="pill">--prerender=false</span> so Docker and <span class="pill">build-qa</span> do not walk the full routes file. Deploy still uses <span class="pill">prerender-all-qa</span>.</p>
+    <pre><code>"prerender-all-qa": "npm run prefetch-pages-qa &amp;&amp; npm run generate-static-qa &amp;&amp; PRERENDER=true … ng build --configuration=qa &amp;&amp; node generate-sitemap.mjs --env=qa"
+"serve:ssr": "node dist/TopFans/server/server.mjs"</code></pre>
+
+    <h2>2. What prerender actually loads</h2>
+    <p>Workers import <span class="pill">main.server.mjs</span>, not Express. That file must default-export <span class="pill">AppServerModule</span>, load Zone (polyfills are not applied in the worker), and install a DOM before any app import that touches <span class="pill">document</span>.</p>
+    <pre><code>import 'zone.js/node';
+import './server-dom';
+import '@angular/localize/init';
+import '@angular/platform-server/init';
+
+export { AppServerModule } from './app/app.server.module';
+export { AppServerModule as default } from './app/app.server.module';</code></pre>
+    <p><span class="pill">tsconfig.app.json</span> lists the same entries so the compiler sees them:</p>
+    <pre><code>"files": [
+  "src/main.ts",
+  "src/main.server.ts",
+  "src/server-dom.ts",
+  "src/polyfills.ts",
+  "server.ts"
+]</code></pre>
+
+    <h2>3. Why <span class="pill">src/server-dom.ts</span> exists</h2>
+    <p>Webpack used to evaluate <span class="pill">server.ts</span> as the SSR entry, so Domino globals were in place before render. The application builder prerender worker never runs Express. Putting the DOM install only in <span class="pill">server.ts</span> would leave prerender without <span class="pill">document</span>.</p>
+    <p>The new file is the shared install: both the worker (side-effect import) and Express (<span class="pill">installServerDom(indexHtml)</span>) use it. Domino stays an external package so esbuild does not break its <span class="pill">instanceof</span> checks. After createWindow, the file patches APIs Domino does not implement:</p>
+    <ul>
+      <li><span class="pill">requestAnimationFrame</span> — CDK / marketing measure loops</li>
+      <li><span class="pill">getBoundingClientRect</span> — pinned horizontal scroll</li>
+      <li><span class="pill">localStorage</span>, <span class="pill">matchMedia</span>, <span class="pill">ResizeObserver</span></li>
+    </ul>
+    <pre><code>export function installServerDom(html = DEFAULT_HTML): Window {
+  const win = domino.createWindow(html);
+  setGlobal('window', win);
+  setGlobal('document', win.document);
+  patchWindowApis(win);
+  patchElementLayoutApis(win);
+  return win;
+}
+
+installServerDom();</code></pre>
+
+    <h2>4. Express only listens as the main module</h2>
+    <p><span class="pill">__non_webpack_require__</span> is gone. The ESM bundle starts the HTTP server only when Node executed that file:</p>
+    <pre><code>function isMainModule(url: string): boolean {
+  const entryPoint = process.argv[1];
+  if (!entryPoint) return false;
+  return url === pathToFileURL(entryPoint).href
+    || fileURLToPath(url) === entryPoint;
+}
+
+if (isMainModule(import.meta.url) || process.argv[1]?.includes('iisnode')) {
+  run();
+}</code></pre>
+    <p>Dist lookup is still <span class="pill">dist/&lt;project&gt;/browser</span>. That is correct because the builder writes <span class="pill">browser/</span> under <span class="pill">dist/TopFans</span>.</p>
+
+    <h2>5. White-label generator</h2>
+    <p><span class="pill">scripts/generate-whitelabel.js</span> clones the application config: parent <span class="pill">outputPath</span> <span class="pill">dist/&lt;tenant&gt;</span>, drops leftover Webpack targets, sets a per-tenant <span class="pill">routesFile</span>, and emits <span class="pill">ng build &lt;tenant&gt;</span> instead of <span class="pill">ng run …:prerender</span>. Existing tenants also get env files again (the old skip-if-exists path was wrong).</p>
+    <pre><code>newProject.architect.build.options.outputPath = `dist/${userName}`;
+delete newProject.architect.server;
+delete newProject.architect['serve-ssr'];
+delete newProject.architect.prerender;</code></pre>
+
+    <h2>6. Prerender-only app fixes</h2>
+    <p>Pinned scroll treated “<span class="pill">window</span> exists” as “we are in a browser.” Domino defines <span class="pill">window</span>, so measure ran and crashed. It now uses <span class="pill">isPlatformBrowser</span>.</p>
+    <pre><code>private get isBrowser(): boolean {
+  return isPlatformBrowser(this.platformId);
+}
+
+private scheduleMeasure(): void {
+  if (!this.isBrowser || this.measureFramePending) {
+    return;
+  }</code></pre>
+    <p><span class="pill">error.interceptor.ts</span> no longer throws on the server for 401 (no session) or XHR <span class="pill">status === 0</span> (dropped socket). Those still happen; they should not abort or spam prerender.</p>
+    <pre><code>if (!this.cs.isBrowser &amp;&amp; err.status === Application.ZERO) {
+  return EMPTY;
+}
+// in handle401Error:
+if (!this.cs.isBrowser) {
+  return EMPTY;
+}</code></pre>
+
+    <h2>Validation already done</h2>
+    <ul>
+      <li>Development and QA application builds (with and without SSG).</li>
+      <li><span class="pill">serve:ssr</span> on home, login, <span class="pill">/creators</span>.</li>
+      <li>Smoke prerender of pinned-layout routes after the Domino / <span class="pill">getBoundingClientRect</span> fixes.</li>
+      <li>Full QA prerender of the committed routes file succeeded in this workspace (141 routes at one checkpoint). <span class="pill">prerender-all-qa</span> can still log API 400s for missing posts; that is data, not the builder.</li>
+    </ul>
+
+    <h2>What to run after pull</h2>
+    <ol>
+      <li>Restart <span class="pill">ng serve</span> if it was started on <span class="pill">browser-esbuild</span>.</li>
+      <li>QA deploy path: <span class="pill">npm run prerender-all-qa</span>.</li>
+      <li>Confirm S3 still publishes <span class="pill">dist/TopFans/browser/</span> and Docker <span class="pill">CMD</span> still calls <span class="pill">serve:ssr</span>.</li>
+    </ol>
+
+    <h2>Open questions</h2>
+    <ul>
+      <li>Whether live SSR on Node 22 needs extra read-only global handling beyond what <span class="pill">installServerDom</span> already does.</li>
+      <li>Whether dashboard routes belong in <span class="pill">prerender.routes.txt</span> at all (they trigger unauthenticated API calls by design).</li>
+    </ul>
+  </main>
+</body>
+</html>

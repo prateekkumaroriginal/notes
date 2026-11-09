@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review of TopFans web frontend pull request 10829, which converts advertisement-home, global, and marketing-pro-page from NgModules to standalone routes.">
+  <title>PR 10829: standalone routes review</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131a24;
+      --panel: #1a2331;
+      --ink: #e8edf4;
+      --muted: #8593a6;
+      --dim: #4e5b6e;
+      --rule: #2a3546;
+      --minus: #f0776f;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5fcf8f;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8fb4ff;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      /* aliases for code-blocks.css */
+      --line: var(--rule);
+      --surface: var(--panel);
+      --text: var(--ink);
+      --blue: var(--focus);
+      --green: var(--plus);
+      --pink: var(--minus);
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, figure, table, dl, dd { margin: 0; }
+
+    a {
+      color: var(--focus);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    p, li, dd, td { color: var(--muted); }
+
+    strong { color: var(--ink); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--panel);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--plus); }
+    pre .del { color: var(--minus); }
+    pre .kw { color: var(--focus); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1.25rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .lede { color: var(--muted); }
+
+    .verdict {
+      display: grid;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      background: var(--plus-bg);
+    }
+
+    .verdict h2 { color: var(--plus); font-size: 1rem; padding: 0; }
+
+    .verdict p { color: var(--ink); }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    section > p + p { padding-top: 0.75rem; }
+
+    .findings { display: grid; gap: 1.75rem; }
+
+    .finding {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tag {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--focus-bg);
+      color: var(--focus);
+    }
+
+    .tag.fix { background: var(--minus-bg); color: var(--minus); }
+    .tag.ok { background: var(--plus-bg); color: var(--plus); }
+
+    .finding-body { display: grid; gap: 0.5rem; }
+
+    .finding-body h3 { color: var(--ink); font-size: 1rem; }
+
+    .finding-body ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--rule); }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 560px; }
+
+    col.aspect { width: 26%; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    td code { overflow-wrap: anywhere; }
+
+    th {
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--rule); }
+
+    td.better { color: var(--plus); }
+    td.worse { color: var(--minus); }
+    td.same { color: var(--muted); }
+
+    .routes { display: grid; gap: 0.35rem; }
+
+    .routes li {
+      display: grid;
+      grid-template-columns: 15rem 4rem minmax(0, 1fr);
+      gap: 1rem;
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    .routes .ok { color: var(--plus); }
+    .routes .miss { color: var(--minus); }
+
+    .steps { display: grid; gap: 1.75rem; padding-left: 1.4rem; }
+
+    .steps li { display: grid; gap: 0.75rem; }
+
+    .steps li::marker { color: var(--ink); font-weight: 700; }
+
+    ol.qa, ul.qa { padding-left: 1.4rem; display: grid; gap: 0.5rem; }
+
+    .footnote { color: var(--dim); font-size: 0.9rem; padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .finding { grid-template-columns: 1fr; gap: 0.5rem; }
+      .routes li { grid-template-columns: 1fr; gap: 0.1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10829: standalone routes review</h1>
+      <p class="lede"><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10829">PR 10829</a> converts the last three single-component modules (<code>advertisement-home</code>, <code>global</code>, <code>marketing-pro-page</code>) to standalone routes, deletes six module files, and makes the pro-page generator write <code>loadComponent</code>. One commit, 13 files, +35 / -124. I read every file, built the head, and rendered nine routes over SSR.</p>
+
+      <div class="verdict">
+        <h2>Verdict</h2>
+        <p>Merge it. The build is clean, the bundle is unchanged at 12.30 MB, and every route renders what it rendered before. Nothing in the diff surprised me. The two things I would change are older than this PR.</p>
+      </div>
+
+      <div class="meta">
+        <span>reviewed 2026-09-23</span>
+        <span>base d62b682fab</span>
+        <span>head 93006eee3c</span>
+        <span>Angular 21.2.23</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="scope">
+        <h2 id="scope">What changed</h2>
+        <p><code>/advertise</code> uses <code>loadComponent</code>. <code>/global</code> still uses <code>loadChildren</code>, now pointed at a new <code>global.routes.ts</code>, because its only page lives at a child path. The pro-page generator in <code>prefetch-marketing-pages.mjs</code> writes <code>loadComponent</code>, and the committed generated file was hand-edited to match. Each component gained an <code>imports</code> array holding what its template uses.</p>
+      </section>
+
+      <section aria-labelledby="findings">
+        <h2 id="findings">Findings</h2>
+        <div class="findings">
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The imports cover the templates</h3>
+              <p>I traced every element and directive in the three templates. <code>app-circle-background-icon</code>, <code>appDisableRightClick</code>, and <code>appMobileOptimization</code> come from <code>SharedModule</code>. <code>app-marketing-page-full-preview</code> and <code>app-pro-contact-form-layout</code> come from <code>MarketingPageSharedModule</code>. <code>app-faq</code> and <code>app-button</code> are imported directly. The rendered <code>/advertise</code> page contains all of them with their inner markup, so this holds at runtime, not only in the compiler.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The dropped modules were dead weight</h3>
+              <p>The old <code>AdvertisementHomeModule</code> imported <code>FormsModule</code>, <code>NgSelectModule</code>, <code>ModalModule</code>, <code>AccordionModule</code>, <code>NgMultiSelectDropDownModule.forRoot()</code>, and <code>NgIvsModule</code>. The template uses none of them and the component injects nothing they provide. <code>GlobalModule</code> imported <code>RouterModule</code> for a template with no <code>routerLink</code>. Someone copied a module header years ago and nobody looked again. Good riddance.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3><code>CUSTOM_ELEMENTS_SCHEMA</code> is gone</h3>
+              <p><code>MarketingProPageModule</code> had it. The standalone component does not, so the compiler now checks that template fully. The AOT build passes with no <code>NG8001</code> or <code>NG8002</code>. Same bar 10826 set.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>One chunk for <code>global</code></h3>
+              <p><code>global.routes.ts</code> uses <code>component:</code> with a static import. The build puts <code>GLOBAL_ROUTES</code> and the component in one 6.5 KB chunk. That is the right call; the two-hop split in 10827 was the main reason that PR lost.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>Route data and stale references</h3>
+              <p><code>resolveMarketingProSlug()</code> walks <code>route.parent</code> until it finds <code>marketingProSlug</code>, so it works under both the old and new route shape. I searched the head for the six deleted class names and file paths. Nothing left.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>The committed pro data and routes disagree</h3>
+              <p><code>marketing-pro-page-data.ts</code> has one slug. <code>marketing-pro-page-routes.generated.ts</code> has two different ones. Build from the committed files and every pro page 404s or falls through to <code>app-sub-page-view</code>. The PR says so and is right that deployed builds are fine because they prefetch first. Still, this has been wrong since July and someone should commit a matching pair, or derive the routes from the data so they cannot drift.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3><code>SharedModule</code> for three things</h3>
+              <p>Two components import all 160-odd <code>SharedModule</code> exports to get one component and two directives. Their old modules did the same, so nothing regressed. Worth narrowing once more of the app is standalone.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="verification">
+        <h2 id="verification">What I ran</h2>
+        <p>Checked out the head in a worktree and ran <code>ng build --configuration=qa --prerender=false</code>. Passed in 48 seconds with only the usual budget and non-ESM warnings. Then started <code>server.mjs</code> and fetched these:</p>
+        <ul class="routes" aria-label="SSR smoke test results">
+          <li><span>/advertise</span><span class="ok">200</span><span>app-advertisement-home, FAQ and buttons rendered</span></li>
+          <li><span>/Advertise</span><span class="miss">404</span><span>not case-insensitive, same as base</span></li>
+          <li><span>/global/category-creator-listing</span><span class="ok">200</span><span>app-creator-category-listing</span></li>
+          <li><span>/global</span><span class="ok">200</span><span>falls through to :id, same as base</span></li>
+          <li><span>/apps/music-artists-fan-club</span><span class="miss">404</span><span>route exists, data does not</span></li>
+          <li><span>/apps/music-band-fan-club</span><span class="ok">200</span><span>app-sub-page-view; data exists, route does not</span></li>
+          <li><span>/pro</span><span class="miss">404</span><span>not in committed routes</span></li>
+          <li><span>/refer</span><span class="miss">404</span><span>not in committed routes</span></li>
+        </ul>
+        <p class="footnote">Not run: the base build, the prefetch script, a browser, prerender, white-label builds.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">QA after merge</h2>
+        <ol class="qa">
+          <li><code>/advertise</code>: buttons open the advertiser site in a new tab, FAQ expands.</li>
+          <li><code>/global/category-creator-listing</code>: reach it from the search bar, filter the list, scroll to load more.</li>
+          <li>On a QA build, open <code>/pro</code>, <code>/refer</code>, and one <code>/apps/*</code> page. Sections render, contact form submits.</li>
+          <li>Run <code>npm run prefetch-pages-qa</code> and confirm the pro routes file has no <code>loadChildren</code>.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

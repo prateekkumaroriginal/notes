@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PR 10831 review-astra</title><meta name="description" content="Review of PR 10831, with independent Angular compiler, template dependency, route, QA build, and SSR checks."><style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--green); }
+    pre .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > p + .pair { margin-top: 0.75rem; }
+
+    section > * + .table-wrap,
+    section > * + pre,
+    section > * + .pair { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .pair figure { display: grid; gap: 0.5rem; align-content: start; }
+
+    .pair figcaption {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .pair { grid-template-columns: 1fr; }
+    }
+
+.table-wrap { overflow-x: auto; } td code { overflow-wrap: anywhere; }
+
+code { overflow-wrap: anywhere; }
+nav { color: var(--muted); line-height: 1.8; } p, li { line-height: 1.65; } td code { overflow-wrap: anywhere; } th { text-transform: none; letter-spacing: normal; font-size: inherit; } html { scroll-behavior: smooth; } @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }</style></head><body><div class="page"><header>
+<a href="/">All notes</a>
+<h1>PR 10831 review-astra</h1>
+<p>Ten route modules become standalone routes. The review found <strong class="ok">no confirmed regression</strong> in the diff, compiler checks, or QA build. Signed-in workflows and white-label behavior still need runtime testing.</p>
+<div class="meta"><span>Reviewed 23 September 2026</span><span>Head 6c3effddc927</span><span>130 changed files</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10831">Open PR 10831</a> · <a href="/standalone-routes-mid-sized-modules.html">Implementation write-up</a></p>
+<nav aria-label="Review sections"><a href="#verdict">Verdict</a> · <a href="#scope">Scope</a> · <a href="#checks">Independent checks</a> · <a href="#routing">Routing</a> · <a href="#providers">Providers</a> · <a href="#templates">Templates</a> · <a href="#performance">Bundle claims</a> · <a href="#remaining">Remaining tests</a></nav>
+</header><main>
+<section id="verdict"><h2>No code blocker found</h2>
+<p>I would not request a code change based on this review. The conversion preserves the explicit route configuration and the template dependencies I compared. The service providers that mattered at module level have replacements.</p>
+<p>I would still run the signed-in checks before release. A successful compile cannot prove that recording a voice message, importing a CSV, or completing creator signup still works. The SSR checks below return only the app shell for most of those pages.</p>
+<p>This review covers head <code>6c3effddc927</code> against merge base <code>aaa15ec916d7</code>. GitHub's target base was <code>4c2d70e50cc8</code>, which has the same source tree as that merge base. No application source changed during this review.</p></section>
+<section id="scope"><h2>What changes</h2>
+<p>The PR replaces ten feature NgModules and their routing modules. Nine features export lazy-loaded route arrays. Creators uses <code>loadComponent</code>. It converts 75 components and one pipe to standalone declarations, deletes six unused promotional components, and removes several bindings that had no Angular inputs.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Area</th><th scope="col">Replacement</th></tr></thead><tbody><tr><td>Auth, forum, insights, messages, post detail</td><td>A route array per feature, loaded through <code>loadChildren</code>.</td></tr><tr><td>Promotional, fulfillment orders, resources, setup profile</td><td>A route array per feature. Existing child paths and redirects remain.</td></tr><tr><td>Creators</td><td><code>CreatorContainerComponent</code> loads directly. The old empty-path child route disappears.</td></tr><tr><td>Shared consumers</td><td>Dashboard, monetize, and portfolio stop importing <code>PostDetailModule</code>. Edit preference imports the now-standalone creator profile component.</td></tr></tbody></table></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/app-routing.module.ts#L47">App routing changes</a> keep these entry points lazy. This PR does not convert every remaining module in the app.</p></section>
+<section id="checks"><h2>Independent checks</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Check</th><th scope="col">Result</th><th scope="col">What it establishes</th></tr></thead><tbody><tr><td>Angular compiler</td><td><span class="ok">Passed</span></td><td>A fresh <code>ngc</code> check of the PR head completed without diagnostics.</td></tr><tr><td>Full AOT dependency comparison</td><td><span class="ok">656 components match</span></td><td>Fresh base and head compilations produced the same matched directive, component, and pipe sets for every surviving component after import-path normalization. Six deleted components account for the count difference.</td></tr><tr><td>Route structure</td><td><span class="ok">57 entries match</span></td><td>Compared nine route arrays, including path order, components, child routes, redirects, and guards. Provider and data properties were excluded from this automated comparison and inspected separately.</td></tr><tr><td>TopFans QA build</td><td><span class="ok">Passed</span></td><td>Built browser and server output with the 10 GB Node memory limit and prerender disabled. The build reported CommonJS optimization warnings and two skipped CSS selectors.</td></tr><tr><td>SSR smoke test</td><td><span class="ok">14 responses returned HTTP 200</span></td><td>Checked the generated HTML and server log. No Angular error codes appeared in that log. This was not a browser hydration test.</td></tr><tr><td>Patch whitespace</td><td><span class="ok">Passed</span></td><td><code>git diff --check</code> found no whitespace errors.</td></tr></tbody></table></div>
+<p>The dependency comparison initially reported one different import path containing a doubled slash. Normalizing the path removed that difference. This compares what Angular matched in each template, which gives more evidence than compilation alone for imports such as <code>RouterLink</code>.</p>
+<h3>What SSR actually rendered</h3>
+<div class="table-wrap"><table><thead><tr><th scope="col">URLs</th><th scope="col">Observed content</th></tr></thead><tbody><tr><td><code>/</code></td><td>The promotional landing page and marketing layout components.</td></tr><tr><td><code>/order-status/confirmed</code>, <code>/order-status/dispute</code></td><td>The fulfillment wrapper and the matching order component. No order was submitted.</td></tr><tr><td><code>/search-result/all/test</code></td><td>The promotional wrapper and search-result component.</td></tr><tr><td><code>/home/music</code></td><td>The sub-page view. A 200 response here does not establish that a category listing rendered.</td></tr><tr><td><code>/auth/login</code>, <code>/auth/signup</code>, <code>/auth/creators-signup</code></td><td>The app shell, without the auth page components.</td></tr><tr><td><code>/resources/announcements</code>, <code>/messages</code>, <code>/insights</code>, <code>/forum/list</code>, <code>/content/setup-profile</code>, <code>/explore-creators</code></td><td>The app shell, without the protected feature components.</td></tr></tbody></table></div>
+<p>Hydration attributes were present in the HTML. I did not use that as proof of successful client hydration or compare these responses against a fresh base SSR run.</p></section>
+<section id="routing"><h2>Explicit routes stay, imported routes disappear</h2>
+<p>The nine new arrays retain their explicit routes. The creators conversion removes one empty-path wrapper; its components do not read parent route state or use relative navigation in the inspected source. The app-level guards and permission data remain in place.</p>
+<p>Removing feature-module imports also removes their incidental route registrations. Auth no longer imports edit-preference routes. Resources no longer imports wallet and dashboard routes. Messages, insights, dashboard, monetize, and portfolio no longer acquire post-detail routes through <code>PostDetailModule</code>.</p>
+<p>These removals change which URLs the router can recognize. They are intentional in the PR, so I have not listed them as defects. Bookmarked or externally generated aliases still need consideration. A repository search cannot prove that nobody uses them.</p>
+<p>The author's base/head SSR comparison reports that <code>/auth/privacy</code> and <code>/auth/edit-content</code> now fall through to the username/page route. Preserve the canonical post URLs under <code>/post/</code> when testing navigation from other features. See <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/post-detail/post-detail.routes.ts#L6">the post routes</a> and <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/auth/auth.routes.ts#L18">the auth routes</a>.</p></section>
+<section id="providers"><h2>Service scope has replacements</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Dependency</th><th scope="col">Where it is provided now</th><th scope="col">Review result</th></tr></thead><tbody><tr><td><code>BsModalService</code></td><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/forum/forum.routes.ts#L14">Forum parent route</a></td><td>The forum route and its children share a route-level provider.</td></tr><tr><td><code>ResourcesService</code></td><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/resources/resources.routes.ts#L15">Resources parent route</a></td><td>The container and resource detail pages remain under the same provider.</td></tr><tr><td><code>AudioRecordingService</code></td><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/messages/messages.routes.ts#L11">Messages route</a></td><td>The message page and its template children can resolve the feature provider. The leave-page guard remains on that route.</td></tr><tr><td><code>ContentLengthHandlerPipe</code></td><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/post-detail/components/reels-mobile-view/reels-mobile-view.component.ts#L49">Reels component</a></td><td>The component that injects this pipe now provides it directly.</td></tr><tr><td><code>DatePipe</code> and circle-progress defaults</td><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/shared/shared.module.ts">Shared module</a></td><td>Existing shared providers and circle-progress configuration remain available. The removed feature-level registrations are not the only registrations.</td></tr></tbody></table></div>
+<p>This is source-level verification of provider placement. Opening dynamic dialogs and recording audio still needs a signed-in runtime check.</p></section>
+<section id="templates"><h2>Template cleanup is supported by the source</h2>
+<p>The removed <code>showConfirmationBtn</code> and <code>cancelBtnLabel</code> bindings target <code>SendEmailModalComponent</code>, which does not declare those inputs. The removed <code>isContinueDisabled</code> binding also had no input decorator. The confirmation modal already receives that value through its <code>openModal</code> method.</p>
+<p>The failed-imports modal receives its job ID and status through <code>openModal</code>; it has no <code>failedImports</code> input. Removing these bindings does not remove a working Angular input connection. See <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/insights/components/import-confirm-modal/import-confirm-modal.component.ts#L58">the import-confirmation methods</a> and <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/6c3effddc9275338c33f555e3a896b2afc822ce8/src/app/modules/insights/components/send-email-modal/send-email-modal.component.ts#L47">the send-email inputs</a>.</p>
+<p>The login page's <code>ng-adsense</code> tag has no registered component in the inspected project. The six deleted promotional components have no remaining consumers. The separate <code>app-trusted-brands-layout</code> and shared <code>app-user-profile</code> components remain; their names should not be confused with the deleted components.</p></section>
+<section id="performance"><h2>The largest claimed saving is on auth</h2>
+<p>The following figures come from <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10831">the PR author's build comparison</a>. I did not independently recalculate route download sizes. They describe extra lazy JavaScript after the initial load, in raw bytes, not compressed network transfer.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Route</th><th scope="col">Base bytes</th><th scope="col">PR bytes</th></tr></thead><tbody><tr><td><code>/auth</code></td><td>4,526,115</td><td>189,025</td></tr><tr><td><code>/resources</code></td><td>4,236,243</td><td>85,459</td></tr><tr><td><code>/insights</code></td><td>2,513,570</td><td>1,995,786</td></tr><tr><td><code>/messages</code></td><td>2,464,166</td><td>2,037,576</td></tr></tbody></table></div>
+<p>The direction agrees with the removed imports: auth stops pulling in edit preference, and resources stops pulling in wallet and dashboard. The author reports initial JavaScript growing by 9,267 bytes, or 0.09%, with identical CSS. The fresh QA build in this review confirms that the head builds; it does not independently confirm those deltas.</p></section>
+<section id="remaining"><h2>Tests still needed before release</h2>
+<p>These are validation gaps, not confirmed bugs.</p>
+<ul>
+<li>Complete email login, social login, signup, all creator-signup steps, password reset, and OTP. Check the creator profile form reused by edit preference.</li>
+<li>Open every insights tab and transaction history. Exercise the filter and send-email modals, then import a CSV with successful, duplicate, and failed rows.</li>
+<li>Send text and voice messages. Leave with an unsent draft and verify the confirmation prompt.</li>
+<li>Open forum dialogs, filter resources, and verify that unread resource counts update after viewing a detail page.</li>
+<li>Open posts from dashboard, monetize, and portfolio. Check mobile reels and the comments sheet.</li>
+<li>Verify homepage, category, and search navigation in a browser, including hydration. Build and smoke-test a generated white-label project and run prerender.</li>
+</ul>
+<p>Only the main <code>TopFans</code> project was configured locally, so this review did not build a white-label project. It also did not submit forms, use an authenticated account, or run the app in a browser. The PR author's browser checks are separate evidence and do not close these gaps.</p>
+</section></main></div></body></html>

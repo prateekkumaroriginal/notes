@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chat cursor pagination</title>
+  <meta name="description" content="Inbox tabs and history now page with server cursors. What changed, what I verified on Jon Snow staging, and what still needs a fatter account.">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .good { color: var(--green); }
+    .wait { color: var(--amber); }
+    .bad { color: var(--pink); }
+    .focus { color: var(--blue); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      border: 1px solid var(--line);
+      border-radius: 0.5rem;
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .str { color: var(--green); }
+    .kw { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.45rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td:first-child { color: var(--text); }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Chat cursor pagination</h1>
+      <p>The inbox used to download every conversation and sort them into tabs on the client. It now asks the server for one tab page. History dropped timestamps and started using a cursor. The first history page also returns send permissions, so the extra validation POST is gone.</p>
+      <div class="meta">
+        <span>t3code/explain-chat-api-pagination</span>
+        <span>Jon Snow staging on :4202</span>
+        <span>6 Oct 2026</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Three files. Query strings and body keys live in <code>messages.constant.ts</code>. The rest is <code>message-container</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Before</th><th scope="col">Now</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>One GET with <code>search_key</code>. The client split rows by featured, broadcast, and empty last message.</td>
+                <td>One GET per open tab. <code>tab=featured|general|broadcast</code> for creators. Fans send <code>tab=all</code>. Always <code>counts=true</code>.</td>
+              </tr>
+              <tr>
+                <td>The left list had no next page.</td>
+                <td>Scroll down sends the last <code>cursor</code>. Null cursor stops. A tab change or a new search starts page 1 again.</td>
+              </tr>
+              <tr>
+                <td>Tab pills were unread sums of whatever had already loaded.</td>
+                <td>Pills read <code>counts.featured</code> and <code>counts.general</code>. The sidebar number is <code>general + featured + broadcast</code>.</td>
+              </tr>
+              <tr>
+                <td>History POST sent <code>timeStamp</code>. Scroll-up was commented out.</td>
+                <td>First page is <code>{ groupId, include_validation: true }</code>. Next page is <code>{ groupId, cursor }</code>. Older messages prepend and the viewport stays put.</td>
+              </tr>
+              <tr>
+                <td>Permissions were a second POST to <code>ChatUserValidation</code>.</td>
+                <td>First history page returns <code>validation</code>. Retry refetches that first page. Broadcast and followers still skip it.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Empty search is omitted, not sent as <code>search_key=</code>. Opening an unread row still zeros that row and subtracts its unread from the stored counts so the pills do not bounce back until the next inbox GET.</p>
+      </section>
+
+      <section>
+        <h2>Requests I actually saw</h2>
+        <p>Logged in as Jon Snow. Network log on <code>localhost:4202/messages</code>.</p>
+        <pre><code>GET api/get-chatGroups-and-users?tab=featured&amp;counts=true
+GET api/get-chatGroups-and-users?tab=general&amp;counts=true
+GET api/get-chatGroups-and-users?tab=broadcast&amp;counts=true
+GET api/get-chatGroups-and-users?tab=featured&amp;counts=true&amp;search_key=Noel
+GET api/get-chatGroups-and-users?tab=general&amp;counts=true&amp;search_key=Prateek
+
+POST api/getpreviousMessagesFromHttp
+{ <span class="str">"groupId"</span>: <span class="str">"CHATGROUP#1787300718906"</span>, <span class="str">"include_validation"</span>: <span class="kw">true</span> }</code></pre>
+        <p>Every inbox and history reply on this account had <code>cursor: null</code>. That is why I could prove first pages and "stop", and not the append page.</p>
+      </section>
+
+      <section>
+        <h2>Verified</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Result</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Priority first page</td>
+                <td><span class="good">Verified.</span> <code>tab=featured&amp;counts=true</code>, no cursor. 1 row, Noel Huber.</td>
+              </tr>
+              <tr>
+                <td>General first page</td>
+                <td><span class="good">Verified.</span> <code>tab=general&amp;counts=true</code>, no cursor. 30 rows.</td>
+              </tr>
+              <tr>
+                <td>Message Lists first page</td>
+                <td><span class="good">Verified.</span> <code>tab=broadcast&amp;counts=true</code>, no cursor. 0 rows, empty state.</td>
+              </tr>
+              <tr>
+                <td>Inbox response shape</td>
+                <td><span class="good">Verified.</span> <code>data</code>, <code>counts</code>, <code>cursor</code> on every inbox reply.</td>
+              </tr>
+              <tr>
+                <td>Counts and sidebar total</td>
+                <td><span class="good">Verified.</span> <code>{ general: 0, featured: 0, broadcast: 0 }</code>. Messages had no sidebar badge.</td>
+              </tr>
+              <tr>
+                <td>Tab change resets the page</td>
+                <td><span class="good">Verified.</span> Each tab requested its own first page. No leftover cursor.</td>
+              </tr>
+              <tr>
+                <td>Search is a new first page</td>
+                <td><span class="good">Verified.</span> <code>search_key=Noel</code> on featured, <code>search_key=Prateek</code> on general. Clearing search dropped <code>search_key</code>.</td>
+              </tr>
+              <tr>
+                <td>Inbox stops on a null cursor</td>
+                <td><span class="good">Verified.</span> I scrolled the 30-row General list. No extra inbox GET.</td>
+              </tr>
+              <tr>
+                <td>History first page</td>
+                <td><span class="good">Verified.</span> Body was <code>groupId</code> plus <code>include_validation: true</code>. Reply had <code>response</code>, <code>cursor</code>, <code>validation</code>.</td>
+              </tr>
+              <tr>
+                <td>History stops on a null cursor</td>
+                <td><span class="good">Verified.</span> Noel Huber returned 8 messages and <code>cursor: null</code>. Scroll-up did not fire again.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Not verified</h2>
+        <p>The next-page code is in the component. I never saw a non-null <code>cursor</code> on this account, so I did not watch an append request leave the browser.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Why it is still open</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Inbox next page</td>
+                <td><span class="wait">Not run.</span> Need a tab whose first page returns a cursor. The next GET must keep the same tab and search and add that cursor. Rows append. No duplicate <code>groupId</code>.</td>
+              </tr>
+              <tr>
+                <td>History next page</td>
+                <td><span class="wait">Not run.</span> Need a long thread. Next POST should be <code>{ groupId, cursor }</code> with no <code>include_validation</code>. Older bubbles appear above. You stay near the same message.</td>
+              </tr>
+              <tr>
+                <td>Non-zero tab pills</td>
+                <td><span class="wait">Not run.</span> All counts were 0, so I never saw a live Priority or General number.</td>
+              </tr>
+              <tr>
+                <td>Fan inbox <code>tab=all</code></td>
+                <td><span class="wait">Not run.</span> I only logged in as the creator.</td>
+              </tr>
+              <tr>
+                <td>Broadcast history</td>
+                <td><span class="wait">Not run.</span> Message Lists was empty. That path should still send <code>from</code> and skip validation.</td>
+              </tr>
+              <tr>
+                <td>Unread decrement</td>
+                <td><span class="wait">Not run.</span> No unread rows, so I did not watch a pill drop when a thread opened.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Finish these on a fatter account</h2>
+        <p>Same two URLs in DevTools. Disable cache. There should be no <code>chat-user-validation</code> when you open a normal DM.</p>
+        <ol>
+          <li>Find a tab with a cursor. Scroll the left list. Confirm the next GET adds that cursor and then stops when the server sends null.</li>
+          <li>Open a long DM. Scroll to the top. Confirm the next POST is only <code>groupId</code> and <code>cursor</code>.</li>
+          <li>Open an unread thread. The row badge, the tab pill, and the sidebar should drop by that unread count and stay down until the next inbox GET.</li>
+          <li>Log in as a fan. No tab UI. First GET is <code>tab=all&amp;counts=true</code>.</li>
+          <li>Open a message list. History still sends <code>from</code>. No <code>include_validation</code>.</li>
+          <li>Hit <code>/messages?user=someone</code> for a person who is not on page 1. It should still open them.</li>
+          <li>Open thread A, then B quickly. B's messages and validation win. A late A page must not prepend into B.</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer>
+      <a href="/messages-chat-api-pagination">Earlier writeup of the same change</a>
+      ·
+      <a href="index.html">All notes</a>
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Verify the Angular 21 code practices updation</title>
+  <style>
+    :root {
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      --sans: "Helvetica Neue", Arial, sans-serif;
+      --mono: "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    body {
+      margin: 0;
+      font: 16px/1.45 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrap {
+      max-width: 880px;
+      margin: 0 auto;
+      padding: 48px 28px 80px;
+    }
+
+    header {
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 28px;
+      margin-bottom: 36px;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 620;
+      letter-spacing: -0.03em;
+      margin: 0 0 10px;
+      line-height: 1.2;
+    }
+
+    .lede {
+      margin: 0;
+      color: var(--muted);
+      max-width: 64ch;
+    }
+
+    h2 {
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin: 40px 0 14px;
+    }
+
+    h3 {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 16px 0 8px;
+    }
+
+    h3:first-child { margin-top: 0; }
+
+    .mute { color: var(--muted); }
+
+    p { margin: 0 0 12px; }
+
+    ul {
+      margin: 0 0 4px;
+      padding-left: 1.2em;
+    }
+
+    li { margin: 0 0 7px; }
+
+    li::marker { color: var(--dim); }
+
+    code {
+      font-family: var(--mono);
+      font-size: 0.88em;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 3px;
+      padding: 1px 5px;
+    }
+
+    a { color: var(--focus); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--rule);
+      border-radius: 8px;
+      padding: 14px 16px;
+      margin: 0 0 12px;
+    }
+
+    .card p:last-child,
+    .card ul:last-child { margin-bottom: 0; }
+
+    @media (max-width: 640px) {
+      .wrap { padding: 28px 18px 56px; }
+      h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <article class="wrap">
+    <header>
+      <h1>Verify the Angular 21 code practices updation</h1>
+      <p class="lede">Ref: <a href="https://notes.prateekkumar.site/angular-21-practices-audit.html">https://notes.prateekkumar.site/angular-21-practices-audit.html</a></p>
+    </header>
+
+    <h2><span class="mute">1.</span> Replace <code>HttpClientModule</code> with <code>provideHttpClient(withFetch(), withInterceptors(...))</code>. Convert the two interceptors to functions.</h2>
+    <div class="card">
+      <h3 class="mute">What it can affect</h3>
+      <ul>
+        <li>Every <code>HttpClient</code> call. Network Type should be <code>fetch</code>, not <code>xhr</code>.</li>
+        <li>Logged-in API calls. <code>authorization</code> still has to show up on <code>users/</code> and <code>post/</code> requests.</li>
+        <li>401 refresh. Poison <code>fm_user</code>, keep <code>fm_over</code>. You should see <code>PUT users/users/refresh-token</code>, then the original call with a new token.</li>
+        <li>403 logout, private-content 400, <code>/user_by_username</code> suspend/private, and <code>/users/users?host_name</code> creator logout.</li>
+        <li>The subscription-plan call that uses <code>skipInterceptor=true</code>.</li>
+        <li>SSR and prerender HTTP. Fetch is the server path. An XHR error on the server means this did not take.</li>
+        <li>Upload percent bars on lesson video, post image, merch, and the other <code>reportProgress</code> flows. Fetch does not emit upload percent. The file can still land. The bar can sit at 0 and then jump.</li>
+        <li>Selects that load options from a URL or a JSON file.</li>
+      </ul>
+    </div>
+
+  </article>
+</body>
+</html>

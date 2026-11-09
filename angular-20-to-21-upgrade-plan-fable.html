@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Angular 20 to 21 upgrade plan, revised</title>
+<style>
+  :root {
+    --paper: #131A24;
+    --panel: #1A2331;
+    --ink: #E8EDF4;
+    --muted: #8593A6;
+    --dim: #4E5B6E;
+    --rule: #2A3546;
+    --minus: #F0776F;
+    --minus-bg: rgba(240, 119, 111, 0.13);
+    --plus: #5FCF8F;
+    --plus-bg: rgba(95, 207, 143, 0.13);
+    --focus: #8FB4FF;
+    --focus-bg: rgba(143, 180, 255, 0.13);
+    --sans: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--paper); color: var(--ink); }
+  body {
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 48px 24px 96px;
+    -webkit-font-smoothing: antialiased;
+  }
+  main { max-width: 980px; margin: 0 auto; }
+  header { padding-bottom: 24px; border-bottom: 1px solid var(--rule); margin-bottom: 8px; }
+  h1 { margin: 0 0 10px; font-size: 30px; line-height: 1.1; font-weight: 700; letter-spacing: -0.01em; }
+  h2 { margin: 44px 0 14px; font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+  h3 { margin: 22px 0 8px; font-size: 15px; font-weight: 600; color: var(--ink); }
+  p { margin: 0 0 10px; max-width: 78ch; }
+  .lede { color: var(--muted); font-size: 16px; max-width: 80ch; }
+  .meta { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .meta code { font-size: 12.5px; }
+  a { color: var(--focus); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 10px 0 14px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; white-space: pre; font-size: inherit; }
+  ul, ol { margin: 6px 0 12px; padding-left: 22px; max-width: 80ch; }
+  li { margin: 5px 0; }
+  li > ul { margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px 9px 0; border-bottom: 1px solid var(--rule); }
+  th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+  td:first-child { white-space: nowrap; }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    white-space: nowrap;
+  }
+  .tag.yes { color: var(--plus); background: var(--plus-bg); }
+  .tag.check { color: var(--focus); background: var(--focus-bg); }
+  .tag.stop { color: var(--minus); background: var(--minus-bg); }
+  .tag.no { color: var(--dim); background: rgba(255,255,255,0.05); }
+  .tag.done { color: var(--ink); background: rgba(255,255,255,0.08); }
+  .panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 18px; margin: 10px 0 18px; }
+  .panel p:last-child, .panel ul:last-child { margin-bottom: 0; }
+  .phase { border-left: 3px solid var(--focus); padding-left: 16px; margin: 18px 0 26px; }
+  .phase h3 { margin-top: 0; }
+  .phase.stop { border-left-color: var(--minus); }
+  .checkpoint { color: var(--muted); font-size: 13.5px; margin-top: 8px; }
+  .checkpoint strong { color: var(--ink); font-weight: 600; }
+  .muted { color: var(--muted); }
+  .changed { color: var(--plus); font-family: var(--mono); font-size: 11.5px; padding: 1px 8px; border-radius: 10px; background: var(--plus-bg); vertical-align: middle; margin-left: 6px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } td:first-child { white-space: normal; } }
+</style>
+</head>
+<body>
+<main>
+
+<header>
+  <h1>Angular 20 to 21 upgrade, revised</h1>
+  <p class="lede">Move TopFans from Angular 20.3 to 21.2 before the v20 LTS window closes on 2026-11-28. Replace <code>@angular/fire</code> with the Firebase SDK, bump the libraries whose installed release rejects Angular 21, and leave zone.js, NgModules, Karma, and quill alone. Done means the scripts CI actually runs are green, the SSR log is clean, and push notifications work for both a first-time and a returning user.</p>
+  <p class="meta">Branch <code>feature/release-0.0.23/16-17-18-19-20-21</code>, cut from <code>64a1a3d259</code>. This revision folds in two independent audits of the first draft. Items marked <span class="changed">changed</span> are new or corrected. Sources: <a href="https://github.com/angular/angular/releases/tag/21.0.0">21.0.0 release notes</a>, <a href="https://angular.dev/update-guide?v=20.0-21.0&amp;l=3">update guide</a>, <a href="https://github.com/angular/angular-cli/security/advisories/GHSA-x288-3778-4hhx">GHSA-x288-3778-4hhx</a>.</p>
+</header>
+
+<h2>What changed from the first draft</h2>
+<div class="panel">
+  <ul>
+    <li><code>.npmrc</code> already has <code>legacy-peer-deps=true</code>. The <code>overrides</code> idea is gone. <code>ng update</code> runs its own peer check and needs <code>--force</code> for core and for Material.</li>
+    <li>CI runs Node 20 with npm 10.8.1, not the Node 24.5 / npm 12 on the dev machine. Phase 0 now checks the CodeBuild Node minor against Angular 21's <code>^20.19.0</code> floor.</li>
+    <li>Untracked HTML plans in the repo root block <code>ng update</code> the same way modified files do.</li>
+    <li>The Firebase test now covers a returning user. Today <code>onMessage()</code> only runs when the token changes, so a user with a saved token gets no foreground listener. The rewrite fixes that.</li>
+    <li>Remote Config gets its own <code>isSupported()</code> check. <code>requestFirebaseToken()</code> gets a browser guard.</li>
+    <li>The repo's custom <code>UrlSerializer</code> has a dedicated router change in 21 (#64449). It is on the checklist now.</li>
+    <li>Two missed <code>@HostBinding</code> files, 35 CDK files instead of 25, Font Awesome's svg-core 7 dependency, and <code>ngx-scrollbar</code>'s deferral are all named.</li>
+    <li>Phase 5 runs the <code>prerender-all-*</code> scripts that the buildspecs call, not the shorter <code>prerender-qa</code>.</li>
+  </ul>
+</div>
+
+<h2>Where the repo is today</h2>
+<table>
+  <tr><th>Item</th><th>Current</th><th>Notes</th></tr>
+  <tr><td>Angular core / CLI</td><td><code>20.3.31</code> / <code>20.3.37</code></td><td>Application builder, SSR via <code>CommonEngine</code>, prerender from <code>prerender.routes.txt</code>.</td></tr>
+  <tr><td>TypeScript</td><td><code>5.8.3</code></td><td>21 needs <code>&gt;=5.9 &lt;6.1</code>. <code>ng update</code> moves it to 5.9.3.</td></tr>
+  <tr><td>Node / npm, dev machine</td><td><code>24.5.0</code> / <code>12.0.1</code></td><td>npm 12 warns it wants Node 24.15. Local annoyance only; see the CI row.</td></tr>
+  <tr><td>Node / npm, CI <span class="changed">changed</span></td><td><code>nodejs: 20</code> / <code>npm@10.8.1</code></td><td>All four <code>buildspec-*.yml</code> files pin these and run <code>npm install --legacy-peer-deps</code>. Angular 21 needs Node <code>^20.19.0</code>. Whether CodeBuild's "20" is 20.19 or later depends on the image. Unverified.</td></tr>
+  <tr><td>Install policy <span class="changed">changed</span></td><td><code>.npmrc: legacy-peer-deps=true</code></td><td>Committed. <code>npm ls</code> exits 0 today because of it. CI passes the same flag explicitly.</td></tr>
+  <tr><td>Bootstrap</td><td>NgModule, zone.js <code>0.15.1</code></td><td><code>platformBrowserDynamic().bootstrapModule(AppModule)</code>; <code>AppServerModule</code> imports <code>AppModule</code>.</td></tr>
+  <tr><td>Tests</td><td>Karma configured, zero <code>.spec.ts</code></td><td>Every TestBed item in the official checklist is a no-op.</td></tr>
+  <tr><td>tsconfig</td><td><code>bundler</code>, <code>strict: false</code>, <code>strictTemplates: false</code></td><td><code>noUncheckedIndexedAccess</code> and <code>noUnusedLocals</code> are on.</td></tr>
+  <tr><td>SSR hosts</td><td><code>allowedHosts</code> set at <code>server.ts:191</code></td><td>Already satisfies the <code>@angular/ssr</code> 21.1.5 fix for GHSA-x288-3778-4hhx.</td></tr>
+  <tr><td>Router</td><td>Custom <code>TrailingSlashUrlSerializer</code></td><td>Provided as <code>UrlSerializer</code> at <code>app.module.ts:98</code>. Overrides <code>parse</code>, delegates <code>serialize</code>.</td></tr>
+  <tr><td>Working tree</td><td>8 modified, 12 untracked</td><td>Marketing route data, <code>environment.ts</code>, and HTML plans. All of it blocks <code>ng update</code>.</td></tr>
+</table>
+
+<h2>Decisions</h2>
+<div class="panel">
+  <p><strong>Replace <code>@angular/fire</code> with the <code>firebase</code> SDK.</strong> The only Angular 21 build is <code>21.0.0-rc.0</code>, it depends on <code>firebase ^12.4.0</code>, and nothing newer has shipped. The repo uses four SDK functions and three providers. Calling <code>firebase/messaging</code> and <code>firebase/remote-config</code> directly removes the dependency and keeps Firebase at <code>11.10.0</code>, the version installed today.</p>
+  <p><strong>Do the Firebase swap first, on Angular 20.</strong> If push tokens break after the framework bump, the framework did it.</p>
+  <p><strong>Use <code>--force</code> on both <code>ng update</code> commands and say why.</strong> <span class="changed">changed</span> <code>ng update</code> reads installed <code>peerDependencies</code> and refuses when any package rejects the target. <code>@cotufa82/ng-ivs</code> declares Angular 12, <code>@khajegan/ngx-audio-player</code> declares Angular 17 and Material 17, <code>ngx-stripe</code> declares Angular 18. Neither <code>.npmrc</code> nor <code>overrides</code> nor npm 12's <code>packageExtensions</code> affects that check. <code>--force</code> skips the check, not the migrations. It is the same situation the 20 upgrade was in.</p>
+  <p><strong>Keep zone.js.</strong> 46 files touch <code>NgZone</code>. The 21 migration adds <code>provideZoneChangeDetection()</code> to <code>AppModule</code> on its own; that is the only change.</p>
+  <p><strong>Keep Karma, skip Vitest.</strong> No spec files, nothing to run.</p>
+  <p><strong>Leave <code>ngx-quill</code> 16.2.1 and quill 1.3.7.</strong> Peer is <code>@angular/core &gt;=13</code>. <code>ngx-quill</code> 30 needs quill 2, which is its own project.</p>
+  <p><strong>Upgrade rule.</strong> <span class="changed">changed</span> Bump a library when its installed release rejects Angular 21 or when a same-major patch exists for 21. Leave libraries with open peer ranges even if a newer major exists. That keeps <code>ngx-scrollbar</code> 9 (17 files use it; 19.1.5 exists with API changes), <code>ngx-image-cropper</code> 6, and <code>ngx-sharebuttons</code> 8 where they are.</p>
+  <p><strong>Defer <code>ng-ivs</code>, <code>ngx-audio-player</code>, and <code>ngx-stripe</code>.</strong> All three already sit outside their declared range and run through the partial-compilation linker. <code>ngx-stripe</code> 21.9.0 would force <code>@stripe/stripe-js</code> to 9.x; the repo is on 3.5.0 and already outside ngx-stripe 18's own <code>&gt;=4 &lt;5</code> range.</p>
+  <p><strong>Stay on NgModules.</strong> No standalone, ngClass, or ngStyle migrations here.</p>
+</div>
+
+<h2>Official 21 checklist, mapped to this repo</h2>
+<p class="muted">Every breaking change from the 21.0.0 release notes plus the CLI-level items. Each row says whether it applies and what to do.</p>
+<table>
+  <tr><th>Item</th><th>Applies</th><th>Action</th></tr>
+  <tr><td><code>ng update @angular/core@21 @angular/cli@21</code></td><td><span class="tag yes">yes</span></td><td>Phase 2, with <code>--force</code>. Lands core 21.2.23, CLI 21.2.24.</td></tr>
+  <tr><td><code>ng update @angular/material@21</code></td><td><span class="tag yes">yes</span></td><td>Phase 2, with <code>--force</code> because <code>ngx-audio-player</code> peers Material 17. Lands 21.2.14.</td></tr>
+  <tr><td>TypeScript 5.9 required</td><td><span class="tag yes">yes</span></td><td><code>ng update</code> bumps to 5.9.3. Watch <code>noUncheckedIndexedAccess</code> and <code>noUnusedLocals</code>.</td></tr>
+  <tr><td>Zone apps must add <code>provideZoneChangeDetection()</code></td><td><span class="tag yes">yes</span></td><td>Mandatory migration, runs without a prompt. Confirm it appears in <code>AppModule.providers</code>. Without it the app renders once and never updates.</td></tr>
+  <tr><td>Host binding type checking on by default</td><td><span class="tag check">verify</span></td><td>Eight <code>@HostBinding</code> uses in five files: <code>header.component.ts</code>, <code>header-user-menu.component.ts</code>, <code>header-layout.component.ts</code>, <code>profile-skeleton.component.ts</code>, <code>signup-by-refer.component.ts</code>. Plus <code>video-player-v2</code>'s five <code>host</code> class bindings. Fix types first; <code>typeCheckHostBindings: false</code> only if a fix changes behaviour.</td></tr>
+  <tr><td>Custom <code>UrlSerializer</code> query-param handling (#64449) <span class="changed">changed</span></td><td><span class="tag check">verify</span></td><td>The router now defers to the custom serializer for query params. <code>TrailingSlashUrlSerializer</code> only overrides <code>parse</code>, so this is probably fine, but test <code>/username/?key=x</code>, <code>/creators?key=x</code>, and a hash URL in Phase 6.</td></tr>
+  <tr><td>Router navigations take extra microtasks</td><td><span class="tag check">verify</span></td><td>10 files subscribe to <code>router.events</code>. Smoke-test navigation, back/forward, lazy loads.</td></tr>
+  <tr><td><code>@angular/ssr</code> 21.1.5 <code>allowedHosts</code></td><td><span class="tag done">done</span></td><td><code>getSsrAllowedHosts()</code> in <code>server.ts</code> already covers it.</td></tr>
+  <tr><td><code>BootstrapContext</code> for server bootstrap</td><td><span class="tag no">n/a</span></td><td>Only affects <code>bootstrapApplication</code>. <code>CommonEngine</code> still takes an NgModule type.</td></tr>
+  <tr><td><code>moduleId</code>, <code>interpolation</code>, <code>ngComponentOutletContent</code>, <code>ApplicationConfig</code> import, <code>ignoreChangesOutsideZone</code>, <code>lastSuccessfulNavigation</code>, <code>NgModuleFactory</code>, <code>UpgradeAdapter</code>, <code>emitDeclarationOnly</code></td><td><span class="tag no">n/a</span></td><td>Zero occurrences of each.</td></tr>
+  <tr><td>New <code>formArray</code> directive</td><td><span class="tag no">n/a</span></td><td>Only <code>formArrayName</code> is used (35 templates).</td></tr>
+  <tr><td>Signal inputs on custom elements</td><td><span class="tag no">n/a</span></td><td><code>@angular/elements</code> is in <code>package.json</code> but never imported. No signal inputs anywhere.</td></tr>
+  <tr><td>TestBed changes</td><td><span class="tag no">n/a</span></td><td>No spec files.</td></tr>
+</table>
+
+<h2>Dependency matrix</h2>
+<h3>Angular</h3>
+<table>
+  <tr><th>Package</th><th>Now</th><th>Target</th><th>How</th></tr>
+  <tr><td><code>@angular/*</code> framework packages</td><td>20.3.31</td><td>21.2.23</td><td><code>ng update</code></td></tr>
+  <tr><td><code>@angular/cli</code>, <code>@angular/ssr</code>, <code>@angular/pwa</code>, <code>@angular-devkit/build-angular</code></td><td>20.3.37</td><td>21.2.24</td><td><code>ng update</code>. <code>karma</code> and <code>server</code> builders still ship in 21.2.24.</td></tr>
+  <tr><td><code>@angular-devkit/architect</code></td><td>0.2003.37</td><td>0.2102.24</td><td><code>ng update</code>. Own version scheme.</td></tr>
+  <tr><td><code>@angular/material</code>, <code>@angular/cdk</code></td><td>20.2.14</td><td>21.2.14</td><td><code>ng update @angular/material@21 --force</code></td></tr>
+  <tr><td><code>typescript</code></td><td>5.8.3</td><td>5.9.3</td><td><code>ng update</code></td></tr>
+  <tr><td><code>zone.js</code></td><td>0.15.1</td><td>whatever <code>ng update</code> picks</td><td>Peer is <code>~0.15 || ~0.16</code>. Do not bump by hand.</td></tr>
+  <tr><td><code>@angular-eslint/*</code></td><td>19.8.1</td><td>21.4.0</td><td>Manual. Peer allows <code>eslint ^8.57</code>, so <code>.eslintrc.json</code> stays.</td></tr>
+</table>
+
+<h3>Firebase</h3>
+<table>
+  <tr><th>Package</th><th>Now</th><th>Target</th><th>How</th></tr>
+  <tr><td><code>@angular/fire</code></td><td>20.0.1</td><td>removed</td><td>Phase 1.</td></tr>
+  <tr><td><code>firebase</code></td><td>11.10.0, transitive</td><td><code>11.10.0</code>, direct</td><td>Exact version, not a range. Firebase 12 is a separate task.</td></tr>
+</table>
+
+<h3>Libraries that reject Angular 21 today</h3>
+<table>
+  <tr><th>Package</th><th>Now</th><th>Target</th><th>Note</th></tr>
+  <tr><td><code>primeng</code></td><td>20.4.0</td><td>21.1.10</td><td>Peers <code>@angular/core ^21.0.7</code>.</td></tr>
+  <tr><td><code>ngx-bootstrap</code></td><td>20.0.2</td><td>21.2.2</td><td>Peers <code>^21.2.0</code>. Modal and datepicker are app-wide.</td></tr>
+  <tr><td><code>@ng-select/ng-select</code></td><td>20.4.0</td><td>21.8.2</td><td>Theme CSS path unchanged.</td></tr>
+  <tr><td><code>@ngrx/store</code></td><td>20.1.0</td><td>21.1.1</td><td><code>ng update @ngrx/store@21</code> has a schematic.</td></tr>
+  <tr><td><code>@ng-bootstrap/ng-bootstrap</code></td><td>19.0.1</td><td>20.0.0</td><td>Only <code>NgbActiveModal</code> is used. Also peers <code>@angular/localize ^21</code>, which <code>ng update</code> handles.</td></tr>
+  <tr><td><code>ngx-toastr</code></td><td>19.1.0</td><td>20.0.5</td><td><code>lazy-toastr</code> bundle path unchanged.</td></tr>
+  <tr><td><code>ngx-mask</code></td><td>20.0.3</td><td>21.1.0</td><td></td></tr>
+  <tr><td><code>ngx-owl-carousel-o</code></td><td>20.1.1</td><td>21.0.3</td><td>Carousel theme regressions were fixed in <code>35f314c117</code>; re-check those views.</td></tr>
+  <tr><td><code>ngx-infinite-scroll</code></td><td>20.0.0</td><td>21.0.0</td><td></td></tr>
+  <tr><td><code>@zxing/ngx-scanner</code></td><td>20.0.0</td><td>21.0.0</td><td>Peers TypeScript <code>^5.9</code>; fine after Phase 2.</td></tr>
+  <tr><td><code>@fortawesome/angular-fontawesome</code> <span class="changed">changed</span></td><td>2.0.1</td><td>4.0.0</td><td>Depends on <code>fontawesome-svg-core ^7.1.0</code>. Bump <code>fontawesome-svg-core</code>, <code>free-brands-svg-icons</code>, <code>free-solid-svg-icons</code> to <code>^7.3.1</code> together or the tree carries two core majors. Only two icons are registered: <code>faXTwitter</code>, <code>faCommentSms</code>.</td></tr>
+  <tr><td><code>ngx-device-detector</code></td><td>10.1.0</td><td>11.0.0</td><td></td></tr>
+</table>
+
+<h3>Left alone</h3>
+<div class="two">
+  <div class="panel">
+    <p><strong>Open peer range. Install cleanly on 21.</strong></p>
+    <ul>
+      <li><code>ngx-quill</code> 16.2.1, <code>quill</code> 1.3.7, <code>quill-emoji</code></li>
+      <li><code>@ctrl/ngx-emoji-mart</code> 9.3.0</li>
+      <li><code>angular-mentions</code>, <code>ng-circle-progress</code>, <code>ng-otp-input</code></li>
+      <li><code>ngx-clipboard</code>, <code>ngx-color-picker</code>, <code>ngx-editor</code> 13, <code>ngx-image-compress</code></li>
+      <li><code>ngx-scrollbar</code> 9 (19.1.5 exists, API changes, 17 files), <code>ngx-image-cropper</code> 6 (9.1.7 exists), <code>ngx-sharebuttons</code> 8 (17.0.0 exists). Newer majors are a separate task.</li>
+      <li><code>ngx-material-timepicker</code>, <code>ngx-intl-tel-input</code> 15</li>
+    </ul>
+  </div>
+  <div class="panel">
+    <p><strong>Out of range, deferred, need <code>--force</code>.</strong></p>
+    <ul>
+      <li><code>@cotufa82/ng-ivs</code> 0.1.0 declares Angular 12. No newer release.</li>
+      <li><code>@khajegan/ngx-audio-player</code> 17.1.0 declares Angular 17 and Material 17. No newer release.</li>
+      <li><code>ngx-stripe</code> 18.1.0 declares Angular 18 and <code>@stripe/stripe-js &gt;=4 &lt;5</code>. 21.9.0 needs stripe-js 9.x.</li>
+    </ul>
+    <p class="muted"><code>npm ls</code> does not complain about these because <code>.npmrc</code> turns peer checking off. <code>ng update</code> checks anyway.</p>
+  </div>
+</div>
+
+<h2>Firebase: the SDK without AngularFire</h2>
+<p>Everything Firebase-related is in two files plus the service worker. The public shape of <code>FirebaseService</code> does not change, so its 14 consumers are untouched.</p>
+<table>
+  <tr><th>File</th><th>Change</th></tr>
+  <tr><td><code>package.json</code></td><td>Remove <code>@angular/fire</code>. Add <code>"firebase": "11.10.0"</code> to <code>dependencies</code>.</td></tr>
+  <tr><td><code>src/app/app.module.ts</code></td><td>Delete <code>provideFirebaseApp</code>, <code>provideMessaging</code>, <code>provideRemoteConfig</code> and their imports. Initialization moves into the service.</td></tr>
+  <tr><td><code>src/app/modules/shared/services/firebase.service.ts</code></td><td>Replace <code>inject(Messaging)</code> and the <code>RemoteConfig</code> constructor param with lazy, browser-only getters. Import <code>initializeApp</code>, <code>getApps</code> from <code>firebase/app</code>; <code>getMessaging</code>, <code>getToken</code>, <code>onMessage</code>, <code>isSupported</code> from <code>firebase/messaging</code>; <code>getRemoteConfig</code>, <code>fetchAndActivate</code>, <code>getValue</code>, <code>isSupported</code> from <code>firebase/remote-config</code>. Alias the two <code>isSupported</code> imports.</td></tr>
+  <tr><td><code>src/firebase-messaging-sw.js</code></td><td>No change. Compat 9.6.1 from gstatic, never depended on AngularFire.</td></tr>
+  <tr><td><code>environment*.ts</code></td><td>No change.</td></tr>
+</table>
+
+<h3>Contract the rewritten service must keep</h3>
+<ul>
+  <li>Public members unchanged: <code>requestFirebaseToken()</code>, <code>onMessage()</code>, <code>getRemoteConfigValue()</code>, <code>logOutToken()</code>, <code>setConfigToken()</code>, <code>generateFingerprint()</code>, <code>deviceToken</code>, <code>$deviceId</code>, <code>iosPayButtonsConfig</code>.</li>
+  <li>Never touch <code>firebase/messaging</code> or <code>firebase/remote-config</code> on the server. AngularFire returned <code>null</code> there and the <code>&amp;&amp; this.remoteConfig</code> check hid it. The raw SDK throws. Guard <code>getRemoteConfigValue()</code> <em>and</em> <code>requestFirebaseToken()</code> with <code>platformService.isBrowser</code>. <span class="changed">changed</span> The token path has no guard today; its only caller is <code>header.component.ts:825</code>.</li>
+  <li>Call each product's <code>isSupported()</code> before its <code>get*()</code>. <span class="changed">changed</span> Messaging returns false on non-secure origins and some Safari modes. Remote Config returns false when IndexedDB exists but rejects <code>open()</code>, which happens in private browsing.</li>
+  <li>Initialize once: check <code>getApps().length</code> before <code>initializeApp(environment.firebaseConfig)</code>. White-label builds swap the config via <code>fileReplacements</code>.</li>
+  <li>Attach the foreground listener on every browser session, not only when the token changes. <span class="changed">changed</span> Today <code>onMessage()</code> is called only inside <code>setToken()</code>'s subscribe, and <code>setToken()</code> runs only when the token differs from <code>fc_token</code> in localStorage. A returning user gets no listener. Register the token when it changed; attach <code>onMessage</code> regardless; keep the unsubscribe handle.</li>
+  <li>Wrap the toast call and the <code>iosPayButtonsConfig</code> assignment in <code>NgZone.run()</code>. AngularFire did this for us. Zone.js probably catches the underlying events anyway, but the explicit call costs two lines and removes the question. Leave a comment pointing the future zoneless task at it.</li>
+  <li>Bundle size should be flat or smaller: the same <code>firebase/*</code> chunks were already there, and <code>rxfire</code> plus the AngularFire wrappers drop out.</li>
+</ul>
+
+<h2>Sequence</h2>
+
+<div class="phase">
+  <h3>Phase 0. Baseline and toolchain</h3>
+  <ul>
+    <li>Commit the 8 modified files and the 12 untracked HTML plans in their own commit, or move the plans out of the repo. <code>ng update</code> checks <code>git status --porcelain</code> and <code>??</code> entries count. <span class="changed">changed</span></li>
+    <li>Find the Node version CodeBuild's <code>nodejs: 20</code> runtime resolves to on the image the buildspecs use. Angular 21 needs <code>&gt;=20.19.0</code>. If it is older, bump <code>runtime-versions</code> to 22 in all four buildspecs as part of this branch. <span class="changed">changed</span></li>
+    <li>Locally, either move to Node 24.15 or ignore the npm 12 warning. It does not affect CI, which installs its own npm 10.8.1.</li>
+    <li><code>npm ci</code>, then <code>npm run build-dev</code>. Record initial bundle sizes and the <code>anyComponentStyle</code> warnings.</li>
+    <li><code>npm run prerender-all-qa</code> and <code>npm run serve:ssr</code>. Confirm <code>/</code> and one creator profile render server-side.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> green build on Angular 20 with numbers written down and a known CI Node version.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 1. Firebase SDK swap, still on Angular 20</h3>
+  <ul>
+    <li>Apply the file changes above. <code>npm install</code>.</li>
+    <li>Fresh profile: clear <code>fc_token</code> and <code>fc_is_app</code> from localStorage, allow notifications, log in. Expect <code>POST pushNotification</code> with a token and a test push arriving as a toast.</li>
+    <li>Returning user: reload with the saved token. Expect no duplicate POST and the test push <em>still</em> arriving as a toast. <span class="changed">changed</span></li>
+    <li>Remote Config: <code>iosPayButtonsConfig</code> populated from <code>Payment_Config</code> on load. Repeat in a private window; expect a clean skip, not a console error. <span class="changed">changed</span></li>
+    <li>Logout hits <code>PUT pushNotification</code> with the token.</li>
+    <li>Build dev and SSR again. No Firebase errors in the SSR log.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> commit <code>replace @angular/fire with firebase sdk</code>. The framework has not moved, so any breakage here is ours.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 2. Framework</h3>
+<pre><code>ng update @angular/core@21 @angular/cli@21 --force
+ng update @angular/material@21 --force</code></pre>
+  <ul>
+    <li><code>--force</code> is expected. The CLI will list <code>@cotufa82/ng-ivs</code>, <code>@khajegan/ngx-audio-player</code>, and <code>ngx-stripe</code> as incompatible. If it names anything else, stop and look. <span class="changed">changed</span></li>
+    <li>The zone migration runs automatically. Confirm <code>provideZoneChangeDetection()</code> is in <code>AppModule.providers</code>.</li>
+    <li>Review the diff in <code>angular.json</code>, <code>tsconfig*.json</code>, <code>package.json</code>. It should be small.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> commit <code>angular 21 core, cli, material</code>. The build may not be green yet.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 3. Libraries</h3>
+<pre><code>ng update @ngrx/store@21 --force
+npm i primeng@21 ngx-bootstrap@21 @ng-select/ng-select@21 @ng-bootstrap/ng-bootstrap@20 \
+  ngx-toastr@20 ngx-mask@21 ngx-owl-carousel-o@21 ngx-infinite-scroll@21 \
+  @zxing/ngx-scanner@21 ngx-device-detector@11 \
+  @fortawesome/angular-fontawesome@4 @fortawesome/fontawesome-svg-core@7 \
+  @fortawesome/free-brands-svg-icons@7 @fortawesome/free-solid-svg-icons@7
+npm i -D @angular-eslint/builder@21 @angular-eslint/eslint-plugin@21 \
+  @angular-eslint/eslint-plugin-template@21 @angular-eslint/schematics@21 \
+  @angular-eslint/template-parser@21</code></pre>
+  <ul>
+    <li>Read each library's 21 changelog before fixing compile errors. <code>ngx-bootstrap</code> and <code>primeng</code> are the likeliest to have moved something.</li>
+    <li>Font Awesome: confirm <code>npm ls @fortawesome/fontawesome-svg-core</code> shows one version.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> commit <code>angular 21 third-party libraries</code>.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 4. Make it compile</h3>
+  <ul>
+    <li><code>npm run build-dev</code>. Fix in order: TypeScript 5.9 errors, host binding type errors, library API changes.</li>
+    <li>Host bindings: fix the getter's return type first. <code>typeCheckHostBindings: false</code> only if a fix would change behaviour.</li>
+    <li><code>npm run lint</code>. Fix what <code>@angular-eslint</code> 21 flags or add targeted disables with a reason.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> commit <code>fix compile and lint for angular 21</code>. Dev build green.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 5. The builds CI runs <span class="changed">changed</span></h3>
+  <p class="muted">The buildspecs run <code>npm run $BUILD_ENV</code>. Run the scripts that variable actually takes, not shorter stand-ins.</p>
+  <ul>
+    <li><code>npm run build-dev</code>, <code>npm run build-qa</code>, <code>npm run build-stage</code>, <code>npm run build-prod</code>. Compare initial bundle and component style sizes with Phase 0.</li>
+    <li><code>npm run prerender-all-qa</code> and <code>npm run prerender-all-staging</code>. These run prefetch, static route generation, the prerender build, and sitemap generation. <code>buildspec-s3.yml</code> gates an npm audit on exactly these two names.</li>
+    <li><code>npm run serve:ssr</code> after the QA prerender. Hit <code>/</code>, a creator profile, a marketing page, a 404, <code>/creators?key=x</code>, and <code>/username/?key=x</code>. Read the server log, not just the status codes.</li>
+    <li><code>npm run build-qa:sls</code> and <code>npm run build-stage:sls</code> to prove the <code>server</code> builder still runs for the serverless target.</li>
+    <li><code>npm run generate-white-label-qa</code> for one white-label project, then build it. The generator writes <code>angular.json</code> projects; confirm 21 accepts what it emits.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> every listed script green, sizes within budget, SSR log clean. Push the branch and let CodeBuild run it on Node 20 / npm 10.8.1.</p>
+</div>
+
+<div class="phase">
+  <h3>Phase 6. Hands-on smoke test</h3>
+  <ul>
+    <li>Login, logout, OTP flow (uses <code>deviceToken</code>).</li>
+    <li>Push token registration and an inbound toast, fresh and returning.</li>
+    <li>Payment flow on an iOS user agent. Remote Config decides which buttons show.</li>
+    <li>Router: deep link, back/forward, trailing-slash redirect, query params through the custom serializer, lazy module load.</li>
+    <li>Material bottom sheets, CDK drag-and-drop ordering, CDK clipboard copy, the mobile breakpoint switch (<code>cdk/layout</code> in <code>mobile-optimization.service.ts</code>), promotional list scrolling (<code>cdk/scrolling</code>). <span class="changed">changed</span></li>
+    <li><code>ng-select</code> dropdowns, <code>ngx-bootstrap</code> modals and datepicker, toasts, PrimeNG widgets, owl carousels, QR scanner, infinite scroll, masked inputs, the two Font Awesome icons.</li>
+    <li>Audio player and IVS live stream, the two libraries running past their declared range.</li>
+    <li>Service worker registration in a prod-config build.</li>
+  </ul>
+  <p class="checkpoint"><strong>Checkpoint:</strong> open the PR against <code>feature/release-0.0.23/16-17-18-19-20</code> or the release branch the team prefers.</p>
+</div>
+
+<h2>Risks</h2>
+<table>
+  <tr><th>Risk</th><th>Why it matters here</th><th>Mitigation</th></tr>
+  <tr><td>CI Node version <span class="changed">changed</span></td><td>Local is Node 24.5, CI is Node 20. If the image's 20 is older than 20.19, the branch passes locally and fails in the pipeline.</td><td>Phase 0 check. Bump buildspecs to 22 if needed.</td></tr>
+  <tr><td>SSR regressions</td><td>Custom <code>server.ts</code> with <code>domino</code>, a hand-rolled <code>URL</code> shim, <code>installServerDom</code>, prerender-first routing. Framework majors tend to bite this layer.</td><td>Phase 0 baseline, Phase 5 route list, read the SSR log.</td></tr>
+  <tr><td>Host binding type errors</td><td>New default in 21. <code>strictTemplates</code> is off, so these bindings have never been type-checked.</td><td>Fix types; documented fallback flag.</td></tr>
+  <tr><td>Firebase behaviour drift</td><td>AngularFire zone-wrapped calls, returned null on the server, and swallowed unsupported-browser errors. The raw SDK does none of that.</td><td>Browser guards on both entry points, per-product <code>isSupported()</code>, <code>NgZone.run()</code>, two-state push test, Phase 1 before the framework moves.</td></tr>
+  <tr><td>Three libraries compiled against Angular 12, 17, 18</td><td>They run through the partial-compilation linker. One more major is usually fine, not guaranteed.</td><td>Smoke-test audio and IVS in Phase 6. If one breaks, pull the deferred task forward.</td></tr>
+  <tr><td>Router changes</td><td>Microtask timing, plus the custom-serializer fix in #64449.</td><td>Phase 6 navigation and query-param cases.</td></tr>
+  <tr><td>White-label generator</td><td>Generates <code>angular.json</code> projects from the API. If the template hardcodes 20-shaped options, every white-label build breaks at once.</td><td>Generate and build one in Phase 5.</td></tr>
+</table>
+
+<h2>Open questions and assumptions</h2>
+<ul>
+  <li><strong>CodeBuild image.</strong> Which image do the four buildspecs run on, and what does its <code>nodejs: 20</code> resolve to? This decides whether Phase 0 touches the buildspecs.</li>
+  <li><strong>Remote Config during prerender.</strong> Assumed not needed. It only drives iOS payment buttons, never part of prerendered marketing HTML. The service becomes browser-only.</li>
+  <li><strong>Returning-user listener.</strong> Assumed the current behaviour (no <code>onMessage</code> when the token is unchanged) is a bug, not a product decision. If it was deliberate, say so and the contract changes.</li>
+  <li><strong>Firebase 12.</strong> Out of scope. Pinning <code>11.10.0</code> keeps the Firebase surface identical to today.</li>
+  <li><strong>PR target.</strong> Branch naming suggests this stacks on <code>16-17-18-19-20</code>. Confirm whether that merges first.</li>
+</ul>
+
+<h2>Out of scope</h2>
+<ul>
+  <li>Zoneless change detection, <code>OnPush</code> conversions, signal forms.</li>
+  <li>Vitest or any test setup.</li>
+  <li>Standalone components, <code>CommonModule</code> removal, <code>ngClass</code>/<code>ngStyle</code> migrations, <code>inject()</code> migration.</li>
+  <li>Moving the <code>serverless</code> and <code>test</code> targets off <code>@angular-devkit/build-angular</code>. Both builders still ship in 21.2.24. Revisit before 22.</li>
+  <li><code>platformBrowserDynamic</code> to <code>platformBrowser</code> in <code>main.ts</code>. Deprecated, still works.</li>
+  <li>quill 2, Firebase 12, <code>ngx-stripe</code> 21, <code>ng-ivs</code>, <code>ngx-audio-player</code>, <code>ngx-scrollbar</code> 19, <code>ngx-image-cropper</code> 9, <code>ngx-sharebuttons</code> 17.</li>
+  <li>Angular 22. Needs Node <code>^22.22.3 || ^24.15.0</code> and TypeScript 6.0. Separate branch once this lands.</li>
+</ul>
+
+</main>
+</body>
+</html>

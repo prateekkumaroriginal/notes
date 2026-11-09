@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>GET user_by_username view cuts</title>
+  <meta name="description" content="Backend contract for GET api/user_by_username/:name. Add ?view=profile|plans|identity|events. Leave the bare URL fat.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@88,400;88,600;88,700;92,600;92,700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --sans: "Archivo", "Helvetica Neue", Arial, sans-serif;
+      --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+      --bg: var(--paper);
+      --surface: var(--panel);
+      --text: var(--ink);
+      --line: var(--rule);
+      --blue: var(--focus);
+      --green: var(--plus);
+      --pink: var(--minus);
+    }
+
+    * { box-sizing: border-box; }
+
+    html { background: var(--paper); }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.5;
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--focus);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+    strong { color: var(--ink); font-weight: 650; }
+    .focus { color: var(--focus); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--panel);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .kw { color: var(--minus); }
+    .fn { color: var(--focus); }
+    .str { color: var(--plus); }
+    .cmt { color: var(--dim); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 0.75rem; }
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol {
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .lede { color: var(--ink); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--rule);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--rule); }
+    td:first-child { color: var(--ink); }
+
+    .diff {
+      display: grid;
+      gap: 0.15rem;
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      line-height: 1.5;
+    }
+
+    .diff .add,
+    .diff .del,
+    .diff .ctx {
+      display: block;
+      padding: 0.12rem 0.55rem;
+      border-radius: 0.25rem;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .diff .add { background: var(--plus-bg); color: var(--plus); }
+    .diff .del { background: var(--minus-bg); color: var(--minus); }
+    .diff .ctx { color: var(--muted); }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <nav aria-label="Breadcrumb"><a href="/">Development notes</a></nav>
+      <h1>GET user_by_username view cuts</h1>
+      <p class="lede">
+        Same path. New query <code>view</code>.
+        Do not change <code>GET api/user_by_username/:name</code> with no query.
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>Query</h2>
+        <pre><code>GET api/user_by_username/:name
+GET api/user_by_username/:name?view=profile
+GET api/user_by_username/:name?view=plans
+GET api/user_by_username/:name?view=identity
+GET api/user_by_username/:name?view=events</code></pre>
+      </section>
+
+      <section>
+        <h2>view=profile</h2>
+        <pre><code><span class="kw">type</span> <span class="fn">ProfileView</span> = {
+  status: boolean
+  statusCode?: number
+  data: {
+    gsi4pk: string
+    user_name: string
+    first_name: string
+    last_name: string
+    profile_image_url?: string
+    banner_image_url?: string
+    bio?: string
+    general_location?: string
+    display_my_general_location_on_home_screen?: boolean
+
+    is_private: boolean
+    only_followers_can_access_content?: boolean
+    is_follower?: boolean
+    is_paused?: boolean
+    is_suspended?: boolean
+    is_deleted?: boolean
+
+    is_creator?: boolean
+    is_live?: boolean
+    is_subscriber?: boolean
+    allow_dms?: boolean
+    price_for_dm?: string | number
+    chatroom_cta?: string
+    available_points?: number
+
+    post_count?: number
+    follower_count?: number
+    following_count?: number
+    award_count?: number
+    display_my_forums?: boolean
+    display_my_leaderboards?: boolean
+    display_who_follows_me?: boolean
+    display_who_i_am_following?: boolean
+    display_my_awards?: boolean
+
+    badges?: Array&lt;{
+      label: string
+      badge_code?: string
+      sk?: string
+      auto_assign_threshold?: number
+    }&gt;
+    groups?: Array&lt;{ title: string }&gt;
+
+    has_subscriptions?: boolean <span class="cmt">// suggested</span>
+    has_store?: boolean         <span class="cmt">// suggested</span>
+  }
+  eventDetails?: {
+    display_event_calendar: boolean
+    event_calendar_name: string
+  }
+  upcoming_event?: {
+    sk: string
+    event_name: string
+    event_date: string
+    event_time?: string
+    timezone?: string
+    event_format?: string
+    preview_image_url?: string
+    display_upcoming_countdown?: boolean
+    venue_name?: string
+    street_address?: string
+    city?: string
+    state?: string
+    country?: string
+    is_locked?: boolean
+  } | null
+  scheduled_livestream?: {
+    event_date?: string
+    scheduled_at?: string
+    event_name?: string
+    title?: string
+    description?: string
+    preview_image_url?: string
+    status?: string
+  } | null
+  vipOfferDetails?: {
+    display_vip_offer: boolean
+    vip_offer_heading?: string
+  }
+  portfolioDetails?: Array&lt;{
+    sk: string
+    portfolio_title: string
+    portfolio_type: string
+  }&gt;
+  newsletter?: {
+    display_newsletter: boolean
+  }
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>view=plans</h2>
+        <pre><code><span class="kw">type</span> <span class="fn">PlansView</span> = {
+  status: boolean
+  data: {
+    gsi4pk: string
+    user_name: string
+    first_name: string
+    last_name: string
+    profile_image_url?: string
+    email?: string
+    allow_dms?: boolean
+    price_for_dm?: string | number
+    is_creator?: boolean
+    is_paused?: boolean
+    is_suspended?: boolean
+  }
+  subscriptions: Array&lt;{
+    sk: string
+    name: string
+    active: boolean
+    duration?: number
+    is_trial_active?: boolean
+    features: string[]
+    free_dms_count?: number
+    is_unlimited_free_dms?: boolean
+    plan_details: Array&lt;{
+      id?: string
+      duration: number
+      price: string | number
+      discount?: string
+      trial_days?: string | number
+      trial_enable?: boolean
+    }&gt;
+  }&gt;
+  newsletter?: { display_newsletter: boolean }
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>view=identity</h2>
+        <pre><code><span class="kw">type</span> <span class="fn">IdentityView</span> = {
+  status: boolean
+  data: {
+    gsi4pk: string
+    user_name: string
+    refer_id?: string
+    first_name: string
+    last_name: string
+    profile_image_url?: string
+    email?: string
+    is_creator?: boolean
+    is_private?: boolean
+    is_paused?: boolean
+    is_suspended?: boolean
+    wls_url?: string
+  }
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>view=events</h2>
+        <pre><code><span class="kw">type</span> <span class="fn">EventsView</span> = {
+  status: boolean
+  data: {
+    gsi4pk: string
+    user_name: string
+    email?: string
+    first_name: string
+    last_name: string
+    banner_image_url?: string
+    profile_image_url?: string
+  }
+  eventDetails?: {
+    display_event_calendar: boolean
+    event_calendar_name: string
+    event_calendar_image_url?: string
+    heading?: string
+  }
+}</code></pre>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

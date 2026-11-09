@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10854 review-grok-4-7</title>
+<meta name="description" content="Second review of the cover preview reload loop. Section data rebuilds when the sections input changes. Merge yes.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10854-review-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10854 review-grok-4-7</h1><p>The new commit copies section data whenever the sections input changes, and it refuses another import after destroy. I would merge it.</p></div>
+<div class="meta"><span>Reviewed again 28 September 2026</span><span>2 files</span><span>148 added, 23 removed</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10854">PR 10854</a> · Base <code>4b0b79a261</code> · Head <code>8dda6fb483</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#fix">The new commit</a><a href="#loop">The loop stays stopped</a><a href="#limits">What I did not run</a></nav></header>
+<main>
+<section id="verdict"><h2>Should I merge it now? Yes.</h2>
+<p class="ok">The hold on <code>a8be95a5dd</code> is closed.</p>
+<p><code>8dda6fb483</code> is the only change since the last review. A sections change now forces the data rebuild that the resolve key used to skip. Destroy sets a flag that the loader checks before it starts another <code>import()</code>, and again before it writes the cache.</p>
+<p>I would merge <code>8dda6fb483</code>. The branding cache from <code>7309f6bd50</code> is still what stops the appearance tab from importing layouts on every change-detection pass.</p></section>
+<section id="fix"><h2>What the new commit changes</h2>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-full-preview.component.ts#L142-L162">resolveSectionsOnce, lines 142 to 162</a></p>
+<p>When sections arrive after init, or a color input changed, <code>ngOnChanges</code> calls <code>resolveSectionsOnce(!!changes['sections'])</code>. If that flag is true, the key match does not return early. The method still runs the <code>map</code> that copies <code>item.data</code> into <code>resolvedData</code>, then asks the loader for any layout id that is not already cached.</p>
+<p>White-label home paints the cached cover page, then <code>refreshPublishedCoverPage</code> replaces <code>coverPageData</code>. The preview builds a new <code>sections</code> array from that payload. The flag is true, so a new headline, image, or section color is copied even when the layout list and page colors are the same. That was the miss on <code>a8be95a5dd</code>.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-full-preview.component.ts#L152-L156">ngOnDestroy, lines 152 to 156</a> and <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499/src/app/modules/profile/component/marketing-page-full-preview/marketing-page-full-preview.component.ts#L248-L276">the loader, lines 248 to 276</a></p>
+<p><code>previewDestroyed</code> is set before the generation bump. The loader returns immediately if the component is already gone. A caller that was waiting on the in-flight promise checks the flag again after that wait, so it does not start a second batch. If the import finishes after destroy, the result is not written and <code>markForCheck</code> is not called. <code>PendingTasks.done()</code> still runs.</p></section>
+<section id="loop"><h2>The idle tab still does not spin</h2>
+<p>The getter in <code>WlsAppearanceComponent</code> still returns the same branding object while the color, logo, text, font, and background image are unchanged. The appearance parent uses default change detection, and the cover preview is <code>OnPush</code>. A stable input means the preview does not run <code>ngOnChanges</code>, so it does not build a new <code>sections</code> array on an idle pass.</p>
+<p>A real palette edit still produces a new branding object. That rebuilds section data and recolors the embed. Layout ids already in <code>layoutComponents</code> are not imported again.</p>
+<p>The resolve key still ignores the section payload. It no longer has to carry that payload, because a sections change forces the rebuild on its own. <code>ngOnInit</code> calls <code>resolveSectionsOnce()</code> without the flag. By then the first <code>ngOnChanges</code> has usually stored the key, so init only joins a load that is already going.</p></section>
+<section id="limits"><h2>What I did not run</h2>
+<p>I did not open <code>/edit-preference/whitelabel</code>, watch Chrome's task manager, or publish a cover-page copy change against a running white-label home. The rebuild and the destroy guard are the branches in <code>8dda6fb483</code>.</p>
+<p>GitHub reports the pull request open and mergeable. Status checks are still pending. After merge, the useful manual checks are still the ones in the test plan. Idle the cover preview for a minute, change a palette color, and confirm a published section edit shows up on white-label home after the refresh.</p></section>
+<section id="references"><h2>Review references</h2><ul>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10854">PR 10854</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/commit/8dda6fb483ce0b0408c6538fcdd9e0fd0d268499">Head commit</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/4b0b79a26174b654f7793f578f3cf22db744f28a...8dda6fb483ce0b0408c6538fcdd9e0fd0d268499">Exact comparison</a></li>
+<li><a href="/pr-10849-review-astra">Previous review, PR 10849</a></li>
+</ul></section>
+</main>
+<footer>Review applies to <code>8dda6fb483</code>. Recheck if the pull request moves again.</footer>
+</div></body></html>

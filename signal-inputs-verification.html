@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Signal inputs, outputs, and queries</title>
+  <meta name="description" content="TopFans components now use input(), output(), and viewChild(). What shipped, what the schematic left alone, and a QA list for the modules in the diff.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, h4, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code, h4 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td:first-child { color: var(--text); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Signal inputs, outputs, and queries</h1>
+      <p>Most component bindings now use <span class="focus">input()</span>, <span class="focus">output()</span>, and <span class="focus">viewChild()</span>. 703 files. Routing, SCSS, and business logic are unchanged. SharedModule and control-flow templates are a different PR.</p>
+      <div class="meta">
+        <span>commit 150713b319</span>
+        <span>hotfix/release-0.0.23/signal-inputs</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10872">PR 10872</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Angular's official combined schematic, one pass over <code>src</code> with a 10 GB heap. It finished in about two minutes.</p>
+        <pre><code>NODE_OPTIONS=--max_old_space_size=10048 npx ng generate @angular/core:signals --path=src --analysis-dir=src --defaults --interactive=false</code></pre>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">API</th><th scope="col">Schematic</th><th scope="col">In the tree now</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>input()</code></td><td>1108 / 1399</td><td>1089 <code>input()</code> fields. 313 <code>@Input</code> left.</td></tr>
+              <tr><td><code>output()</code></td><td>383 / 389</td><td>379 <code>output()</code> fields. 10 <code>@Output</code> left.</td></tr>
+              <tr><td><code>viewChild()</code> / <code>viewChildren()</code></td><td>562 / 603</td><td>409 + 15 signal queries. 46 <code>@ViewChild</code> and 2 <code>@ViewChildren</code> left.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>I did not turn on <code>bestEffortMode</code>. The leftovers are ones the schematic refused because converting them would break the build or the runtime.</p>
+      </section>
+
+      <section>
+        <h2>Fixes after the schematic</h2>
+        <p>The first QA build had about 500 errors. Most of that was the schematic being sloppy with types and with <code>this.</code>, not a surprise on a repo this size. The ones that actually mattered:</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">What broke</th><th scope="col">What I did</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>viewChild('foo')</code> with no type</td>
+                <td>Hundreds of originals had no annotation, so the signal came back as <code>unknown</code> and <code>openModal()</code> failed. Restored types from git, or <code>any</code> when there was nothing to restore.</td>
+              </tr>
+              <tr>
+                <td>ngx-bootstrap <code>initialState</code> on <code>AlertModal</code></td>
+                <td><code>Object.assign</code> would have overwritten the signal functions with strings. I put those inputs and the EventEmitter outputs back. This modal is opened that way from a lot of places.</td>
+              </tr>
+              <tr>
+                <td>Portfolio song / podcast / video parents</td>
+                <td><code>this.step3Component.postPriceComponent.ppForm</code> became a mess of locals pointing at the wrong object. Wired them back through <code>step3Component()?.postPriceComponent()</code>.</td>
+              </tr>
+              <tr>
+                <td><code>private readonly screenClick = output()</code></td>
+                <td>Angular rejects a private output. Dropped <code>private</code> on video-player-v2. That one took the whole player out of every standalone import list until it compiled.</td>
+              </tr>
+              <tr>
+                <td><code>header-layout</code> <code>brandClick.observed</code></td>
+                <td><code>output()</code> has no <code>.observed</code>. Kept the EventEmitter so a logo click still goes home when the parent is not listening.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>What stayed on decorators</h2>
+        <ul>
+          <li><code>@Input() set …</code> setters, and fields written from TypeScript or <code>ngOnChanges</code>.</li>
+          <li>Required inputs the schematic could not type.</li>
+          <li><code>@ViewChild</code> setters such as <code>replyCommentInput</code> on post detail, home, forum, and profile.</li>
+          <li>Queries initialized with <code>= null</code>. The signal API does not allow that write.</li>
+          <li>The 10 leftover outputs. Alert modal and a couple of others still get <code>.subscribe()</code> or <code>.pipe()</code> on the EventEmitter.</li>
+        </ul>
+        <p>Do not force those. The next person who wants 100% coverage needs to change the call sites first.</p>
+      </section>
+
+      <section>
+        <h2>How I checked it</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Main QA build</td><td>Pass. About 57s. <code>--prerender=false</code>.</td></tr>
+              <tr><td>Perfect Crew QA build</td><td>Not run. This branch's <code>angular.json</code> only lists TopFans. Same <code>src</code> as a generated white-label would compile.</td></tr>
+              <tr><td>SSR</td><td>200 on home, login, pricing, about, creators (curl). No Angular compile errors in the HTML.</td></tr>
+              <tr><td>Logged-out browser</td><td>Home hydrates. Login form takes an email and the password toggle works. Pricing renders. Creators 504'd through the preview tunnel. Curl still got 200. That tunnel has been flaky before.</td></tr>
+              <tr><td>Logged-in product</td><td>Not run.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Creator account on a white-label site for logged-in checks. Private window for logged-out. Console open. Grouped by the modules in the 703-file diff. Shared and the primitives folder are the biggest chunks. If a modal opens through <code>AlertModal</code>, you are testing the leftover decorators on purpose.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Shared UI, header, posts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-shell"><span>Header, language switcher, footer. Logo click on a marketing page still goes home.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-alert"><span>Any delete or confirm modal that uses <code>AlertModal</code>. Title, buttons, confirm, cancel, Esc. The strings must not vanish. That is the leftover <code>@Input</code> path.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-post"><span>Feed card and post detail. Like, comments, locked media, share. Open a comments sheet and type.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-player"><span>Video player v2 on a post. Play, mute, click-to-pause. The player must actually mount. A private <code>output()</code> took this out of the build until we dropped <code>private</code>.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Dashboard, wallet, messages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-dash"><span>Dashboard home, new post for a couple of types, live stream, events. Child forms still receive price and lock values.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-pay"><span>Wallet lists, a purchase detail modal, refund request, Veriff. <code>openModal</code> / <code>closeModal</code> still fire.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-msg"><span>Messages. Open a thread, send, switch threads. Image/audio field still prices and clears.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-trim"><span>Video trim on a new video post. Confirm and cancel. Those two outputs stayed EventEmitters because parents <code>.subscribe()</code> them.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Edit preference, portfolio, cover editor</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-edit"><span>Edit preference. Personal info, white-label appearance, DNS records modal, delegation.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-port"><span>Add or edit a song, a podcast, and a video. Lock-through / post-price panel still reads, writes, and resets.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-cover"><span>White-label cover editor. Add a section, switch layout, preview. Card editors still emit <code>formRebuild</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-form"><span>A dynamic form. File upload, video upload, location. The parent <code>form</code> input is a signal now. Patch and reset still hit the right control.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Auth, insights, monetize, profile layouts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-auth"><span>Login, signup, forgot password. Social buttons. OTP. Extra fields show and hide.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-insights"><span>Insights tabs, fan import, send email modal. Dropdowns that used <code>{ read: ElementRef }</code> still resolve.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-monetize"><span>Create a plan, an event, a course, a VIP offer. Native ticket locking panels still list in DOM order.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-mkt"><span>Marketing layouts that still have decorator queries: testimonials marquee, image carousel, pinned rail, creator poster cards. Scroll and next still work.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag low">Low</span> Public pages, leftovers, white-label</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-public"><span>Logged out. Home, pricing, about, creators, login. Type in the login email. Toggle show password.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-wls"><span>A generated white-label home if you have one. This branch does not ship a Perfect Crew project in <code>angular.json</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-forum"><span>Forum list and a thread. Reply input still focuses. That query is a setter leftover.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-res"><span>Resources card, promotional landing, setup profile, link-in-bio preview. External action modal still opens in edit mode.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <a href="https://angular.dev/reference/migrations/signals">Angular signals schematic</a>
+      ·
+      <a href="control-flow-update-verification.html">Control flow update</a>
+    </footer>
+  </div>
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "signal-inputs-verification-v1";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

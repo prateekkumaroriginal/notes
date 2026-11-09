@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Standalone routes: what's left after monetize and home Profile (plain)</title>
+</head>
+<body>
+  <h1>Standalone routes: what's left after monetize and home Profile</h1>
+  <p>All nine steps of this plan are done. Steps 1 to 7 are merged, in PRs 10837, 10838 and 10839. Steps 8 and 9 are merged in PR 10840. SharedModule is deleted, and none of the lazy entry points loads it, down from 39 at base. PR 10841 deleted DynamicFormBuilderModule, the last feature NgModule. PR 10842 made the unused BioLinkPipe standalone. PR 10845 deleted leftover unused components. PR 10847 is merged. It splits monetize child routes, keeps ProfileComponent off the main home chunk, and lazy-opens the post-price camera modal. The public marketing layouts now load with import(). Notes are in <a href="lazy-marketing-layouts.html">public marketing pages load only the layouts they use</a>. What is still optional is in <a href="standalone-leftovers.html">leftovers after the SharedModule work</a>.</p>
+  <p>Base hotfix/release-0.0.23/21-code-refactors at 33fcd8d508. Branch t3code/lazy-marketing-layouts at 3645b6d5ee. Sizes from the QA build, 25 Sep 2026.</p>
+
+  <h2>Where things stand</h2>
+  <p>The merged PRs came before this plan. The steps below are grouped into PRs. Each has its own doc with what changed, how it was checked, and a checklist for manual testing.</p>
+  <table border="1" cellpadding="6">
+    <tr><th>Change</th><th>Status</th><th>What it did</th></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10826">10826</a></td><td>Merged</td><td>Five single-component feature modules became standalone routes.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10828">10828</a></td><td>Merged</td><td>Removed withComponentInputBinding(), which was wiping input defaults.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10829">10829</a></td><td>Merged</td><td>advertisement-home, global, and marketing-pro-page became standalone.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10830">10830</a></td><td>Merged</td><td>The 15 one-component public pages became standalone.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10831">10831</a></td><td>Merged</td><td>The 10 mid-sized modules became standalone. The route leaks under /resources, /auth, /insights, and /messages went with them.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10832">10832</a></td><td>Merged</td><td>SharedModule left the initial bundle. Initial JS went from 10.09 MB to 6.86 MB.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10833">10833</a></td><td>Merged</td><td>Wallet became standalone and stopped loading SharedModule. /wallet went from 4.05 MB to 1.68 MB of lazy JS.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10837">10837</a>, step 1, <a href="shared-module-small-pages.html">81797c0569</a></td><td>Merged</td><td>The 18 small pages stopped loading SharedModule.</td></tr>
+    <tr><td>10837, step 2, <a href="shared-module-marketing-home.html">0beb9e0e04 and dd02f5c329</a></td><td>Merged</td><td>MarketingPageSharedModule's 55 components became standalone. The home, marketing and search pages stopped loading SharedModule.</td></tr>
+    <tr><td>10837, step 3, <a href="shared-module-monetize.html">96be9f8389</a></td><td>Merged</td><td>MonetizeModule is gone. /monetize loads a routes file and stopped loading SharedModule, apart from portfolio.</td></tr>
+    <tr><td>10837, step 4, <a href="shared-module-auth-forum-messages.html">b0114afffd</a></td><td>Merged</td><td>Auth, forum, resources, messages, insights and post detail stopped loading SharedModule.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10838">10838</a>, steps 5 and 6, <a href="shared-module-bio-profile-portfolio.html">00a1edbc5c, ae40c39204 and 9897f212fd</a></td><td>Merged</td><td>Link in bio stopped loading SharedModule. ProfileModule and PortfolioModule are gone, and portfolio's routes no longer leak into /dashboard.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10839">10839</a>, step 7, <a href="shared-module-edit-preference-cover-page.html">56a5ec11eb and e92a285200</a></td><td>Merged</td><td>EditPreferenceModule and WhitelabelCoverPageModule are gone, and neither route loads SharedModule.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10840">10840</a>, steps 8 and 9, <a href="shared-module-dashboard.html">26235a170b, d1184365be, 7d1763c28f and 7c0b9351ac</a></td><td>Merged</td><td>DashboardModule, SharedModule and MarketingPageSharedModule are gone.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10841">10841</a>, <a href="dynamic-form-builder-standalone.html">5bdbb26936 and 643b28fbfa</a></td><td>Merged</td><td>DynamicFormBuilderModule is gone. Its 92 importers take only the pieces they render.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10842">10842</a>, <a href="biolink-pipe-standalone.html">27d6a631e0</a></td><td>Merged</td><td>The unused isLink pipe is standalone. Profiles already used a different BioLinkPipe.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10845">10845</a>, <a href="unused-components-deleted.html">c928ecc3f1 and ad0fff9aaf</a></td><td>Merged</td><td>Unused leftover components are deleted. seo-landing.model.ts and the store item card stay.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10847">10847</a>, <a href="lazy-monetize-home-profile.html">3e564a2ca2, 367e633593, 6db341b485 and cb2893c092</a></td><td>Merged</td><td>Monetize children use loadComponent. Main / no longer bundles ProfileComponent. The post-price camera modal loads on click.</td></tr>
+    <tr><td><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">10849</a>, <a href="lazy-marketing-layouts.html">3645b6d5ee</a></td><td>Open</td><td>Public marketing pages load only the layout ids they show. Header stays static. The editor still ships the catalog.</td></tr>
+  </table>
+
+  <h2>Lazy JS, base against now</h2>
+  <p>What a first visit fetches after the initial bundle. Base is 16a5786e9c and now is 3645b6d5ee. Marketing rows after 10847 were 1.23 to 2.05 MB. Home after 10847 was 2.79 MB. MB means a million bytes.</p>
+  <table border="1" cellpadding="6">
+    <tr><th>Routes</th><th>Base</th><th>Now</th><th>Loads SharedModule now</th></tr>
+    <tr><td><b>18 small pages.</b> /about, /pricing, /contact-us, /explore-creators, /not-found and the rest</td><td>3.31 to 3.42 MB</td><td>0.00 to 0.79 MB</td><td>No</td></tr>
+    <tr><td><b>Home.</b> / and /home/:catName</td><td>4.43 MB</td><td>1.76 MB</td><td>No</td></tr>
+    <tr><td><b>Marketing.</b> The marketing, comparison, and pro pages</td><td>4.39 to 4.41 MB</td><td>0.03 to 0.86 MB</td><td>No</td></tr>
+    <tr><td><b>Sub-pages and creators-home</b></td><td>4.40 to 4.45 MB</td><td>0.11 to 0.21 MB</td><td>No</td></tr>
+    <tr><td>/monetize, apart from portfolio</td><td>5.36 MB</td><td>12.7 KB parent, then the page</td><td>No</td></tr>
+    <tr><td>/auth, /forum, /resources</td><td>3.39 to 3.50 MB</td><td>0.81 to 0.98 MB</td><td>No</td></tr>
+    <tr><td>/messages, /insights, /post</td><td>3.73 to 5.41 MB</td><td>1.85 to 2.70 MB</td><td>No</td></tr>
+    <tr><td><b>Link-in-bio pages</b></td><td>5.21 MB</td><td>1.20 MB</td><td>No</td></tr>
+    <tr><td>Creator profiles, /:id and /wls/:id</td><td>3.31 MB</td><td>1.85 MB</td><td>No</td></tr>
+    <tr><td>/monetize/portfolio</td><td>5.06 MB</td><td>2.06 MB</td><td>No</td></tr>
+    <tr><td>/edit-preference</td><td>7.39 MB</td><td>4.31 MB</td><td>No</td></tr>
+    <tr><td>The whitelabel cover page</td><td>5.28 MB</td><td>3.15 MB</td><td>No</td></tr>
+    <tr><td>/dashboard</td><td>6.42 MB</td><td>5.09 MB</td><td>No</td></tr>
+  </table>
+  <p>The initial bundle is 4.1 KB smaller than base. The last 3.2 KB of growth is more lazy entries, 81 instead of 49, after monetize pages, ProfileComponent, and the camera modal became their own files. The build has 341 JavaScript files, up from 114 at base.</p>
+
+  <h2>What's left</h2>
+  <p>No route loads SharedModule, and with PR 10841 no feature NgModule is left. Optional leftovers, and what I would do with each, are in <a href="standalone-leftovers.html">leftovers after the SharedModule work</a>.</p>
+
+  <h2>What the steps taught</h2>
+  <ul>
+    <li>The first count missed standalone components that still import SharedModule. In step 3, /monetize kept loading it through the text editor, its AI modal and the post price dialog. Step 4 was meant to be import swaps only and needed nine conversions. The table above now counts those files too.</li>
+    <li>My conversion script moved a declaration to imports only when a comma followed it, so it missed the last entry twice. That's fixed, and it now works on any NgModule file.</li>
+    <li>A module's CUSTOM_ELEMENTS_SCHEMA can hide dead bindings. Portfolio's hid four [infoIconSize] bindings on a component with no such input, and edit preference's hid a [socialHandles] binding. Dashboard's hid a [coverImage] binding on the video player.</li>
+    <li>A module's providers need a new home when the module goes. Edit preference provided DatePipe for one page, so that page provides it now. Dashboard gave itself its own DashboardModuleService, which holds state, so its providers moved to its top-level route. That keeps a separate instance, like the lazy module did.</li>
+    <li>Providers the old module got from an imported module count too. Dashboard got isPostCollaboratorPipe from SharedModule, and that pipe reaches DashboardModuleService through MyProfile. So it went on the dashboard route as well.</li>
+    <li>A diff that ignores too much can hide a regression. The form builder component lost five field components on the first try, because the diff filter skipped more than the one directive it was meant to. The diff script now ignores only that directive, and a rerun on PR 10840 found nothing new.</li>
+    <li>An NgModule that nothing imports drops out of the compile. Once dashboard stopped importing SharedModule, its remaining declarations compiled with no template scope. So they had to become standalone first.</li>
+    <li>Importing a whole feature module into another also imports its routes. Portfolio's 26 routes were reachable under /dashboard until step 6.</li>
+    <li>The test account is a white-label creator, so creator pages only open on a white-label build. The main site sends creators to /edit-preference/whitelabel. Logged-in checks from step 3 on ran on a white-label build.</li>
+    <li>/messages sometimes throws "Cannot read properties of undefined" when the QA API is slow. It happens on base too.</li>
+  </ul>
+
+  <h2>Suggested PRs</h2>
+  <p>PR 10837 had steps 1 to 4, PR 10838 had steps 5 and 6, and PR 10839 had step 7. PR 10840 had steps 8 and 9. All four are merged. PR 10841 did the form builder. PR 10842 did the leftover pipe. PR 10845 deleted unused leftovers. PR 10847 did the monetize, home-profile, and camera follow-ups. The layout split is the leftover after that.</p>
+  <ol>
+    <li><p><b>The 18 small pages. Done.</b> PR 10837. Every page dropped to 0.81 MB or less.</p></li>
+    <li><p><b>Home and marketing pages. Done.</b> PR 10837. / went from 4.43 MB to 3.23 MB, and creators-home from 4.45 MB to 1.30 MB.</p></li>
+    <li><p><b>Monetize. Done.</b> PR 10837. It needed 11 SharedModule pieces, and three standalone components had to stop importing it.</p></li>
+    <li><p><b>Auth, forum, resources, messages, insights, and post. Done.</b> PR 10837. It needed four SharedModule pieces and the four portfolio music components.</p></li>
+    <li><p><b>Link in bio and profile. Done.</b> PR 10838. Link in bio went from 3.82 MB to 1.20 MB with four import swaps. Profile went from 3.35 MB to 1.86 MB, with no conversions needed elsewhere.</p></li>
+    <li><p><b>Portfolio. Done.</b> PR 10838. /monetize/portfolio went from 5.10 MB to 2.07 MB, and /dashboard from 6.46 MB to 5.66 MB. The leaked routes under /dashboard are gone.</p></li>
+    <li><p><b>Edit preference and the whitelabel cover page. Done.</b> PR 10839. /edit-preference went from 6.03 MB to 4.33 MB, and the cover page from 5.29 MB to 3.18 MB. It needed two SharedModule pieces. DynamicFormBuilderModule stays an NgModule for now.</p></li>
+    <li><p><b>Dashboard. Done.</b> PR 10840. /dashboard went from 5.65 MB to 5.10 MB. It needed 18 SharedModule pieces, including OrderConfirmationComponent, which it routes to, and WatermarkControlsComponent.</p></li>
+    <li><p><b>SharedModule itself. Done.</b> PR 10840. Its last 27 declarations became standalone before dashboard dropped it, and then it was deleted. MarketingPageSharedModule went too. The marketing and comparison pages went from 2.16 MB to 1.23 MB.</p></li>
+    <li><p><b>The dynamic form builder. Done.</b> PR 10841. Its 18 components became standalone and its 92 importers take only what they render. Most routes got about 13 KB lighter.</p></li>
+    <li><p><b>BioLinkPipe. Done.</b> PR 10842. The unused isLink pipe is standalone. The profile bioLink pipe already was.</p></li>
+    <li><p><b>Unused leftovers. Done.</b> PR 10845. Deletes the unused SharedModule leftovers, the unused seo landing UI, the interests accordion, and three unused store item views.</p></li>
+    <li><p><b>Monetize children, home Profile, camera modal. Done.</b> PR 10847. Subscriptions drop from 3.20 MB to 0.53 MB. Main / drops from 3.22 MB to 2.79 MB.</p></li>
+    <li><p><b>Public marketing layouts. Open.</b> PR 10849, <a href="lazy-marketing-layouts.html">3645b6d5ee</a>. Marketing drops from 1.23 MB to 0.03 MB. Comparison drops from 1.23 MB to 0.03 MB. Home drops from 2.79 MB to 1.76 MB because promotional.routes still statically owns landing, detail, and search.</p></li>
+  </ol>
+  <p>Each PR got the same checks. That means an AOT dependency diff against the previous step, QA and development builds, per-route lazy JS, a browser walk of component definitions, SSR compared against the previous step, logged-in runs on a white-label build, and ESLint on the changed files.</p>
+
+  <h2>Smaller follow-ups</h2>
+  <ul>
+    <li>comparison-layout.utils imports the editor constants.</li>
+    <li>White-label cover pages still fetch ProfileComponent in the landing constructor.</li>
+    <li>The post-price leftover after dashboard is still custom-input-list sitting with add-lock, not unused decorator imports.</li>
+    <li>Four portfolio info icons were meant to be 18 pixels and have always been 16.</li>
+    <li>Some files these steps touched have console.log calls from before.</li>
+  </ul>
+
+  <p><a href="standalone-routes-whats-left.html">Styled version</a></p>
+</body>
+</html>

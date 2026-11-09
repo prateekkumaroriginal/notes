@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Chunk size comparison of the Angular 20 QA prerender against Resolve_build_size_19.">
+  <title>Angular 20 vs Resolve_build_size_19 chunk sizes</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    h1, h2, p, ul, pre, code { margin: 0; }
+    h1, h2 { color: var(--text); }
+    a { color: var(--blue); text-underline-offset: 0.2em; }
+    code {
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--green);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      padding: 0.1rem 0.35rem;
+    }
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+    header { display: grid; gap: 0.75rem; }
+    header p { font-size: 1.05rem; }
+    .meta {
+      display: grid;
+      gap: 0.35rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+    .meta span { color: var(--amber); }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; font-size: 1.35rem; }
+    .lede { padding-bottom: 1.75rem; }
+    pre {
+      overflow-x: auto;
+      padding: 1.25rem;
+      background: var(--surface);
+      color: var(--muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: pre;
+    }
+    .head { color: var(--pink); }
+    .label { color: var(--text); }
+    .size { color: var(--amber); }
+    .up { color: var(--pink); }
+    .down { color: var(--green); }
+    .same { color: var(--muted); }
+    .bar { color: var(--line); }
+    .focus { color: var(--blue); }
+    .lazy { color: var(--violet); }
+    .facts { display: grid; gap: 0.65rem; padding: 0; list-style: none; }
+    .facts strong { color: var(--text); font-weight: 650; }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Angular 20 vs Resolve_build_size_19 chunk sizes</h1>
+      <p>Total bytes barely moved. <span class="focus">Initial</span> first load almost doubled because vendor that the size-fix branch kept lazy is eager again on the Angular 20 QA prerender.</p>
+      <div class="meta" aria-label="Build identity">
+        <div><span>current</span> feature/release-0.0.23/16-17-18-19-20 f08c71681b</div>
+        <div><span>current stack</span> Angular 20.3.31, PrimeNG 20.4.0, npm run prerender-all-qa</div>
+        <div><span>baseline</span> Resolve_build_size_19 8041cebafa</div>
+        <div><span>baseline stack</span> Angular 19.2.25, PrimeNG 19.1.4, qa compile</div>
+        <div><span>sizes</span> raw / Brotli 11 transfer, same units Angular prints</div>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Browser totals</h2>
+        <p class="lede">JS and CSS chunks only. Prerender does not change these sizes. Feature lazy modules did not regress.</p>
+        <pre><code><span class="head">metric          | A19 size-fix         | A20 current           | delta</span>
+<span class="label">initial raw     </span><span class="bar">|</span><span class="size">  6.80 MB            </span><span class="bar">|</span><span class="size"> 12.43 MB            </span><span class="bar">|</span><span class="up"> +5.63 MB</span>
+<span class="label">initial transfer</span><span class="bar">|</span><span class="size">  1.14 MB            </span><span class="bar">|</span><span class="size">  2.00 MB            </span><span class="bar">|</span><span class="up"> +0.86 MB</span>
+<span class="lazy">lazy raw        </span><span class="bar">|</span><span class="size"> 16.82 MB            </span><span class="bar">|</span><span class="size"> 13.43 MB            </span><span class="bar">|</span><span class="down"> -3.39 MB</span>
+<span class="lazy">lazy transfer   </span><span class="bar">|</span><span class="size">  2.87 MB            </span><span class="bar">|</span><span class="size">  2.19 MB            </span><span class="bar">|</span><span class="down"> -0.68 MB</span>
+<span class="label">all raw         </span><span class="bar">|</span><span class="size"> 23.63 MB            </span><span class="bar">|</span><span class="size"> 25.86 MB            </span><span class="bar">|</span><span class="up"> +2.23 MB</span>
+<span class="label">all transfer    </span><span class="bar">|</span><span class="size">  4.02 MB            </span><span class="bar">|</span><span class="size">  4.19 MB            </span><span class="bar">|</span><span class="up"> +0.17 MB</span>
+<span class="label">initial files   </span><span class="bar">|</span><span class="size"> 27                  </span><span class="bar">|</span><span class="size"> 21                  </span><span class="bar">|</span><span class="same"> fewer files, more in initial</span>
+<span class="lazy">lazy files      </span><span class="bar">|</span><span class="size"> 117                 </span><span class="bar">|</span><span class="size"> 98                  </span><span class="bar">|</span><span class="same"> moved into initial</span></code></pre>
+      </section>
+
+      <section>
+        <h2>Named files</h2>
+        <p class="lede"><code>main</code> grew. <code>styles</code> shrank a little. Lazy feature modules stayed put.</p>
+        <pre><code><span class="head">name                         | A19                  | A20                  | delta</span>
+<span class="label">main                         </span><span class="bar">|</span><span class="size"> 184.43 kB / 44.09 kB</span><span class="bar">|</span><span class="size"> 293.22 kB / 55.80 kB</span><span class="bar">|</span><span class="up"> +108.80 kB raw</span>
+<span class="label">styles                       </span><span class="bar">|</span><span class="size"> 1.85 MB / 148.44 kB </span><span class="bar">|</span><span class="size"> 1.81 MB / 143.16 kB </span><span class="bar">|</span><span class="down"> -35 kB raw</span>
+<span class="label">polyfills                    </span><span class="bar">|</span><span class="size"> 35.10 kB            </span><span class="bar">|</span><span class="size"> 35.10 kB            </span><span class="bar">|</span><span class="same"> 0</span>
+<span class="label">scripts                      </span><span class="bar">|</span><span class="size"> 3.88 kB             </span><span class="bar">|</span><span class="size"> 3.88 kB             </span><span class="bar">|</span><span class="same"> 0</span>
+<span class="lazy">heic-to                      </span><span class="bar">|</span><span class="size"> 2.52 MB             </span><span class="bar">|</span><span class="size"> 2.52 MB             </span><span class="bar">|</span><span class="same"> 0</span>
+<span class="lazy">monetize-module              </span><span class="bar">|</span><span class="size"> 1.38 MB             </span><span class="bar">|</span><span class="size"> 1.38 MB             </span><span class="bar">|</span><span class="same"> ~0</span>
+<span class="lazy">insights-module              </span><span class="bar">|</span><span class="size"> 709.26 kB           </span><span class="bar">|</span><span class="size"> 708.92 kB           </span><span class="bar">|</span><span class="same"> ~0</span>
+<span class="lazy">messages-module              </span><span class="bar">|</span><span class="size"> 307.55 kB           </span><span class="bar">|</span><span class="size"> 306.79 kB           </span><span class="bar">|</span><span class="same"> ~0</span>
+<span class="lazy">whitelabel-cover-page-module </span><span class="bar">|</span><span class="size"> 316.27 kB           </span><span class="bar">|</span><span class="size"> 313.79 kB           </span><span class="bar">|</span><span class="down"> -2.5 kB</span>
+<span class="lazy">amazon-ivs-web-broadcast     </span><span class="bar">|</span><span class="size"> 619.21 kB           </span><span class="bar">|</span><span class="size"> 619.22 kB           </span><span class="bar">|</span><span class="same"> 0</span></code></pre>
+      </section>
+
+      <section>
+        <h2>Largest unnamed initial JS</h2>
+        <p class="lede">These kitchen-sink vendor chunks hold PrimeNG, Firebase, aws-sdk, video.js, ng-select, and Stripe. They are the bulk of the first-load jump. Server initial follows the same split: <span class="size">5.92 MB</span> to <span class="size">11.64 MB</span>.</p>
+        <pre><code><span class="head">rank | A19 size-fix | A20 current</span>
+<span class="label">1    </span><span class="bar">|</span><span class="size"> 2.51 MB     </span><span class="bar">|</span><span class="size"> 3.92 MB</span>
+<span class="label">2    </span><span class="bar">|</span><span class="size"> 1.08 MB     </span><span class="bar">|</span><span class="size"> 3.48 MB</span>
+<span class="label">3    </span><span class="bar">|</span><span class="size"> 587.50 kB   </span><span class="bar">|</span><span class="size"> 1.91 MB</span>
+<span class="label">sum  </span><span class="bar">|</span><span class="size"> 4.18 MB     </span><span class="bar">|</span><span class="size"> 9.31 MB</span><span class="bar">  </span><span class="up">+5.13 MB</span></code></pre>
+      </section>
+
+      <section>
+        <h2>Why initial grew</h2>
+        <ul class="facts">
+          <li><strong>Lara is eager on Angular 20.</strong> <code>AppModule</code> does <code>import * as LaraTheme from '@primeuix/themes/lara'</code> and passes the preset to <code>providePrimeNG</code>. <code>Resolve_build_size_19</code> only sets <code>darkModeSelector</code> up front and loads Lara later through <code>PrimeNgLoaderService</code>.</li>
+          <li><strong>Phone and emoji are eager again.</strong> Current <code>SharedModule</code> still imports <code>NgxIntlTelInputModule</code> and <code>PickerModule</code>. The size-fix branch deferred both. That shows up as initial <code>chunk-SA2WMUN6.js</code> at <span class="size">675.29 kB</span> (intl-tel-input and libphonenumber), which is not in A19 initial.</li>
+          <li><strong>The big unnamed initial JS chunks grew.</strong> Rank 1 to 3 went from <span class="size">4.18 MB</span> to <span class="size">9.31 MB</span>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What did not get worse</h2>
+        <p class="lede">Vendor CSS is slightly better here. ng-select, datepicker, and toastr CSS are <code>inject: false</code> on this branch and still sit in the main <code>styles</code> bundle on <code>Resolve_build_size_19</code>.</p>
+        <ul class="facts">
+          <li>The Angular 20 upgrade did not blow up total bytes. All-chunk transfer only moved from <span class="size">4.02 MB</span> to <span class="size">4.19 MB</span>.</li>
+          <li>It undid the initial-versus-lazy split that <code>Resolve_build_size_19</code> was built to create.</li>
+          <li>Full untruncated Angular 20 chunk list: <a href="prerender-all-qa-chunks.html">prerender-all-qa chunk sizes</a>.</li>
+        </ul>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

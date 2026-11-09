@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Proposed changes to make the TopFans Messages page load and run faster: remove a 1 second delay, parallelize DM validation, drop redundant change detection, and lazy-load heavy features.">
+  <title>Messages page performance: proposed changes</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+    h1, h2, p, ul { margin: 0; }
+    a { color: var(--blue); text-underline-offset: 0.18em; border-radius: 0.3rem; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+    p, li { color: var(--muted); }
+    strong { color: var(--text); font-weight: 650; }
+    code { border-radius: 0.3rem; background: rgba(255, 255, 255, 0.07); color: var(--text); font-family: var(--mono); font-size: 0.9em; padding: 0.1em 0.35em; overflow-wrap: anywhere; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 0.75rem; }
+    h1 { padding-bottom: 0.75rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; }
+    ul { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+    .items { display: grid; gap: 1.25rem; }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    footer { padding-top: 3rem; color: var(--muted); font-size: 0.875rem; }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Messages page performance: proposed changes</h1>
+      <p>Eight changes that make <code>/messages</code> usable sooner and cheaper to run. They are written against <code>MessageContainerComponent</code> at commit <code>d2667a2ed4</code> of TopFansLite-WebFrontend. <strong class="warn">These changes are proposals. Nothing has been applied to the repository.</strong></p>
+      <p>Gains are expected, not measured. Record a Chrome performance trace of <code>/messages</code> and a bundle analysis before and after, so each change can be checked.</p>
+    </header>
+
+    <main>
+      <section id="summary">
+        <h2>Summary</h2>
+        <ul><li><a href="#timeout">Remove the 1 second wait</a>. Improves <strong>Time to composer</strong>. Risk: Low.</li><li><a href="#parallel">Validate in parallel with history</a>. Improves <strong>Time to composer</strong>. Risk: Medium.</li><li><a href="#checked">Drop detectChanges after every check</a>. Improves <strong>Runtime cost</strong>. Risk: Medium.</li><li><a href="#trackby">trackBy on the message list</a>. Improves <strong>Runtime cost</strong>. Risk: Low.</li><li><a href="#emoji">Lazy emoji picker</a>. Improves <strong>Route JavaScript</strong>. Risk: Low to medium.</li><li><a href="#ivs">Lazy video player</a>. Improves <strong>Route JavaScript</strong>. Risk: Low.</li><li><a href="#modals">Defer click-only modals</a>. Improves <strong>Route JavaScript</strong>. Risk: Low.</li><li><a href="#refresh">Debounce list refresh</a>. Improves <strong>Requests per message</strong>. Risk: Low.</li></ul>
+      </section>
+
+      <section id="order">
+        <h2>Suggested order</h2>
+        <ul>
+          <li>Ship changes 1 and 3 first. They are small and remove the two largest fixed costs.</li>
+          <li>Ship change 4 with them. It is independent and low risk.</li>
+          <li>Ship change 2 on its own, because it changes how validation is cancelled.</li>
+          <li>Ship changes 5, 6, and 7 together as the lazy-loading pass, then measure the route chunk.</li>
+          <li>Ship change 8 last.</li>
+        </ul>
+      </section>
+
+      <section id="timeout">
+        <h2>1. Remove the 1 second wait before DM validation</h2>
+        <div class="items">
+          <p><code>message-container.component.ts, getUserEmail()</code></p>
+          <p>The composer stays behind <code>msgrightLoader</code> until <code>ChatUserValidation</code> returns. That call is scheduled inside a fixed <code>setTimeout(…, 1000)</code>. The block reads <code>messageList[0]</code>, which is already filled when <code>getUserEmail</code> is called, so nothing in it needs the delay.</p>
+          <p><strong>Change.</strong> Delete the timer and run its body directly. The body reads <code>messageList[0]</code> to find the other user, sets <code>fetchedUser</code>, then either clears the loader (lists and followers) or calls <code>checkNewUserValidation</code>.</p>
+          <ul><li>Expected gain: at least 1 second before the composer appears on every conversation open.</li><li>Risk: low. Check that the thread does not flash an empty or half-scrolled state, since the old delay may have hidden that.</li></ul>
+        </div>
+      </section>
+      <section id="parallel">
+        <h2>2. Start DM validation in parallel with message history</h2>
+        <div class="items">
+          <p><code>message-container.component.ts, fields, getUserChatMessage(), checkNewUserValidation(), getUserMsgDetails()</code></p>
+          <p>For a direct chat the other user is already known in <code>getUserMsgDetails(userInfo)</code>, but validation only starts after <code>previousMessages</code> returns, because it derives the user from <code>messageList[0]</code>. Fire it right away instead. One trap: <code>previousMessages</code> and <code>ChatUserValidation</code> currently share <code>userValidationCancel$</code>, so starting validation would cancel the history request. Split the subject first.</p>
+          <p><strong>Change.</strong> Split <code>userValidationCancel$</code> into <code>historyCancel$</code> and <code>validationCancel$</code>, and add <code>validatedFor</code> and <code>validationPending</code> fields. Call <code>checkNewUserValidation(userInfo.gsi4pk)</code> from <code>getUserMsgDetails</code> right after <code>getUserChatMessage</code>. In <code>getUserEmail</code>, skip the second call when the recipient already matches <code>validatedFor</code> and set the loader from <code>validationPending</code>. Reset both fields whenever a new conversation loads.</p>
+          <ul><li>Expected gain: removes one sequential round trip, so the composer no longer waits for history. Apply after the timeout removal above.</li><li>Only the direct-chat path is changed. Lists, followers, and new-user starts still validate from <code>getUserEmail</code>.</li><li>Risk: medium. Test switching quickly between conversations, since stale validation must never apply to the wrong user. The reset in <code>getUserChatMessage</code> is what guards that.</li></ul>
+        </div>
+      </section>
+      <section id="checked">
+        <h2>3. Remove the change detection call after every view check</h2>
+        <div class="items">
+          <p><code>message-container.component.ts</code></p>
+          <p><code>ngAfterViewChecked</code> calls <code>detectChanges()</code>, which re-runs change detection on the whole 2,300-line template after every check. Every keystroke, socket event, and timer tick pays for it twice. Other <code>detectChanges</code> calls in upload and recorder callbacks can stay.</p>
+          <p><strong>Change.</strong> Delete the <code>ngAfterViewChecked</code> method.</p>
+          <ul><li>Expected gain: roughly halves change detection work on this page.</li><li>Risk: medium. Something may rely on the extra pass. Walk through recording, emoji insert, tip popup, drag and drop, and share pickers. If one view lags, add a targeted <code>markForCheck()</code> there.</li><li>Follow-up, not in this diff: move to <code>ChangeDetectionStrategy.OnPush</code> after the component split.</li></ul>
+        </div>
+      </section>
+      <section id="trackby">
+        <h2>4. Add trackBy to the message list</h2>
+        <div class="items">
+          <p><code>message-container.component.html line 587 and message-container.component.ts</code></p>
+          <p>The <code>*ngFor</code> over <code>messageList</code> has no <code>trackBy</code>. Angular compares by object identity, so any array replacement re-creates every bubble, including images and video and audio players. The existing <code>trackItem</code> returns the item itself, so it would not help here.</p>
+          <p><strong>Change.</strong> Add <code>trackBy: trackMessage</code> to the <code>messageList</code> loop, and a <code>trackMessage</code> method that returns <code>uinqueId</code>, falling back to timestamp plus sender.</p>
+          <ul><li>Expected gain: appending or confirming a message updates one bubble instead of rebuilding the list.</li><li>Risk: low. Confirm the key stays stable when a local message is confirmed by the server, and that two messages never share a timestamp and sender.</li></ul>
+        </div>
+      </section>
+      <section id="emoji">
+        <h2>5. Load the emoji picker only when it opens</h2>
+        <div class="items">
+          <p><code>new emoji-picker-lazy.component.ts, message-container.component.html and .scss</code></p>
+          <p><code>emoji-mart</code> is declared by <code>PickerModule</code>, which is an NgModule, so <code>@defer</code> cannot split it directly. Wrap it in a small standalone component and defer that. The wrapper must own the two <code>emoji-mart</code> style blocks now at scss lines 1061 and 1079, because Angular view encapsulation stops the container's styles reaching an element inside another component.</p>
+          <p><strong>Change.</strong> Create a standalone <code>EmojiPickerLazyComponent</code> that imports <code>PickerModule</code>, re-emits <code>emojiSelect</code>, and uses <code>display: contents</code> on its host. Replace the <code>emoji-mart</code> element with <code>@if (showEmojiPicker)</code> wrapping a <code>@defer</code> block that renders the wrapper. Swap <code>PickerModule</code> for the wrapper in the container's imports, and move the two <code>emoji-mart</code> style blocks into the wrapper's SCSS.</p>
+          <ul><li>Expected gain: the emoji picker code leaves the route chunk and loads on first open.</li><li>Risk: low to medium. Compare picker position and size before and after. The first open has a short delay, which <code>@defer (prefetch on idle)</code> can hide.</li></ul>
+        </div>
+      </section>
+      <section id="ivs">
+        <h2>6. Load the video player only when a video plays</h2>
+        <div class="items">
+          <p><code>new message-video-player.component.ts, message-container.component.html lines 759 and 1178</code></p>
+          <p><code>vjs-ivs-player</code> comes from <code>NgIvsModule</code>, which is not standalone, so the same wrapper approach applies. The player sits behind <code>startVideo</code>, so it is only needed after a tap. <code>@cotufa82/ng-ivs</code> is about 37 MB installed and pulls in video.js and the IVS player, so this is likely the largest chunk saving. The size is installed weight, not the measured bundle.</p>
+          <p><strong>Change.</strong> Create a standalone <code>MessageVideoPlayerComponent</code> that imports <code>NgIvsModule</code> and <code>VideoOption</code> and takes a <code>url</code> input. Replace both <code>vjs-ivs-player</code> elements (lines 759 and 1178) with a <code>@defer</code> block that renders the wrapper, and swap <code>NgIvsModule</code> for the wrapper in the imports.</p>
+          <ul><li>Repeat the template change at the second call site, line 1178.</li><li>Expected gain: video.js and the IVS player load on first play, not on page load.</li><li>Risk: low. Add a small placeholder or spinner inside <code>@defer</code>, since the first play now waits for the chunk.</li></ul>
+        </div>
+      </section>
+      <section id="modals">
+        <h2>7. Defer modals that are only opened on click</h2>
+        <div class="items">
+          <p><code>message-container.component.html lines 2223 to 2306, message-container.component.ts</code></p>
+          <p>The automated-message modal and the three share modals are standalone components, but they are created with the page. Wrap them in <code>@defer (on idle)</code> so they load after first render. The share modals are also creator-only. <code>openMerchandiseShareModal</code> dereferences its <code>ViewChild</code> without a guard, which would throw if a click beat the deferred load, so guard it.</p>
+          <p><strong>Change.</strong> Wrap <code>app-automated-message-modal</code> in <code>@defer (on idle)</code>. Wrap the three share modals in <code>@if (isCreator)</code> plus <code>@defer (on idle)</code>. Add a <code>ViewChild</code> null guard to <code>openMerchandiseShareModal</code>.</p>
+          <ul><li>Expected gain: four components and their dependencies, including the dynamic form builder and store pickers, leave the initial route chunk.</li><li>Risk: low. The automated modal is already called with <code>?.</code>. Test creating, editing, and deleting an automated message right after page load.</li></ul>
+        </div>
+      </section>
+      <section id="refresh">
+        <h2>8. Debounce the conversation list refresh on incoming messages</h2>
+        <div class="items">
+          <p><code>message-container.component.ts, receiveMessage()</code></p>
+          <p>Each incoming message calls <code>getUserChatLogs(false, '')</code> in both branches of <code>receiveMessage</code>. That refetches the whole list, and its success handler also fires another <code>ChatUserValidation</code> POST. A burst of messages produces a burst of both requests. Coalesce them.</p>
+          <p><strong>Change.</strong> Add a <code>refreshChatLogs$</code> subject, debounced by 500 ms and subscribed in <code>ngAfterViewInit</code> through <code>subscriptionList</code>. Replace both <code>getUserChatLogs(false, '')</code> calls in <code>receiveMessage</code> with <code>refreshChatLogs$.next()</code>, and import <code>debounceTime</code>.</p>
+          <ul><li>Expected gain: one list fetch and one validation POST per burst of messages, instead of one per message.</li><li>Risk: low. The sidebar catches up up to 500 ms later. The open thread and header counter are updated separately and stay instant.</li></ul>
+        </div>
+      </section>
+
+      <section id="regression">
+        <h2>Regression checklist</h2>
+        <ul>
+          <li>Open a direct chat and confirm the composer appears without the old delay and shows the right free DM count.</li>
+          <li>Switch quickly between three conversations and confirm the tip and price controls match each user.</li>
+          <li>Open a message list, a followers send, and a new-user start. They must still validate correctly.</li>
+          <li>Send text, media, a voice note, and a paid message, and check upload progress and the leave-page guard.</li>
+          <li>Open the emoji picker, play a video, and open each share modal, both right after load and later.</li>
+          <li>Receive several messages in a row while viewing another conversation and confirm the list and header counter update.</li>
+          <li>Repeat as a fan, a creator, a delegate, and on a white-label site.</li>
+        </ul>
+      </section>
+
+      <section id="later">
+        <h2>Not in these changes</h2>
+        <ul>
+          <li>Precompute the day label and time for each message once, instead of walking the array with <code>moment()</code> on every fetch.</li>
+          <li>Update a conversation row locally on receive instead of refetching the list.</li>
+          <li>Move to <code>OnPush</code> and signals as part of the component split.</li>
+          <li>Enable history paging. <code>onUp()</code> has its call commented out, so only the first page loads.</li>
+        </ul>
+      </section>
+    </main>
+
+    <footer>Source: <code>src/app/modules/messages/components/message-container</code>.</footer>
+  </div>
+</body>
+</html>

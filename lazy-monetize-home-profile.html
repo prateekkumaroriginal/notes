@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Monetize pages load one at a time, and home no longer ships Profile</title>
+  <meta name="description" content="Monetize child routes use loadComponent, the main home page stops bundling ProfileComponent, and the post-price camera modal loads on click. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > .table-wrap + p,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Monetize pages load one at a time, and home no longer ships Profile</h1>
+      <p>Opening subscriptions no longer downloads the event calendar, the newsletter editor, and every other monetize form. The main site's <code>/</code> no longer downloads <code>ProfileComponent</code>. White-label homes that still fall back to a profile load it with <code>import()</code> and wait for that import during SSR. The post-price camera modal loads when someone clicks it. That last change does not undo the 4 KB leftover from PR 10841.</p>
+      <div class="meta">
+        <span>branch t3code/lazy-monetize-home-profile</span>
+        <span>on top of 81c5e10824, PR 10845 merged</span>
+        <span>Follow-ups 2, 3, and 4 of <a href="standalone-routes-whats-left.html">what's left</a></span>
+        <span>4 commits, <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10847">PR 10847</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>First-visit JavaScript</h2>
+        <p>What a first visit fetches on top of the initial bundle, from the QA build. Sizes are minified bytes before compression. Before means after PR 10845. MB means a million bytes.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>The monetize routes file itself</td><td class="num">3.20 MB</td><td class="num">12.7 KB</td></tr>
+              <tr><td><code>/monetize/subscription</code></td><td class="num">3.20 MB</td><td class="num">0.53 MB</td></tr>
+              <tr><td><code>/monetize/merchandise</code></td><td class="num">3.20 MB</td><td class="num">41 KB</td></tr>
+              <tr><td><code>/monetize/downloadable</code></td><td class="num">3.20 MB</td><td class="num">21 KB</td></tr>
+              <tr><td><code>/monetize/newsletters</code></td><td class="num">3.20 MB</td><td class="num">0.19 MB</td></tr>
+              <tr><td><code>/monetize/newsletters/add</code></td><td class="num">3.20 MB</td><td class="num">1.53 MB</td></tr>
+              <tr><td>Main site <code>/</code></td><td class="num">3.22 MB</td><td class="num">2.79 MB</td></tr>
+              <tr><td>The post-price dialog, counted alone</td><td class="num">123 KB</td><td class="num">118 KB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>A first visit to a monetize child also downloads the 12.7 KB parent. Add-newsletter stays large because that page still owns the text editor. The initial bundle grew by 3.2 KB. The build now has 341 JavaScript files instead of 276, because each monetize page is its own entry, and so are <code>ProfileComponent</code> and the camera modal. No route loads <code>SharedModule</code>.</p>
+      </section>
+
+      <section>
+        <h2>Commit 3e564a2ca2: load each monetize page only when its route opens</h2>
+        <p class="meta">1 file, +232 &minus;193</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>MonetizeContainerComponent</code> stays a static import. The shell is needed as soon as <code>/monetize</code> opens.</li>
+          <li>Every page, including nested nft, experience, course, and discount-code children, uses <code>loadComponent</code>.</li>
+          <li>Portfolio still uses <code>loadChildren</code>. Advertisements still only redirects to <code>preferences</code>. Guards and <code>delegatePath</code> data are the same.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against PR 10845</td><td>645 of 646 components match. The one change is the home landing page, from the next commit.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as before.</td></tr>
+              <tr><td>Logged-in white-label walk</td><td>Listing pages and the add forms for newsletters, events, merchandise, subscriptions, courses, experiences, nfts, vip offers, and discount codes land on the same components. The first pass of add-downloadable was still loading at 9 seconds. At 20 seconds it matches.</td></tr>
+              <tr><td>ESLint on the routes file</td><td>Clean.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit 367e633593: keep ProfileComponent off the main site home chunk</h2>
+        <p class="meta">2 files, +28 &minus;6</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>PromotionalLandingComponent</code> no longer imports <code>ProfileComponent</code> as a value. The type-only import is erased.</li>
+          <li>White-label builds start <code>import()</code> in the constructor and keep a <code>PendingTasks</code> entry open until it finishes, so SSR still emits <code>&lt;app-profile&gt;</code> on the profile fallback.</li>
+          <li>The template uses <code>ngComponentOutlet</code> and passes <code>userId</code>. A static import, or <code>@defer</code>, would either keep the profile on the main home chunk or drop it from white-label SSR.</li>
+        </ul>
+        <p>Without <code>PendingTasks</code>, the first white-label SSR of <code>/</code> came back 80 KB lighter and had no <code>&lt;app-profile&gt;</code>. The import finished after the server decided it was done. The task list is what makes Angular wait.</p>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies</td><td>The landing page lost <code>ProfileComponent</code> and gained <code>NgComponentOutlet</code>. Every other component matches.</td></tr>
+              <tr><td>Main site <code>/</code> network</td><td>No <code>app-profile</code> in the document, and no profile file in the JavaScript the page fetched.</td></tr>
+              <tr><td>White-label <code>/</code> SSR</td><td>Same <code>&lt;app-profile&gt;</code> and skeleton as PR 10845, 252 KB of HTML either side.</td></tr>
+              <tr><td>Logged-in white-label home</td><td>Redirects to <code>/perfectcrew</code> and renders the profile, sidebar, and welcome video. Text length drifted by a few dozen characters. Tag counts matched after 20 seconds.</td></tr>
+              <tr><td>Server rendering, 145 URLs, then 5 again after the pending-task fix</td><td>All match PR 10845.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit 6db341b485: open the post-price camera modal only when it is used</h2>
+        <p class="meta">1 file, +4 &minus;2</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>openCameraTestModal</code> now <code>import()</code>s <code>CameraModalComponent</code> before <code>BsModalService.show</code>.</li>
+          <li>The image cropper stays in the decorator. The template still renders it behind <code>*ngIf</code>.</li>
+        </ul>
+        <p>This is cleanup, not a fix for the 4 KB leftover from PR 10841. Counted on top of the dashboard, the dialog still fetches about 65 KB, almost all of it <code>post-price.component.ts</code>, <code>add-lock</code>, and <code>custom-input-list</code>. Those files were already in the leftover after 10841. Pulling the camera out of the static graph drops the dialog-alone entry by 5 KB, because the camera is no longer in that leftover. It does not shrink the extra-beyond-dashboard set. That set even grew by 1 KB from one more chunk.</p>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Post-price template dependencies</td><td>Unchanged. The camera was never in the template.</td></tr>
+              <tr><td>Article and video lock dialogs</td><td>Both open with the same inputs, text, and child tags. Nothing was saved.</td></tr>
+              <tr><td>ESLint on the dialog</td><td>Clean.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit cb2893c092: don't open the camera after the lock dialog closes</h2>
+        <p class="meta">1 file, +54 &minus;22</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>Only one camera-chunk import runs at a time. A second click during that wait is ignored.</li>
+          <li>After the import, the modal opens only if that click is still the current request.</li>
+          <li><code>cancelModal</code> and <code>ngOnDestroy</code> drop the request, so a late import does not call <code>show</code> or <code>getUserMedia</code>.</li>
+          <li>A failed import shows the existing error string and clears the pending flag so the next click can try again.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Cancel during a delayed import</td><td>Zero camera modals.</td></tr>
+              <tr><td>Two clicks during that delay</td><td>One camera modal.</td></tr>
+              <tr><td>One click with the chunk already ready</td><td>One camera modal.</td></tr>
+              <tr><td>Failed import, then a later click</td><td>The pending flag clears. The later click opens one.</td></tr>
+              <tr><td>ESLint on the dialog</td><td>Clean.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The webcam button only exists on an active livestream's lock dialog. I did not go live to click it in the running app.</p>
+      </section>
+
+      <section>
+        <h2>What's left</h2>
+        <ul>
+          <li><code>AppModule</code> and <code>AppServerModule</code> are the last NgModules.</li>
+          <li>Every marketing page still ships all 55 section components.</li>
+          <li>The post-price leftover after dashboard is still <code>custom-input-list</code> sitting with add-lock, not unused decorator imports.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Use a creator account on its white-label site. Keep the console open. Checks that end in save change real data, so use a test account. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Monetize pages that used to share one chunk</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="m-sub"><span>Open <code>/monetize/subscription</code>. The plans list still loads. Add a plan dialog still opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="m-add"><span>Open add downloadable, add event, add newsletter, add course, and add discount code. Each form still renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="m-nested"><span>Open nfts, experiences, and courses, then a child route under each. The parent chrome stays, and the child swaps.</span></label></li>
+              <li><label><input type="checkbox" data-id="m-ads"><span>Open <code>/monetize/advertisements</code>. It still lands on preferences.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Home profile fallback</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="h-main"><span>On the main site, open <code>/</code>. The marketing home still renders. The network panel should not fetch a profile chunk.</span></label></li>
+              <li><label><input type="checkbox" data-id="h-wls"><span>On a white-label site with no published cover page, open <code>/</code>. The owner profile still renders, including after a refresh.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Post-price camera</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="p-lock"><span>From new post, open the lock dialog on article and video. The lock fields still render.</span></label></li>
+              <li><label><input type="checkbox" data-id="p-cam"><span>Click the camera control. The camera modal still opens. Do not save the post.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "lazy-monetize-home-profile-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

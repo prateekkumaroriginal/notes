@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10833 review-astra</title>
+<meta name="description" content="Independent review of the wallet standalone migration, with route, template dependency, and QA bundle checks.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10833-review-astra">
+<style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--green); }
+    pre .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > p + .pair { margin-top: 0.75rem; }
+
+    section > * + .table-wrap,
+    section > * + pre,
+    section > * + .pair { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .pair {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .pair figure { display: grid; gap: 0.5rem; align-content: start; }
+
+    .pair figcaption {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .pair { grid-template-columns: 1fr; }
+    }
+
+.table-wrap { overflow-x: auto; } td code { overflow-wrap: anywhere; }
+
+code { overflow-wrap: anywhere; }
+nav { color: var(--muted); line-height: 1.8; } p, li { line-height: 1.65; } td code { overflow-wrap: anywhere; } th { text-transform: none; letter-spacing: normal; font-size: inherit; } html { scroll-behavior: smooth; } @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+pre { border: 1px solid var(--line); border-radius: .6rem; }
+.verdict { color: var(--amber); }
+.checks-table { overflow-x: auto; }
+
+p,li,td { overflow-wrap: anywhere; }
+</style></head><body><div class="page">
+<header>
+<a href="/">All notes</a>
+<h1>PR 10833 review-astra</h1>
+<p>Wallet becomes standalone and stops loading SharedModule.</p>
+<p class="meta">Reviewed 24 September 2026 · Head 9f85284bbcb · Base f26da3be4d5 · 53 changed files</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10833">Pull request</a> · <a href="wallet-standalone.html">Implementation notes</a> · <a href="#checks">Checks run</a> · <a href="#manual">Before release</a></p>
+</header>
+<main>
+<section>
+<h2>No new defect found</h2>
+<p>I found no actionable regression in the reviewed diff. The route structure survives the migration, the compiled template dependencies match apart from one unused phone-library directive, and both base and head pass the TopFans QA build.</p>
+<p>The lazy-load reduction holds up in an independent build. Wallet needs <strong>2,370,199 fewer bytes of JavaScript</strong> beyond the initial load, a 58.5% reduction. This is a useful change.</p>
+<p class="warn">This review does not verify signed-in payment, refund, payout, or fulfillment actions. Those flows still need the checks below before release.</p>
+</section>
+<section>
+<h2>What changed</h2>
+<p>The app now lazy-loads <code>WALLET_ROUTES</code> instead of <code>WalletModule</code>. The PR removes the wallet routing and feature modules, converts their 35 declared components, and makes eight shared components, directives, and pipes standalone. Referrals is one of the 35 former declarations, though its file lives under Monetize.</p>
+<p>Each converted component imports what its template uses. Table and resend verification also replace their SharedModule imports with direct dependencies. Those shared consumers matter because a remaining static import would keep pulling the large module into wallet.</p>
+<p>Insights imports <code>TransactionHistoryComponent</code> directly. Its parent route now provides <code>WalletHomeService</code>, which the nested refund modals inject.</p>
+</section>
+<section>
+<h2>The checks that mattered</h2>
+<h3>Routes and permissions stay intact</h3>
+<p>I parsed the old and new route definitions and compared the old routes with the new wrapper's children. All <strong>26 route records match</strong>, including component names, redirects, guards, permission data, nested purchase routes, and the wildcard fallback.</p>
+<p>The new empty-path wrapper puts <code>WalletHomeService</code> above both wallet branches. The outer app route still carries the authentication, permission, and creator-approval guards. Wallet remains lazy-loaded at the feature boundary.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9f85284bbcb97bd88b061e377101f7e975213fcd/src/app/modules/wallet/wallet.routes.ts#L31">Wallet routes</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9f85284bbcb97bd88b061e377101f7e975213fcd/src/app/app-routing.module.ts#L131">App route and guards</a></p>
+<h3>The refund modals retain their service</h3>
+<p>Transaction history renders transaction details, which can render the refund actions and their accept and reject modals. Those modals inject <code>WalletHomeService</code>. The new provider on the Insights parent route covers this chain when the earnings screen uses transaction history.</p>
+<p>I checked the source dependency chain. I did not submit a refund or instantiate these screens with an authenticated account.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9f85284bbcb97bd88b061e377101f7e975213fcd/src/app/modules/insights/insights.routes.ts#L7">Insights provider</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9f85284bbcb97bd88b061e377101f7e975213fcd/src/app/modules/wallet/component/refund-requests/action-on-refund-requests/action-on-refund-requests.component.html">Refund modal templates</a></p>
+<h3>Template imports match the base</h3>
+<p>I compiled base and head separately with Angular's compiler, then compared the matched directive and pipe dependencies for all <strong>656 components</strong>. The sets match for 652 components. No component gains a matched dependency.</p>
+<p>The four differences are connect credit card, current balance, payout account section, and transaction history. Each loses only <code>NativeElementInjectorDirective</code> from <code>ngx-intl-tel-input</code>.</p>
+<p>That directive attaches the host element to an Angular form control's <code>nativeElement</code> property. The four templates do not use the phone input widget, and the application search found no consumer of that added control property. I do not consider its removal a defect.</p>
+<p>This comparison matters because the repository has <code>strictTemplates: false</code>. A build can succeed even when a plain directive attribute no longer matches an imported directive.</p>
+<h3>Removed module providers have replacements</h3>
+<p>The app's shared root providers already supply <code>DatePipe</code> and the circle-progress configuration. Wallet no longer needs its own copies. I also checked wallet templates for mask bindings before accepting the removal of <code>provideNgxMask()</code>.</p>
+<p>The eight shared declarations move into SharedModule's imports and remain exported, so existing NgModule consumers can still use them.</p>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9f85284bbcb97bd88b061e377101f7e975213fcd/src/app/modules/shared/shared-root.providers.ts#L41">Shared root providers</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9f85284bbcb97bd88b061e377101f7e975213fcd/src/app/modules/shared/shared.module.ts">SharedModule compatibility</a></p>
+</section>
+<section>
+<h2>Measured bundle change</h2>
+<p>These are raw JavaScript bytes from independent QA build statistics. I followed each route entry's static imports and excluded JavaScript already reachable from the main and polyfills entries. They are not compressed download sizes or load-time measurements.</p>
+<div class="table-wrap"><table>
+<thead><tr><th scope="col">Route</th><th scope="col">Base</th><th scope="col">PR head</th><th scope="col">Reduction</th></tr></thead>
+<tbody>
+<tr><td>Wallet</td><td>4,054,330 bytes</td><td>1,684,131 bytes</td><td class="ok">58.5%</td></tr>
+<tr><td>Insights</td><td>5,301,929 bytes</td><td>4,779,189 bytes</td><td class="ok">9.9%</td></tr>
+</tbody></table></div>
+<p>Wallet's lazy dependency set no longer contains SharedModule. Insights still contains it. Both route totals reproduce the PR description exactly.</p>
+<p>The CLI reports an initial total of 8.92 MB on both builds, including styles and global scripts. The PR quotes 6.86 MB for the initial bundle. That figure does not match this run's reporting, so I am not repeating it as a verified result. The initial main and polyfills JavaScript dependency sets total 7,134,586 bytes on base and 7,131,196 bytes on head, excluding the separate global scripts bundle.</p>
+</section>
+<section id="checks">
+<h2>Checks run</h2>
+<div class="table-wrap"><table>
+<thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead>
+<tbody>
+<tr><td>Exact PR revisions</td><td>Reviewed head 9f85284bbcb against base f26da3be4d5 in separate worktrees. Existing local edits stayed out of the builds.</td></tr>
+<tr><td>TopFans QA builds</td><td>Base and head pass. Each emits 42 warning entries.</td></tr>
+<tr><td>Angular compilation</td><td>Base and head pass. Compared all 656 emitted component dependency sets.</td></tr>
+<tr><td>Wallet route comparison</td><td>All 26 original route records match inside the new provider wrapper.</td></tr>
+<tr><td>Generated white-label build</td><td>Pass. Generated the blossom project configuration with the repository generator and reused its existing tenant environment. The QA browser and server build succeeds. No tenant environment file was edited.</td></tr>
+<tr><td>Lazy dependency sizes</td><td>Wallet and Insights totals match the PR's reported byte counts.</td></tr>
+<tr><td>Signed-in browser actions</td><td>Not run. No payment, payout, refund, or fulfillment operation was submitted.</td></tr>
+</tbody></table></div>
+<p>Builds used Node's 10 GB heap limit and disabled prerendering. The development command could not start because this checkout lacks <code>environment.dev.ts</code>. I used the existing QA configuration instead and left environment files unchanged.</p>
+<p>The author's browser dependency checks, 41-URL SSR comparison, and lint results remain author-reported evidence. I did not rerun them. An unauthenticated SSR response for a protected wallet URL checks the shell, not the wallet screen.</p>
+</section>
+<section id="manual">
+<h2>Before release</h2>
+<p>Run these with test accounts on TopFans and a generated white-label site. Use the existing payment test setup for actions that change money or account state.</p>
+<ol>
+<li>Open wallet and Insights earnings directly in fresh sessions. Open a refundable transaction, then open both accept and reject dialogs. Check for missing-provider errors and verify the displayed amounts.</li>
+<li>In the test environment, complete one refund decision. Confirm the list refreshes and wallet counters update. Visit wallet and Insights in both orders.</li>
+<li>Open current balance, add-card, payout verification, and the resend-verification dialog. Check form input, the embedded Stripe interface, and the OTP countdown.</li>
+<li>Open purchase details for a subscription and a ticket. Check refund status, holdback actions, ticket expansion, and the ticket modal.</li>
+<li>Check loyalty point purchase and fulfillment dialogs. For an experience, verify file selection and upload progress.</li>
+<li>Use a delegate account and a non-owner account to check wallet links and direct URLs. Confirm the existing permission and white-label owner restrictions still apply.</li>
+</ol>
+</section>
+<section>
+<h2>Review scope</h2>
+<p>This is a code and build review of the standalone migration. No source fix is proposed because the review found no new defect. It does not establish that every wallet workflow works in a signed-in browser.</p>
+<p>The recommendation applies to the head commit shown above. If the PR changes, repeat the dependency comparison and the affected runtime checks.</p>
+</section>
+</main></div></body></html>

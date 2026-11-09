@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review and comparison of TopFans pull requests 10826 and 10827, which migrate five Angular feature routes to standalone components.">
+  <title>PR 10826 vs 10827 | Standalone route review</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131A24;
+      --panel: #1A2331;
+      --ink: #E8EDF4;
+      --muted: #8593A6;
+      --dim: #4E5B6E;
+      --rule: #2A3546;
+      --minus: #F0776F;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5FCF8F;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8FB4FF;
+      --sans: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+      --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html { background: var(--paper); color: var(--ink); font-family: var(--sans); }
+    body { margin: 0; }
+    a { color: var(--focus); text-underline-offset: .2em; }
+    a:hover { color: var(--ink); }
+    a:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; border-radius: 3px; }
+    h1, h2, h3, p, ul, ol, table { margin: 0; }
+    p, li, td { color: var(--muted); line-height: 1.55; }
+    code { color: var(--ink); font-family: var(--mono); font-size: .88em; overflow-wrap: anywhere; }
+    strong { color: var(--ink); font-weight: 600; }
+    .page { width: min(960px, calc(100% - 2rem)); margin: auto; padding: 5rem 0; }
+    .topline { color: var(--muted); font: 500 .78rem var(--mono); letter-spacing: .06em; text-transform: uppercase; }
+    h1 { max-width: 18ch; padding-top: .8rem; font-size: clamp(2.6rem, 7vw, 5.4rem); line-height: 1.02; letter-spacing: -.05em; }
+    .intro { max-width: 70ch; padding-top: 1.35rem; font-size: 1.1rem; }
+    .meta { display: flex; flex-wrap: wrap; gap: .7rem 1.4rem; padding-top: 1.55rem; color: var(--muted); font: .82rem var(--mono); }
+    main { padding-top: 3.2rem; }
+    section + section { padding-top: 3.5rem; }
+    h2 { padding-bottom: .9rem; font-size: clamp(1.45rem, 3vw, 2rem); letter-spacing: -.025em; }
+    h3 { padding-bottom: .45rem; font-size: 1.08rem; }
+    .verdict { padding: 1.25rem 1.4rem; background: var(--plus-bg); border-left: 3px solid var(--plus); border-radius: 7px; }
+    .verdict p { color: var(--ink); }
+    .verdict p + p { padding-top: .6rem; color: var(--muted); }
+    .table-wrap { width: 100%; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { padding: .8rem 1rem .8rem 0; color: var(--ink); font: 600 .8rem var(--mono); vertical-align: top; }
+    td { padding: .85rem 1rem .85rem 0; vertical-align: top; }
+    th, td { border-bottom: 1px solid var(--rule); }
+    tr:last-child td { border-bottom: 0; }
+    th:first-child, td:first-child { width: 22%; }
+    .good { color: var(--plus); }
+    .attention { color: var(--minus); }
+    .findings { display: grid; gap: 1.8rem; padding: 0; list-style: none; }
+    .finding { padding-left: 1.1rem; border-left: 2px solid var(--rule); }
+    .finding.concern { border-left-color: var(--minus); }
+    .finding.note { border-left-color: var(--focus); }
+    .finding p + p { padding-top: .65rem; }
+    .tag { display: inline-block; padding-bottom: .45rem; color: var(--minus); font: 600 .75rem var(--mono); text-transform: uppercase; letter-spacing: .04em; }
+    .note .tag { color: var(--focus); }
+    .compact { padding-left: 1.3rem; }
+    .compact li + li { padding-top: .65rem; }
+    .evidence { padding-top: .65rem; font-size: .9rem; }
+    .checks { display: grid; gap: 1rem; padding: 0; list-style: none; }
+    .checks li { padding-left: 1.4rem; position: relative; }
+    .checks li::before { content: '✓'; position: absolute; left: 0; color: var(--plus); }
+    .checks li.open::before { content: '○'; color: var(--minus); }
+    .source-list { display: flex; flex-wrap: wrap; gap: .7rem 1.4rem; padding: 0; list-style: none; }
+    footer { padding-top: 3rem; color: var(--muted); font-size: .86rem; }
+    @media (max-width: 700px) {
+      .page { padding: 3rem 0; }
+      main { padding-top: 2.5rem; }
+      section + section { padding-top: 3rem; }
+      table { min-width: 660px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <p class="topline">TopFans web frontend / code review / 23 September 2026</p>
+      <h1>Two takes on standalone routes</h1>
+      <p class="intro"><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10826">PR 10826</a> and <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10827">PR 10827</a> start from the same commit and convert the same five feature areas. Their main runtime difference is how many chunks a normal link-in-bio visit loads.</p>
+      <div class="meta"><span>Base <code>5345fee1fc</code></span><span>10826 <code>c320b59a9f</code></span><span>10827 <code>e5389aa596</code></span><span>20 files each</span></div>
+    </header>
+
+    <main>
+      <section aria-labelledby="recommendation">
+        <h2 id="recommendation">Recommendation</h2>
+        <div class="verdict">
+          <p><strong>Prefer PR 10826.</strong> It puts the <code>/bio</code> child routes and preview component in one 59,639 byte browser chunk. PR 10827 splits them into a 319 byte routes chunk followed by a 59,537 byte component chunk, adding a sequential load for the normal <code>/bio/:userName</code> path. Both preserve the outer <code>/bio</code> lazy boundary, and both QA builds have the same 12.30 MB initial bundle.</p>
+          <p>Before merging, check whether nested <code>/creator</code> or <code>/creators</code> auth and setup URLs are supported. PR 10826 also avoids the redundant <code>CUSTOM_ELEMENTS_SCHEMA</code> that PR 10827 adds to the creators component. No compile blocker was found in either PR.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="comparison">
+        <h2 id="comparison">What differs</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Area</th><th>PR 10826</th><th>PR 10827</th></tr></thead>
+            <tbody>
+              <tr><td><code>/bio/:userName</code></td><td>Static <code>component</code> import. Routes and preview share one 59,639 byte lazy chunk. <span class="good">One load after the parent match.</span></td><td><code>loadComponent</code> splits the child route and preview into 319 and 59,537 byte chunks. The normal username path waits for both.</td></tr>
+              <tr><td>Creators schema</td><td>No component schema. Angular template compilation passes.</td><td>Adds <code>CUSTOM_ELEMENTS_SCHEMA</code>. Compilation also passes, but the schema is unnecessary for the current template.</td></tr>
+              <tr><td>QA build</td><td>Passes. 12.30 MB raw initial bundle and 109 browser JavaScript files.</td><td>Passes. 12.30 MB raw initial bundle and 111 browser JavaScript files.</td></tr>
+              <tr><td>Other changes</td><td>Same routes, generated files, standalone imports, and deleted NgModules.</td><td>Import ordering and formatting differ in a few files. No behavior change found there.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="evidence">Direct diff between heads: six files, 24 additions and 17 deletions. <a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/c320b59a9fb2ebf411165cd8d9e8b8d4c3a98778...e5389aa596bff3d67d2cbebc89b455f68b402a7f">Compare the commits</a>.</p>
+      </section>
+
+      <section aria-labelledby="shared-work">
+        <h2 id="shared-work">What both PRs change</h2>
+        <ul class="compact">
+          <li>Replace feature NgModules with standalone components for <code>comparison-page</code>, <code>marketing-page</code>, <code>sub-page-view</code>, <code>creators-home</code>, and <code>link-in-bio-fan-preview</code>.</li>
+          <li>Use <code>loadComponent</code> for the creators and sub-page routes and for generated marketing and comparison routes. The <code>/bio</code> parent loads a standalone <code>Routes</code> array. <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e5389aa596bff3d67d2cbebc89b455f68b402a7f/src/app/app-routing.module.ts">Router source</a>.</li>
+          <li>Update <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e5389aa596bff3d67d2cbebc89b455f68b402a7f/scripts/prefetch-marketing-pages.mjs">the route generator</a> as well as its checked-in output. Regenerating the slug routes should keep the new imports.</li>
+          <li>Move template dependencies into each standalone component. The creators page still imports <code>SharedModule</code> and <code>MarketingPageSharedModule</code>. Both QA builds report the same 12.30 MB initial bundle.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="findings">
+        <h2 id="findings">Review findings</h2>
+        <ol class="findings">
+          <li class="finding concern">
+            <span class="tag">Compatibility check / both PRs</span>
+            <h3>Confirm the old nested creators URLs can go away</h3>
+            <p>The deleted <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/5345fee1fc40774fbf1621321ae26d8fc99ce943/src/app/modules/creators-home/creators-home.module.ts">CreatorsHomeModule</a> imported <code>AuthModule</code> and <code>SetupProfileModule</code>. Those modules register child routes such as <code>login</code>, <code>signup</code>, and <code>setup-profile</code>. After this migration, <code>/creator</code> and <code>/creators</code> load a single component, so those nested routes are no longer registered there.</p>
+            <p>No in-repo link to a nested creators auth or setup URL appeared in the search. <a href="https://notes.prateekkumar.site/pr-10826-10827-standalone-routes-review-fable.html">The Fable review's SSR check</a> found that <code>/creators/login</code> now falls through to the generic <code>:id/:subPageUrl</code> route and returns a sub-page shell with HTTP 200. The component's missing-data path then navigates to not-found in the browser. If external links use the old URL, add an explicit redirect to the canonical <code>/auth/login</code> route.</p>
+            <p class="evidence"><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/5345fee1fc40774fbf1621321ae26d8fc99ce943/src/app/modules/auth/auth-routing.module.ts">Auth routes</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/5345fee1fc40774fbf1621321ae26d8fc99ce943/src/app/modules/setup-profile/setup-profile-routing.module.ts">Setup routes</a></p>
+          </li>
+          <li class="finding note">
+            <span class="tag">Cleanup / PR 10827</span>
+            <h3>Drop the creators component schema unless it has a purpose</h3>
+            <p>PR 10827 adds <code>CUSTOM_ELEMENTS_SCHEMA</code> to <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e5389aa596bff3d67d2cbebc89b455f68b402a7f/src/app/modules/creators-home/creators-home.component.ts">CreatorsHomeComponent</a>. The same template compiles in PR 10826 without it. Keeping the schema permits unknown dashed elements and may hide a future missing import.</p>
+          </li>
+          <li class="finding note">
+            <span class="tag">Tradeoff / bio route</span>
+            <h3>The extra lazy boundary costs a request on the normal path</h3>
+            <p>PR 10827 can load the <code>/bio</code> route table without its preview component when the child wildcard matches. For the normal <code>/bio/:userName</code> path, the browser must load its 319 byte routes chunk before it discovers the 59,537 byte component chunk. PR 10826 loads one 59,639 byte chunk. The QA builds establish chunk structure, but neither review measured real network timing.</p>
+            <p class="evidence"><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/c320b59a9fb2ebf411165cd8d9e8b8d4c3a98778/src/app/modules/link-in-bio-fan-preview/link-in-bio-fan-preview.routes.ts">10826 route</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e5389aa596bff3d67d2cbebc89b455f68b402a7f/src/app/modules/link-in-bio-fan-preview/link-in-bio-fan-preview.routes.ts">10827 route</a></p>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="verification">
+        <h2 id="verification">Verification</h2>
+        <ul class="checks">
+          <li>Compared each head with the same merge-base parent and compared the two heads directly.</li>
+          <li>Ran Angular compiler template/type checks for both isolated PR heads with <code>ngc -p tsconfig.app.json --noEmit</code>. Both exited successfully.</li>
+          <li>Built both isolated heads with <code>ng build --configuration=qa --prerender=false</code>. Both passed with a 12.30 MB raw initial bundle. Inspected the browser output to confirm the one-chunk versus two-chunk <code>/bio</code> split.</li>
+          <li><a href="https://notes.prateekkumar.site/pr-10826-10827-standalone-routes-review-fable.html">The Fable review</a> reports matching SSR results for seven routes on both heads, including the <code>/creators/login</code> fallback. Those SSR requests were not repeated for this page.</li>
+          <li class="open">A full dev build remains unavailable because <code>src/environments/environment.dev.ts</code> is absent. Browser interaction, prerendering, and white-label project builds remain unchecked.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="sources">
+        <h2 id="sources">PRs and source</h2>
+        <ul class="source-list">
+          <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10826">PR 10826</a></li>
+          <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10827">PR 10827</a></li>
+          <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/5345fee1fc40774fbf1621321ae26d8fc99ce943...c320b59a9fb2ebf411165cd8d9e8b8d4c3a98778">10826 diff</a></li>
+          <li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/5345fee1fc40774fbf1621321ae26d8fc99ce943...e5389aa596bff3d67d2cbebc89b455f68b402a7f">10827 diff</a></li>
+          <li><a href="https://notes.prateekkumar.site/pr-10826-10827-standalone-routes-review-fable.html">Fable review</a></li>
+        </ul>
+      </section>
+    </main>
+    <footer><a href="index.html">Back to notes</a></footer>
+  </div>
+</body>
+</html>

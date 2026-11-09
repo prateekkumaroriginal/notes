@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wallet stops loading SharedModule</title>
+  <meta name="description" content="Wallet and the SharedModule pieces it uses became standalone. What changed, how it was checked, and a checklist to verify it.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Wallet stops loading SharedModule</h1>
+      <p>Wallet is the first large module converted along with its slice of SharedModule. A first visit to <code>/wallet</code> now fetches <span class="ok">1.68 MB</span> of lazy JavaScript instead of <span class="bad">4.05 MB</span>, 58% less, because SharedModule's chunk is no longer part of it.</p>
+      <div class="meta">
+        <span>branch t3code/wallet-standalone</span>
+        <span>base f26da3be4d, the PR 10832 merge</span>
+        <span>commit 9f85284bbc</span>
+        <span>53 files, +655 &minus;383</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10833">PR 10833</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <ul>
+          <li>All 35 wallet components and <code>ReferralsComponent</code> are standalone. Each imports only what its template uses.</li>
+          <li>Eight SharedModule pieces wallet needs became standalone too. SharedModule imports and exports them as before, so other modules don't change.</li>
+          <li><code>wallet.routes.ts</code> replaces WalletModule and its routing module. It provides <code>WalletHomeService</code> on the parent route, the same scope as before.</li>
+          <li>Insights also provides <code>WalletHomeService</code>. Its earnings tab renders the refund modals, and they inject it.</li>
+          <li>The resend verification screen and <code>TableComponent</code> import the one or two pieces they use instead of all of SharedModule. The resend screen was the last path pulling SharedModule into wallet.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>How I checked it</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against base</td><td>652 of 656 components match. The other 4 lose ngx-intl-tel-input's <code>NativeElementInjectorDirective</code>, which only sets a property nothing reads.</td></tr>
+              <tr><td>Does that diff catch a missing import?</td><td>Yes. I removed <code>RouterLink</code> from the wallet home component. It still compiled, and the diff flagged it.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as base. Development has none.</td></tr>
+              <tr><td>Lazy JavaScript per route, QA build</td><td><code>/wallet</code> 4.05 to 1.68 MB. <code>/insights</code> 5.30 to 4.78 MB. <code>/auth</code> unchanged. Initial bundle unchanged at 6.86 MB.</td></tr>
+              <tr><td>Component definitions in a browser</td><td>I loaded the wallet and insights chunks and walked every reachable component, 145 and 221. All dependencies resolve, with no page errors.</td></tr>
+              <tr><td>Server rendering, 41 URLs</td><td>All match base byte for byte, including 9 wallet URLs. Those are behind login, so this covers the shell only.</td></tr>
+              <tr><td>Logged-out browser run</td><td>Same console output as base on desktop and phone sizes.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>6 errors, down from 49. The 43 gone are <code>prefer-standalone</code>. The 6 left exist on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>None of this logs in. The checklist covers what needs a real account.</p>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Use a QA creator account with sales, refunds, and purchases. Keep the console open. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h3><span class="tag high">High</span> Refund modals</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="rf-wallet"><span>Wallet, transaction history: open a refund request row. Accept and reject each open their modal and submit.</span></label></li>
+              <li><label><input type="checkbox" data-id="rf-insights"><span>Insights, earnings tab: do the same from its transaction history.</span></label></li>
+              <li><label><input type="checkbox" data-id="rf-tab"><span>Refund requests tab: the list loads and the counts update after an action.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Balance and payouts</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="bl-balance"><span>Current balance loads, with the payout account section.</span></label></li>
+              <li><label><input type="checkbox" data-id="bl-bank"><span>Adding bank details opens the form, and its Stripe document modal opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="bl-card"><span>Connect credit card opens and the card form renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="bl-verify"><span>If the account asks for verification, the resend code timer counts down.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Purchases and points</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="pu-tabs"><span>All 13 my purchases subtabs load.</span></label></li>
+              <li><label><input type="checkbox" data-id="pu-ticket"><span>Tickets: open a ticket. The details and the ticket view modal show.</span></label></li>
+              <li><label><input type="checkbox" data-id="pu-points"><span>Loyalty points: the buy points modal opens and shows prices.</span></label></li>
+              <li><label><input type="checkbox" data-id="pu-unlock"><span>On a creator page, unlock a post with points and buy more. The same modal opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="pu-history"><span>Loyalty history loads.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag low">Low</span> The rest</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="ot-fulfil"><span>Fulfillment requests: the list loads and an order's modals open.</span></label></li>
+              <li><label><input type="checkbox" data-id="ot-ref"><span>Referrals loads.</span></label></li>
+              <li><label><input type="checkbox" data-id="ot-redirect"><span>An unknown wallet URL lands on current balance. Logged out, <code>/wallet</code> goes to login.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "wallet-standalone-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

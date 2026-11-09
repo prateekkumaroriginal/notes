@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10885-grok-4-7</title>
+<meta name="description" content="Second review of PR 10885. The mailing-list send throw is gone, and a missing permission check stays locked. Merge yes.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10885-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--pink); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10885-grok-4-7</h1><p>Merge it. The mailing-list send no longer throws, and a missing permission check stays locked.</p></div>
+<div class="meta"><span>Reviewed again 5 October 2026</span><span>Open</span><span>4 files</span><span>305 additions, 217 deletions</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10885">PR 10885</a> · Base <code>2ed05f7123</code> on <code>hotfix/release-0.0.23/messages-revamp</code> · Head <code>dc5f52683a91</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#fix">What the new commit fixes</a><a href="#inbox">Inbox refetch</a><a href="#checked">What I traced</a><a href="#limits">What I did not run</a></nav></header>
+<main>
+<section id="verdict"><h2>Should I merge it now? Yes.</h2>
+<p class="ok">Yes.</p>
+<p>Commit <code>dc5f52683a91</code> closes the two ways send could run without a real permission result. GitHub still reports a clean merge and zero check runs. The test plan in the description is still unchecked. I would merge it anyway, then click through the list on the hotfix.</p></section>
+<section id="fix"><h2>What the new commit fixes</h2>
+<p>The earlier head <code>ce0dc226ae62</code> set <code>dmValidations</code> to null, then unlocked broadcast and followers in the same turn. <code>sendMessage</code> read <code>dmValidations.minTipKeys</code> whenever a custom tip amount was set. Opening a mailing list did not clear that amount. Enter threw.</p>
+<p>The minimum tip now goes through <code>dmValidations?.minTipKeys</code>, and falls back to <code>minimumTip</code> when permissions are null. <code>requestParamsofBroadcast</code> calls <code>closeTipPopup</code> before history loads, so the custom amount is gone. The emoji button uses <code>areMessageActionsLocked</code> too.</p>
+<p>If <code>generateGroudId</code> rejects, or the response has no group id, both loaders stop, <code>permissionsFailed</code> stays true, and <code>dmValidations</code> is cleared. The same lock applies when the receiver id is missing. Retry is still <code>checkNewUserValidation</code>. Send stays disabled until that call returns <code>status: true</code>.</p>
+<pre><code>this.dmValidations?.minTipKeys?.min_tip_guaranteed_reply || this.minimumTip</code></pre>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/dc5f52683a9142c5a5f88db35d53def0e2d670e5/src/app/modules/messages/components/message-container/message-container.component.ts#L2007-L2011">Guarded tip read</a> · <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/dc5f52683a9142c5a5f88db35d53def0e2d670e5/src/app/modules/messages/components/message-container/message-container.component.ts#L3003-L3016">Fail closed when the group id never arrives</a></p></section>
+<section id="inbox"><h2>Inbox refetch</h2>
+<p>Sending on an existing direct message used to call <code>getUserChatLogs</code> just to move that row. <code>updateUserList</code> now rewrites the matching row's preview, <code>last_message.timeStamp</code>, and <code>updated_at</code>. It refetches only when that group id is missing from every tab.</p>
+<p>An incoming message on the open thread updates the transcript and the direct-message tabs, and skips <code>getUserChatLogs</code>. A message for a different thread still refetches the inbox. History keeps its own cancel subject, so that refetch cannot drop the open transcript.</p>
+<p>A mailing list you just sent still refetches when the send socket reports <code>status</code>. An incoming mailing-list message, while that list is open, updates the transcript and leaves the left-hand row where it was. The row already exists in the broadcast tab, so the new "missing from every tab" check does not refetch it.</p></section>
+<section id="checked"><h2>What I traced</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Path</th><th>Send while permissions are unknown</th></tr></thead>
+<tbody>
+<tr><td>Direct message from a row, <code>?user=</code>, tip-back id</td><td class="ok">Validation runs. Send stays locked until it returns.</td></tr>
+<tr><td>Fast thread switch, or an inbox refetch</td><td class="ok"><code>historyCancel$</code> and the <code>sid</code> check drop a late history body.</td></tr>
+<tr><td>Validation error, <code>status: false</code>, or an empty receiver id</td><td class="ok"><code>permissionsFailed</code> stays set. Retry is required.</td></tr>
+<tr><td>Mailing list after a custom tip on a direct message</td><td class="ok">Tip popup closes. The null read is gone.</td></tr>
+<tr><td>Group id request fails, then Retry succeeds</td><td class="warn">Send unlocks after validation. <code>sid</code> can still be empty, because Retry does not create the group again.</td></tr>
+</tbody>
+</table></div>
+</section>
+<section id="limits"><h2>What I did not run</h2>
+<ul>
+<li>I read <code>dc5f52683a91</code> against <code>ce0dc226ae62</code> on 5 October 2026.</li>
+<li>I did not run the app, the unit tests, or a white-label build. The pull request has no status checks.</li>
+<li><code>ngAfterViewChecked</code> still calls <code>detectChanges</code> every cycle. The description says that removal was skipped on purpose.</li>
+</ul>
+<p>After merge, open a creator thread, switch threads quickly, fail validation and hit Retry, and open a mailing list after filling a custom tip.</p></section>
+</main>
+<footer>Recommendation applies to <code>dc5f52683a9142c5a5f88db35d53def0e2d670e5</code>.</footer>
+</div></body></html>

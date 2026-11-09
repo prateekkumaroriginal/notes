@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Standalone routes: the 10 mid-sized modules</title>
+  <meta name="description" content="What changed when auth, promotional, insights, and seven other route modules dropped their NgModules, how it was tested, and a checklist to verify it.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--green); }
+    pre .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h3 { padding: 0; }
+
+    .group h3 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Standalone routes: the 10 mid-sized modules</h1>
+      <p>This covers PRs 2 through 5 from the <a href="standalone-routes-whats-left-plain.html">what's left</a> plan, as four commits on one branch. Ten route modules are gone, and 76 components and pipes are standalone now. The routes that leaked in through imported modules are gone with them. The number I care about most is download size. A cold visit to <code>/auth</code> used to fetch <span class="focus">4.5 MB</span> of lazy JavaScript, because AuthModule imported all of EditPreferenceModule for one component. Now it fetches <span class="ok">189 KB</span>.</p>
+      <div class="meta">
+        <span>branch t3code/standalone-mid-sized-modules</span>
+        <span>base aaa15ec916, the PR 10830 commit</span>
+        <span>130 files, +669 &minus;1775</span>
+        <span>not pushed yet</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What changed</h2>
+        <p>Each module's routes now live in a plain <code>Routes</code> array, and the app route loads that array. Creators has a single route, so its app route uses <code>loadComponent</code> instead. Every component the module declared lists its own imports. The guards and route data on the app routes didn't move.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Module</th><th>URLs</th><th class="num">Converted</th><th>Loaded from</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>fulfillment-order</code></td><td><code>/order-status/...</code></td><td class="num">3</td><td><code>FULFILLMENT_ORDER_ROUTES</code></td></tr>
+              <tr><td><code>creators</code></td><td><code>/explore-creators</code></td><td class="num">3</td><td><code>CreatorContainerComponent</code></td></tr>
+              <tr><td><code>setup-profile</code></td><td><code>/content/...</code></td><td class="num">6</td><td><code>SETUP_PROFILE_ROUTES</code></td></tr>
+              <tr><td><code>forum</code></td><td><code>/forum/...</code></td><td class="num">8</td><td><code>FORUM_ROUTES</code></td></tr>
+              <tr><td><code>resources</code></td><td><code>/resources/...</code></td><td class="num">9</td><td><code>RESOURCES_ROUTES</code></td></tr>
+              <tr><td><code>promotional</code></td><td><code>/</code>, <code>/home/...</code>, <code>/search-result/...</code></td><td class="num">4</td><td><code>PROMOTIONAL_ROUTES</code></td></tr>
+              <tr><td><code>post-detail</code></td><td><code>/post/...</code></td><td class="num">6</td><td><code>POST_DETAIL_ROUTES</code></td></tr>
+              <tr><td><code>messages</code></td><td><code>/messages</code></td><td class="num">6</td><td><code>MESSAGES_ROUTES</code></td></tr>
+              <tr><td><code>insights</code></td><td><code>/insights/...</code></td><td class="num">15</td><td><code>INSIGHTS_ROUTES</code></td></tr>
+              <tr><td><code>auth</code></td><td><code>/auth/...</code></td><td class="num">13</td><td><code>AUTH_ROUTES</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Three pieces outside these folders became standalone too, because the converted components needed them. <code>CreaterProfileInfoComponent</code> from edit-preference renders on step 2 of creator sign-up. <code>FilterModalComponent</code> from <code>src/app/components</code> and <code>ArticleDescriptionPipe</code> from the shared pipes are both used by insights. The table counts 73, and these three make 76. EditPreferenceModule now imports the profile-info component instead of declaring it, so <code>/edit-preference/become-a-creator/creator-profile-info</code> still routes to it.</p>
+        <p>The commits follow the plan's grouping:</p>
+        <ul>
+          <li><strong>29ae2c77e2.</strong> fulfillment-order, creators, setup-profile, and forum.</li>
+          <li><strong>1448a67334.</strong> resources and promotional.</li>
+          <li><strong>ba3dc6383c.</strong> post-detail, messages, and insights.</li>
+          <li><strong>6c3effddc9.</strong> auth.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>The leaked routes are gone</h2>
+        <p>A lazy NgModule that imports a routed NgModule picks up that module's routes as its own children. A standalone component's imports don't touch the router. So every leak listed in the plan went away with this branch:</p>
+        <ul>
+          <li><strong>/auth lost 49 edit-preference route entries.</strong> Auth only needed one component from that module, and it now imports that component directly.</li>
+          <li><strong>/resources lost about 80.</strong> It imported WalletModule and DashboardModule and used nothing from either. Two templates did use <code>SearchBarV2Component</code>, which they got through WalletModule's exports. They import it directly now.</li>
+          <li><strong>PostDetailModule's three routes left five importers.</strong> Those were messages, insights, dashboard, monetize, and portfolio. The module had an empty <code>exports</code> list, so the three NgModules that stay gained nothing from it. I removed the import from them.</li>
+        </ul>
+        <p>I searched for anything that links to those URLs. Post links in the app build absolute <code>/post/...</code> paths. The <code>relativeTo</code> navigations only change query params, and the relative <code>routerLink</code>s are one segment long. Nothing I found points at a leaked URL.</p>
+        <p>Most leaked URLs sit behind <code>authGuard</code>, so I couldn't request them logged out. <code>/auth</code> is open to logged-out users, which made it the one place to see the change. On base, <code>/auth/privacy</code> and <code>/auth/edit-content</code> match a route under <code>/auth</code>. On this branch they <span class="warn">fall through</span> to the app's <code>/:username/:page</code> route and render the sub-page view, the same thing <code>/about/extra-segment</code> does.</p>
+      </section>
+
+      <section>
+        <h2>Providers moved onto the routes</h2>
+        <p>A service in a lazy module's <code>providers</code> gets one instance per module, shared by every page under it. A route's <code>providers</code> gives the same scope, so that's where these went:</p>
+<pre><code>{
+  path: '',
+  component: ForumContainerComponent,
+  providers: [BsModalService],
+  children: [ ... ]
+}</code></pre>
+        <ul>
+          <li><strong>Forum</strong> keeps <code>BsModalService</code> on its root route.</li>
+          <li><strong>Resources</strong> keeps <code>ResourcesService</code> on its root route. The service is also <code>providedIn: 'root'</code>, but the module gave resources its own copy, which holds the unread counts for announcements and tips. The route keeps that separate copy.</li>
+          <li><strong>Messages</strong> keeps <code>AudioRecordingService</code> on its route, next to the <code>canDeactivate</code> guard it already had.</li>
+          <li><strong><code>ReelsMobileViewComponent</code></strong> injects <code>ContentLengthHandlerPipe</code> as a service, so the component provides it itself.</li>
+        </ul>
+        <p>I dropped two things. Forum called <code>NgCircleProgressModule.forRoot({})</code>, but AppModule imports SharedModule, which makes the same call, so the options already exist at the root. The <code>DatePipe</code> providers went too, because the root injector already has one. To check nothing else fell off, I listed every token the converted classes inject that isn't <code>providedIn: 'root'</code>. Each one is either provided at the root through AppModule or provided by the component itself.</p>
+      </section>
+
+      <section>
+        <h2>What the custom-elements schema was hiding</h2>
+        <p>Six of the old modules set <code>CUSTOM_ELEMENTS_SCHEMA</code>. It tells the compiler to accept any unknown tag or property. With the schema gone, the build failed in four templates. None of these bindings or tags ever did anything:</p>
+        <ul>
+          <li><code>insights.component.html</code> bound <code>[showConfirmationBtn]</code> and <code>[cancelBtnLabel]</code> on <code>app-send-email-modal</code>, which has neither input.</li>
+          <li><code>insight-fan-management.component.html</code> bound <code>[isContinueDisabled]</code> on <code>app-import-confirm-modal</code>.</li>
+          <li><code>import-confirm-modal.component.html</code> bound <code>[failedImports]</code> on <code>app-failed-imports-modal</code>.</li>
+          <li><code>login.component.html</code> had an <code>&lt;ng-adsense&gt;</code> tag. No installed package defines it, so the browser rendered an empty unknown element. Its parent is a column flex container with no gap, so removing it moves nothing.</li>
+        </ul>
+        <p>I deleted all four. With the schema gone, the next binding or tag that doesn't match anything fails the build instead of doing nothing quietly.</p>
+      </section>
+
+      <section>
+        <h2>Six dead promotional components deleted</h2>
+        <p>PromotionalModule declared six components that no template or route used. They were direct-to-fans, trusted-brands, user-profile, explore-topfan-pro, feature-display-grid, and featured-categories. Converting them would have been wasted work, and user-profile had a real problem. Its selector is <code>app-user-profile</code>, the same as a shared component's. That was harmless inside an NgModule, but it would clash in a standalone import list. <code>featured-categories.constants.ts</code> stays, because the header imports it.</p>
+        <p>One leftover is a <code>::ng-deep app-explore-topfan-pro</code> rule in <code>promotional.component.scss</code>. It matches nothing now. I left it for a cleanup PR.</p>
+      </section>
+
+      <section>
+        <h2>Auth route strings moved to constants</h2>
+        <p>The auth routes had inline SEO text in their <code>data</code>. It now lives in <code>authConstants.ts</code> under <code>LOGIN_PAGE.SEO_DESCRIPTION</code>, <code>SIGN_UP_PAGE</code>, and <code>FORGOT_PASSWORD_PAGE</code>. The sign-up description was a template literal with a line break and 14 spaces in the middle. I joined it into one line.</p>
+        <p>Like the public pages in the last PR, <span class="warn">nothing reads this data</span>. <code>LoginComponent</code> only reads <code>loginAudience</code>. Each page sets its real title and description itself. On both builds, <code>/auth/login</code> ends up with the title "Login Page" and the description "Login in your TopFan.com Account or Reset your Password". The strings cost about 540 bytes in the initial bundle, since <code>main</code> already imports <code>authConstants.ts</code>.</p>
+      </section>
+
+      <section>
+        <h2>How it was tested</h2>
+        <h3>Every template resolves the same things</h3>
+        <p>A missing import often compiles. Drop <code>RouterLink</code> and <code>routerLink="/"</code> turns into a plain attribute, and the link loses its <code>href</code>. So a passing build proves very little about 76 hand-written import lists.</p>
+        <p>I compiled base and branch with <code>ngc</code> in full AOT mode. The output lists, for every component, the directives, components, and pipes the compiler matched in its template. A script pulled that list out for each component on both sides and diffed them. <span class="ok">655 components match exactly.</span> The only differences are the six deleted promotional components, plus <code>FailedImportsModal</code>, whose import path has a double slash on one side. It's the same class. To make sure the check works, I removed <code>RouterLink</code> from one component. It compiled, and the diff flagged it.</p>
+
+        <h3>Builds and lint</h3>
+        <p>I built base in a separate worktree and the branch in the main checkout, both with <code>ng build --configuration=qa --prerender=false</code>. Both passed. ESLint on the 91 changed TypeScript files went from 99 errors and 26 warnings to 23 errors and 26 warnings. All 76 errors that disappeared were <code>prefer-standalone</code>. The 49 that remain are the same ones base has, under the same rules.</p>
+
+        <h3>Bundle size</h3>
+        <p>I rebuilt both sides with <code>--stats-json</code> and walked the static imports from <code>main</code> to find the initial files.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Initial load</th><th class="num">Base</th><th class="num">This branch</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>JavaScript files</td><td class="num">18</td><td class="num">15</td></tr>
+              <tr><td>JavaScript bytes</td><td class="num">10,472,004</td><td class="num warn">10,481,271, +9,267</td></tr>
+              <tr><td><code>main</code> bytes</td><td class="num">287,523</td><td class="num">287,458</td></tr>
+              <tr><td>CSS bytes</td><td class="num">2,134,905</td><td class="num ok">2,134,905</td></tr>
+              <tr><td>All browser JavaScript</td><td class="num">23,523,534</td><td class="num ok">23,521,040, &minus;2,494</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The initial growth is 0.09%, and I checked where it comes from. <span class="ok">No module entered or left the initial load.</span> The same source files are in it on both sides. esbuild regrouped the initial chunks, merging two of them into one 7.2 MB file, and the minifier picked different names across 605 files. About 540 bytes of the growth is the auth strings. The rest is that renaming.</p>
+        <p>The lazy side is where it pays off. This table shows the JavaScript a first visit to each route fetches on top of the initial load. It's raw bytes before compression. Some of those files may already be cached from another page.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Base</th><th class="num">This branch</th><th class="num">Change</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/auth</code></td><td class="num">4,526,115</td><td class="num">189,025</td><td class="num ok">&minus;4,337,090</td></tr>
+              <tr><td><code>/resources</code></td><td class="num">4,236,243</td><td class="num">85,459</td><td class="num ok">&minus;4,150,784</td></tr>
+              <tr><td><code>/insights</code></td><td class="num">2,513,570</td><td class="num">1,995,786</td><td class="num ok">&minus;517,784</td></tr>
+              <tr><td><code>/messages</code></td><td class="num">2,464,166</td><td class="num">2,037,576</td><td class="num ok">&minus;426,590</td></tr>
+              <tr><td><code>/</code> and <code>/home</code></td><td class="num">1,127,457</td><td class="num">1,123,962</td><td class="num">&minus;3,495</td></tr>
+              <tr><td><code>/post</code></td><td class="num">425,635</td><td class="num">425,444</td><td class="num">&minus;191</td></tr>
+              <tr><td><code>/forum</code></td><td class="num">131,906</td><td class="num">131,634</td><td class="num">&minus;272</td></tr>
+              <tr><td><code>/content</code></td><td class="num">109,781</td><td class="num">109,602</td><td class="num">&minus;179</td></tr>
+              <tr><td><code>/explore-creators</code></td><td class="num">39,147</td><td class="num">38,615</td><td class="num">&minus;532</td></tr>
+              <tr><td><code>/order-status</code></td><td class="num">16,062</td><td class="num">15,578</td><td class="num">&minus;484</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Auth and resources no longer drag in edit-preference, wallet, and dashboard. Messages and insights no longer pull in everything PostDetailModule imported. Insights still loads WalletModule's code, because <code>InsightsEarningComponent</code> renders <code>app-transaction-history</code>. It imports the module for that one component, which brings the code but not the routes.</p>
+
+        <h3>Server-rendered HTML</h3>
+        <p>I started the SSR server from each build and requested the same 28 URLs on both. I replaced the chunk hashes and Angular's style IDs with placeholders, then diffed the full HTML.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>URL</th><th>Status</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/home</code>, <code>/search-result/a/b</code>, <code>/creators</code>, <code>/post/someuser/image/123</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/</code>, <code>/post/forum/someuser/123</code></td><td>200</td><td class="ok">same markup, new component IDs</td></tr>
+              <tr><td><code>/order-status/confirmed</code>, <code>/order-status/dispute</code></td><td>200</td><td class="ok">same markup, new component IDs</td></tr>
+              <tr><td>Nine <code>/auth/...</code> URLs</td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/forum</code>, <code>/forum/list</code>, <code>/messages</code>, <code>/insights</code>, <code>/resources</code>, <code>/content</code>, <code>/explore-creators</code></td><td>200</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/setup-profile</code>, <code>/promotional</code></td><td>404</td><td class="ok">same HTML</td></tr>
+              <tr><td><code>/auth/privacy</code>, <code>/auth/edit-content</code></td><td>200</td><td class="warn">sub-page view instead of the auth shell</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>On every URL the preload list and the integrity hash on <code>main</code> differ, since the chunks changed. The "new component IDs" rows need a word. Angular hashes each component's metadata into an ID, and the <code>standalone</code> flag is part of that hash. PromotionalComponent and the order-status components changed that flag, so their IDs changed in the hydration data. The server and the browser run the same build, so they still agree.</p>
+        <p>This check has a <span class="warn">blind spot</span>. The auth pages and the guarded pages come back as the app shell with an empty outlet on both builds. The diff says they match, but it says nothing about their templates. The dependency diff and the browser cover those.</p>
+
+        <h3>In the browser</h3>
+        <p>I opened the branch build and loaded <code>/</code>, <code>/auth/login</code>, <code>/auth/signup</code>, step 1 of <code>/auth/creators-signup</code>, and <code>/order-status/confirmed</code>. Each rendered the same components as base, and the console had no Angular errors. Two failures showed up on both builds. <code>PUT /api/orders</code> returns 400 when there's no order in the URL, and the reCAPTCHA endpoint returns 404 on localhost. Order status also says "from undefined undefined" on both, for the same missing-params reason.</p>
+      </section>
+
+      <section>
+        <h2>Affected areas</h2>
+        <p>Most of these pages need a logged-in account, and I didn't have one in this session. So the risk tags lean on how much each page does and how little of it I could click.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Area</th><th>Risk</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Auth</td>
+                <td><span class="tag high">High</span></td>
+                <td>Every login, sign-up, OTP, password reset, and social callback goes through it. SSR renders only the shell here, and I loaded three pages without submitting anything.</td>
+              </tr>
+              <tr>
+                <td>Home and category pages</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>The busiest URLs on the site. I deleted six components from this module. SSR markup matches.</td>
+              </tr>
+              <tr>
+                <td>Insights</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>15 declarations, four removed bindings, the filter modal, and the fan import flow. Never opened.</td>
+              </tr>
+              <tr>
+                <td>Messages</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>The audio recorder and the leave-page guard moved onto the route. Never opened.</td>
+              </tr>
+              <tr>
+                <td>Forum and resources</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Their module-level services now sit on the root route. Resources lost two module imports. Never opened.</td>
+              </tr>
+              <tr>
+                <td>Post detail</td>
+                <td><span class="tag medium">Medium</span></td>
+                <td>Dashboard, monetize, and portfolio dropped the module import. The mobile reel view provides its pipe itself now.</td>
+              </tr>
+              <tr>
+                <td>Order status, content setup, explore creators</td>
+                <td><span class="tag low">Low</span></td>
+                <td>Small, self-contained, and nothing else imported them.</td>
+              </tr>
+              <tr>
+                <td>Leaked URLs</td>
+                <td><span class="tag low">Low</span></td>
+                <td>They stop resolving, but nothing in the app links to them.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Use a QA creator account. Load each page directly once, then reach it from another page so the browser fetches the lazy chunk. Keep the console open the whole time. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h3><span class="tag high">High</span> Auth</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="au-login"><span>Log in with email and password at <code>/auth/login</code>, and "Keep me signed in" survives a reload.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-social"><span>Google and Apple sign-in both finish on <code>/auth/social-callback</code> and land logged in.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-referrer"><span><code>/auth/referrer-login</code> shows the referrer heading and logs in.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-signup"><span><code>/auth/signup</code> passes reCAPTCHA, the birthdate picker opens, and the account gets created.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-signup-user"><span><code>/auth/signup/&lt;username&gt;</code> and <code>/auth/signup-by-refer</code> render.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-creator-1"><span><code>/auth/creators-signup</code> step 1 accepts the form and moves to step 2.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-creator-2"><span>Step 2 shows the profile info form. The avatar modal opens, and the circle progress renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-creator-end"><span>Steps 3 and 4 finish, and the new creator lands where they did before.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-reset"><span>Forgot password sends a code, <code>/auth/reset-otp</code> takes it, and <code>/auth/reset-password</code> then <code>/auth/success-reset</code> finish the reset.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-otp"><span><code>/auth/verify-by-otp</code> accepts the code in the OTP input.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-upgraded"><span>When login or social sign-in sends an upgraded creator to <code>/auth/creator-upgraded</code>, the page renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="au-become"><span><code>/edit-preference/become-a-creator/creator-profile-info</code> still renders the same form as sign-up step 2.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Home and category pages</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="pr-home"><span>Logged out, <code>/</code> renders the hero and scrolls through every section.</span></label></li>
+              <li><label><input type="checkbox" data-id="pr-cat"><span><code>/home</code> and a category like <code>/home/fitness</code> render their post grid.</span></label></li>
+              <li><label><input type="checkbox" data-id="pr-search"><span>A search from the header lands on <code>/search-result/...</code> with results.</span></label></li>
+              <li><label><input type="checkbox" data-id="pr-hydrate"><span>A hard reload on <code>/</code> logs no <code>NG05xx</code> hydration errors.</span></label></li>
+              <li><label><input type="checkbox" data-id="pr-guard"><span>Logged in, <code>/</code> still redirects the way it did. Same for the PWA and a white-label domain.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Insights</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="in-tabs"><span><code>/insights</code> opens, and every tab renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-earning"><span>The earnings tab shows the transaction history table.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-filter"><span>The filter modal opens, applies a filter, and clears it.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-import"><span>Importing fans from a CSV shows the confirm modal. A file with bad rows opens the failed-imports modal with those rows listed.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-email"><span>The send-email modal opens from insights and sends.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-badges"><span>Editing a fan's badges and groups saves.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-metrics"><span>The engagement metrics tab lists posts, and article posts show their description.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-detail"><span><code>/insights/detail-view/&lt;id&gt;</code> shows a fan's details.</span></label></li>
+              <li><label><input type="checkbox" data-id="in-seg"><span><code>/insights/segmentation-payment</code> renders.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Messages</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="ms-open"><span><code>/messages</code> lists conversations, opens one, and sends a text message.</span></label></li>
+              <li><label><input type="checkbox" data-id="ms-new"><span>Starting a new message from the compose modal works.</span></label></li>
+              <li><label><input type="checkbox" data-id="ms-audio"><span>Recording and sending a voice message works twice in a row.</span></label></li>
+              <li><label><input type="checkbox" data-id="ms-leave"><span>Leaving with an unsent draft still asks before navigating away.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Forum and resources</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="fo-list"><span><code>/forum/list</code> and <code>/forum/topic</code> render.</span></label></li>
+              <li><label><input type="checkbox" data-id="fo-create"><span>Creating a channel and a topic works, and updating the topic saves.</span></label></li>
+              <li><label><input type="checkbox" data-id="fo-members"><span><code>/forum/forum-members</code> lists members.</span></label></li>
+              <li><label><input type="checkbox" data-id="fo-modal"><span>Every forum modal opens and closes, and the circle progress renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="rs-ann"><span><code>/resources</code> redirects to announcements, and its search bar filters.</span></label></li>
+              <li><label><input type="checkbox" data-id="rs-tips"><span>Tips and tutorials search works, and a resource detail page opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="rs-sp"><span>Service providers, a provider detail page, and creator support all render.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag medium">Medium</span> Post detail</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="po-types"><span>An image, a video, and a reel post each open at <code>/post/&lt;username&gt;/&lt;type&gt;/&lt;id&gt;</code>.</span></label></li>
+              <li><label><input type="checkbox" data-id="po-mobile"><span>A reel on a phone-sized screen opens the mobile view, and long captions truncate.</span></label></li>
+              <li><label><input type="checkbox" data-id="po-comment"><span>Commenting and liking work on a post.</span></label></li>
+              <li><label><input type="checkbox" data-id="po-forum"><span>A forum post and an advertisement post open.</span></label></li>
+              <li><label><input type="checkbox" data-id="po-from"><span>Opening a post from the dashboard, monetize, and portfolio pages still works.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3><span class="tag low">Low</span> Small modules</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="sm-order"><span>A real confirm link and a real dispute link from an order email render the buyer's name.</span></label></li>
+              <li><label><input type="checkbox" data-id="sm-content"><span>The creator setup flow at <code>/content/setup-profile</code> reaches content-creator and confirm-creator.</span></label></li>
+              <li><label><input type="checkbox" data-id="sm-explore"><span><code>/explore-creators</code> lists creators, and a card opens a profile.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h3>Leaked URLs and every page</h3>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="lk-auth"><span><code>/auth/privacy</code> renders the sub-page view, not the privacy settings. <code>/edit-preference/privacy</code> still shows the settings.</span></label></li>
+              <li><label><input type="checkbox" data-id="lk-msg"><span>Logged in, <code>/messages/a/b/c</code> no longer renders a post.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-console"><span>The console has no "is not a known element", <code>NullInjectorError</code>, or <code>NG05xx</code> errors on any page above.</span></label></li>
+              <li><label><input type="checkbox" data-id="all-wl"><span>At least one generated white-label project builds and logs in.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Not tested</h2>
+        <ul>
+          <li>Anything behind login. I compiled and diffed messages, insights, forum, resources, content, explore creators, and the post pages, but never opened them.</li>
+          <li>Form submissions. I didn't log in, sign up, reset a password, or finish a social login.</li>
+          <li>The leaked URLs behind <code>authGuard</code>. I only confirmed the change on <code>/auth</code>.</li>
+          <li>A phone-sized viewport, which is the only way to reach the mobile reel view.</li>
+          <li>A white-label build or a prerender run.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>What's next</h2>
+        <p>The branch is ready to split into the four PRs the plan suggested, one per commit, each based on the one before. Auth should go last and get the full checklist above.</p>
+        <p>After that, the large modules are left. Those are edit-preference, profile, monetize, dashboard, and wallet, at 40 to 75 components each. The plan says to split SharedModule first, and this branch backs that up. 66 of the 76 import lists here include <code>SharedModule</code>, and it brings all 147 of its declarations whether a page uses them or not.</p>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "standalone-mid-sized-modules-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Every feature of the TopFans Messages module, read from the source: inbox, thread, composer, paid messages, tips, guaranteed replies, message lists, and automated messages.">
+  <title>Messages module: complete feature list</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.3rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .fn { color: var(--blue); }
+    .ok { color: var(--green); }
+    .num { color: var(--amber); }
+    .grp { color: var(--violet); }
+    .err { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+      overflow-wrap: anywhere;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 0.75rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.4rem; }
+
+    section > p + p { padding-top: 0.75rem; }
+
+    .features { display: grid; gap: 1.75rem; }
+
+    ul {
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .toc {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .toc a {
+      display: block;
+      padding: 0.35rem 0.8rem;
+      border-radius: 999px;
+      background: var(--surface);
+      text-decoration: none;
+      font-size: 0.875rem;
+    }
+
+    .toc a:hover { color: var(--text); }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Messages module: complete feature list</h1>
+      <p>Everything the <code>src/app/modules/messages</code> module does today, read from the components, constants, and interfaces. It covers the inbox, the thread, the composer, paid messages, tips, guaranteed replies, message lists, and automated messages.</p>
+      <ul class="toc">
+        <li><a href="#access">Access and routing</a></li>
+        <li><a href="#layout">Layout and tabs</a></li>
+        <li><a href="#inbox">Conversation list</a></li>
+        <li><a href="#thread">Thread</a></li>
+        <li><a href="#composer">Composer</a></li>
+        <li><a href="#sharing">Sharing store, portfolio, events</a></li>
+        <li><a href="#money">Paid DMs, tips, guaranteed replies</a></li>
+        <li><a href="#lists">New message and message lists</a></li>
+        <li><a href="#automated">Automated messages</a></li>
+        <li><a href="#whitelabel">White-label and safety</a></li>
+        <li><a href="#limits">Hard limits</a></li>
+        <li><a href="#gaps">Loose ends in the code</a></li>
+      </ul>
+    </header>
+
+    <main>
+      <section id="access">
+        <h2>Access and routing</h2>
+        <div class="features">
+          <div>
+            <h3>One lazy-loaded route</h3>
+            <p><code>/messages</code> loads <code>MESSAGES_ROUTES</code> on demand and renders a single component, <code>MessageContainerComponent</code>. Creators and fans share the same page, and the UI branches on <code>userProfile.is_creator</code>.</p>
+          </div>
+          <div>
+            <h3>Guards</h3>
+            <ul>
+              <li><code>authGuard</code>, <code>permissionGuard</code>, and <code>creatorApprovalGuard</code> run before the route activates.</li>
+              <li>Delegate users need the <code>SEND_REPLY_TO_DIRECT_MESSAGES</code> permission to use the page.</li>
+              <li>The <code>canDeactivateGuard</code> blocks leaving while the send queue still has items, and the component also listens to <code>beforeunload</code>.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Route-scoped voice recorder</h3>
+            <p>The route provides its own <span class="fn">AudioRecordingService</span>, so each visit gets a fresh recorder that is discarded on exit.</p>
+          </div>
+          <div>
+            <h3>Deep links</h3>
+            <ul>
+              <li><code>?user=</code> opens or creates a conversation with that username or refer id.</li>
+              <li><code>?id=</code> sets the tip-back id used to jump to a conversation after a tip.</li>
+              <li><code>history.state.user_key</code> and <code>history.state.gsi4pk</code> start a direct message or broadcast from another screen.</li>
+              <li><code>history.state.groupId</code> reopens a message list right after it is created.</li>
+              <li>Returning from payment lands back on <code>/messages</code> with the user query param.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="layout">
+        <h2>Layout and tabs</h2>
+        <div class="features">
+          <div>
+            <h3>Two-pane inbox</h3>
+            <p>A conversation list on the left and the open thread with its composer on the right. On mobile only one pane shows at a time, and a close button on the thread returns to the list.</p>
+          </div>
+          <div>
+            <h3>Top tabs</h3>
+            <ul>
+              <li><strong>Messages</strong> for everyone.</li>
+              <li><strong>Setup Automated Messages</strong> only for users with the <code>AUTOMATED_MESSAGES</code> permission, and on white-label sites only for the host owner.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Creator sub-tabs</h3>
+            <p>Creators split their inbox into <span class="fn">Priority</span>, <span class="fn">General</span>, and <span class="fn">Message Lists</span>. Priority and General show unread counts. Fans do not see the tab bar and get a single General list.</p>
+          </div>
+          <div>
+            <h3>Under-18 restriction</h3>
+            <p>Users under 18 can read existing threads, but the composer, the New Message button, and the tip control are not rendered for them. In place of the composer they see <em>You must be 18 years or older to send Direct Messages</em> with a <span class="fn">Customer Support</span> link to the help page, for people who only need help with a purchase.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="inbox">
+        <h2>Conversation list</h2>
+        <div class="features">
+          <div>
+            <h3>Sorting into tabs</h3>
+            <ul>
+              <li>A conversation goes to <span class="fn">Priority</span> when the other user is featured or a tip is unread.</li>
+              <li>Everything else with a last message goes to <span class="fn">General</span>.</li>
+              <li>Broadcasts and message lists go to <span class="fn">Message Lists</span>.</li>
+              <li>Conversations with no last message are hidden.</li>
+              <li>Lists sort by most recent message first.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Search</h3>
+            <p>A search box filters conversations on the server with a <span class="num">500 ms</span> debounce.</p>
+          </div>
+          <div>
+            <h3>Row details</h3>
+            <ul>
+              <li>Avatar, name, last message preview, and time.</li>
+              <li>Unread badge that caps at <code>99+</code>.</li>
+              <li>Green online marker.</li>
+              <li>Verified tick and user badges.</li>
+              <li>A subscriber mark on featured users who are also subscribers.</li>
+              <li>A tip icon when the last message is an unread tip.</li>
+              <li>Guaranteed-reply pending marker, so creators can spot tipped messages waiting for an answer.</li>
+              <li>The last-message preview shows the word <span class="fn">Media</span> for attachments, and text is trimmed to <span class="num">35</span> characters with URLs stripped.</li>
+              <li>A friendly empty state, <em>No Messages Found</em>, and a loader while the list fetches.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Message list rows</h3>
+            <p>Message Lists rows show the list icon and name. A dropdown offers <span class="fn">edit details</span>, <span class="fn">edit participants</span>, and <span class="fn">delete</span>, with a confirmation dialog on delete. Individual rows in the other tabs get a <span class="fn">Block User</span> item in their dropdown.</p>
+          </div>
+          <div>
+            <h3>Unread bookkeeping</h3>
+            <p>Opening a conversation zeroes its unread count and subtracts that amount from the global message counter in the header. Tab counters recompute from the lists.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="thread">
+        <h2>Thread</h2>
+        <div class="features">
+          <div>
+            <h3>Header</h3>
+            <ul>
+              <li>Avatar and name link to the user's profile.</li>
+              <li>Online or offline status for one-to-one chats.</li>
+              <li>Verified tick and badges.</li>
+              <li>For lists, the group icon and a <em>N Recipients</em> link that opens the participants editor.</li>
+              <li>A <span class="fn">Block User</span> action, hidden on white-label sites. It opens a confirm dialog and refreshes the inbox afterwards.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>History and grouping</h3>
+            <p>History loads from <code>previousMessages</code>. Messages are grouped by day with a date label (<em>Today</em> for new ones), and the avatar and time only repeat when the sender changes.</p>
+          </div>
+          <div>
+            <h3>Live delivery</h3>
+            <ul>
+              <li>Incoming messages arrive over the chat socket and append to the open thread, then scroll to the bottom.</li>
+              <li>The socket's <code>members</code> payload fills the online list that drives the green dots and the Online or Offline label.</li>
+              <li>If the message is for another conversation, the header counter goes up by one and the inbox refetches.</li>
+              <li>A presence heartbeat calls <code>setChatEmail</code> every <span class="num">2 minutes</span> so others see you online.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Message types rendered</h3>
+            <ul>
+              <li>Text, with URLs turned into links and bare URLs stripped from previews.</li>
+              <li>Images with a lightbox that steps through every image in the thread.</li>
+              <li>Video with an in-thread player and a close button.</li>
+              <li>Video plays through the IVS player.</li>
+              <li>Audio with a full player. Locked audio shows a placeholder icon instead of a player, and on white-label sites the placeholder is the branded audio icon.</li>
+              <li>Other files show their name and size, with a download button for the receiver.</li>
+              <li>Store share cards, portfolio item cards, and event ticket cards that route to the shared page when clicked. Event cards show date, time, venue, timezone, and a <span class="fn">VIEW TICKET</span> button.</li>
+              <li>Order dispute messages show the product image, name, price, and the quoted dispute reason.</li>
+              <li>Tip and guaranteed-reply banners with the amount in the sender's currency. Guaranteed replies also show a refund icon.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Paid and free attachments</h3>
+            <p>Free previews show right away. Paid attachments are locked for the receiver with an <span class="fn">Unlock</span> button and the price. The sender always sees their own media. Every media item has a download button, and the mobile app receives downloads through the bridge.</p>
+          </div>
+          <div>
+            <h3>Sending state</h3>
+            <p>Outgoing messages appear immediately with a spinner and circular upload progress, then settle when the server confirms.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="composer">
+        <h2>Composer</h2>
+        <div class="features">
+          <div>
+            <h3>Text input</h3>
+            <ul>
+              <li>Auto-growing textarea that expands up to <span class="num">4</span> rows.</li>
+              <li><code>Enter</code> sends. Empty text with no attachments does nothing.</li>
+              <li>Emoji picker that closes on outside click.</li>
+              <li>For broadcasts, an <span class="fn">Insert First Name</span> button drops a <code>[First Name]</code> token at the cursor.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Attachments</h3>
+            <ul>
+              <li>Images, video, and audio files, up to <span class="num">5</span> paid items per message.</li>
+              <li>Images are compressed and get a generated thumbnail. Videos get a thumbnail and a unique upload name.</li>
+              <li>Videos over <span class="num">512 MB</span> are rejected with an error toast.</li>
+              <li>Restricted-content responses open a carousel that shows the blocked image.</li>
+              <li>Each attachment has a remove button. The mobile app opens its own file picker through the bridge.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Voice notes</h3>
+            <p>Record with a live waveform drawn on a canvas in the brand color and a running timer. Stop to add the note as an attachment, or cancel to discard. Recorded notes can be previewed in a player before sending.</p>
+          </div>
+          <div>
+            <h3>Price to view</h3>
+            <ul>
+              <li>A price tag button opens a modal to set a price, with an optional currency conversion step that stores international prices per currency.</li>
+              <li>The button only renders for users with the <code>LOCK_MESSAGE</code> permission, in one-to-one threads and in lists.</li>
+              <li>It stays disabled until at least one attachment is present, and it is also disabled while sending or while the tip popup is open.</li>
+              <li>The allowed price is <span class="num">$1 to $10,000</span>. Anything outside that range shows an inline error and blocks saving.</li>
+              <li>Once a price is set, attachments can be dragged between a <strong>paid</strong> list and a single <strong>free preview</strong> slot, and reordered inside the paid list.</li>
+              <li>You cannot select more than <span class="num">5</span> paid items or more than <span class="num">1</span> free item.</li>
+              <li>Paid share links cannot become the free preview.</li>
+              <li>A paid price needs at least one paid attachment.</li>
+              <li>Clearing the price moves the free preview back into the normal attachments.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Amount validation</h3>
+            <p>The price prompt only accepts valid decimals. The tip field shows a range error such as <em>Price must be between min and max</em> based on the user's currency.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="sharing">
+        <h2>Sharing store, portfolio, and events</h2>
+        <div class="features">
+          <div>
+            <h3>Store items</h3>
+            <p>Creators can insert merchandise, NFTs, downloadables, and other store items. The picker creates a short share URL and adds it to the message as a share card.</p>
+          </div>
+          <div>
+            <h3>Portfolio items</h3>
+            <p>Insert one or more portfolio items. Individual items get an <code>openPlayer=true</code> link so they start playing when opened.</p>
+          </div>
+          <div>
+            <h3>Event tickets</h3>
+            <p>Insert upcoming events with a link straight to ticket purchase.</p>
+          </div>
+          <div>
+            <h3>Shared rules</h3>
+            <ul>
+              <li>Items already attached are disabled in each picker, so nothing is added twice.</li>
+              <li>Share links count toward the <span class="num">5</span> item limit.</li>
+              <li>Sharing is disabled while the tip popup is open.</li>
+              <li>Links use the site's own <code>/share/</code> short path, not hard-coded hosts.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="money">
+        <h2>Paid DMs, tips, and guaranteed replies</h2>
+        <div class="features">
+          <div>
+            <h3>DM validation</h3>
+            <p>Opening or starting a conversation calls <code>ChatUserValidation</code>. The response decides whether the composer shows, whether the creator charges for DMs, how many free DMs remain, whether guaranteed replies apply, and whether the creator is hidden.</p>
+          </div>
+          <div>
+            <h3>Free DM credits</h3>
+            <ul>
+              <li>Creators with a DM price show either <em>You have N Free Messages remaining</em>, <em>Unlimited</em>, or a notice with the price once credits run out.</li>
+              <li>Each free send calls <code>consumeDMCredits</code> and updates the counter from the response.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Pay per message</h3>
+            <p>When credits are gone, sending routes the fan to the payment page with the message, media, and price stored for after payment. The pending item is removed from the queue and the fan returns to the thread afterward.</p>
+          </div>
+          <div>
+            <h3>Tips</h3>
+            <ul>
+              <li>A tip popup with preset amounts generated as multiples <code>1, 5, 10, 20, 50</code> of the minimum, converted into the fan's currency.</li>
+              <li>A custom amount field with min and max validation.</li>
+              <li>When the creator offers guaranteed replies, the popup shows a <strong>Minimum Tip</strong> badge with the required amount in the fan's currency.</li>
+              <li>Tips attach to the message. The amount is converted back to USD with the stored exchange rate.</li>
+              <li>A combined <span class="fn">pay per message and tip</span> flow sends one payment with both amounts.</li>
+              <li>Tips are blocked when a price or share content is already set on the message.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Guaranteed replies</h3>
+            <ul>
+              <li>Creators can require a minimum tip for a guaranteed reply.</li>
+              <li>Fans who send without a tip get a <em>Guaranteed Reply Offer</em> modal with the minimum amount and a <strong>Send without Tip</strong> option.</li>
+              <li>Choosing to tip opens the tip popup with the minimum preselected.</li>
+              <li>Refunds happen automatically within 7 days if the creator does not reply.</li>
+              <li>When the creator replies, <code>redeemGuaranteedReply</code> runs and a <em>guaranteed reply tip received</em> modal shows the amount.</li>
+              <li>Delegate users skip the modal and send directly.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Unlocking paid items</h3>
+            <p>Fans tap <span class="fn">Unlock</span> on a locked message. The delegate permission check runs first, then the payment page opens for that message id and price. Prices show in the fan's currency when it is not USD.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="lists">
+        <h2>New message and message lists</h2>
+        <div class="features">
+          <div>
+            <h3>New message modal</h3>
+            <ul>
+              <li>Searchable list of people you can message, debounced at <span class="num">500 ms</span>.</li>
+              <li>Pick one person to open a direct message.</li>
+              <li>On the Message Lists tab the button becomes <strong>+ New Message List</strong> and the same modal creates a list.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Creating a list</h3>
+            <ul>
+              <li>Step 1 picks recipients, and the picks show as removable chips at the top. Step 2 sets a list name (max <span class="num">25</span> characters) and an optional icon image, which the user crops to a round avatar.</li>
+              <li>You can pick either individual users (at least 2) or groups, not both. Selecting one type disables the other.</li>
+              <li>Groups include subscription plans and predefined segments: <em>Fans and Subscribers</em>, <em>Current Fans</em>, <em>All Current Subscribers</em>, <em>Previously Paid Subscribers</em>, <em>Top 20 Spenders</em>, and <em>Prior Paid DM Users</em>.</li>
+              <li>The icon is compressed and uploaded, and restricted images are rejected.</li>
+              <li>Starting a list from another screen jumps straight to step 2.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Editing a list</h3>
+            <ul>
+              <li><strong>Edit details</strong> changes the name and icon.</li>
+              <li><strong>Edit participants</strong> shows current participants and non-participants with search, and only sends the diff (add and remove users or groups).</li>
+              <li>The save button is disabled if the list would drop below <span class="num">2</span> users or <span class="num">1</span> group.</li>
+              <li>The list on screen updates locally without a full reload.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Sending to a list</h3>
+            <p>Messages to a list go through <code>sendPublic</code> with the list id instead of one recipient, and the thread shows the recipient count. The <code>[First Name]</code> token is inserted client-side and left in the payload for the backend to personalize per recipient.</p>
+          </div>
+          <div>
+            <h3>Deleting a list</h3>
+            <p>Delete asks for confirmation, calls the delete endpoint, then refreshes the list and shows the server message.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="automated">
+        <h2>Automated messages</h2>
+        <div class="features">
+          <div>
+            <h3>What they are</h3>
+            <p>Creators define a message that is sent on its own when a fan does something. Setup lives under the <strong>Setup Automated Messages</strong> tab.</p>
+          </div>
+          <div>
+            <h3>Event types</h3>
+            <ul>
+              <li>Fan Registers (<code>FOLLOW_MESSAGE</code>)</li>
+              <li>Fan Purchases Subscription (<code>SUBSCRIPTION_PURCHASE_MESSAGE</code>)</li>
+              <li>Fan Purchases Your Content Post (<code>CONTENT_PURCHASE_MESSAGE</code>)</li>
+              <li>Fan's Birthday (<code>BIRTHDAY_WISH_MESSAGE</code>)</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Setup modal</h3>
+            <ul>
+              <li>Dynamic form with a required event type and required message text, capped at <span class="num">1000</span> characters, with the same first-name insert as the composer.</li>
+              <li>The same attachment, voice note, price, and free preview controls as the composer.</li>
+              <li>An event type that already has a message is disabled in the dropdown, so each type has at most one message.</li>
+              <li>A price needs a paid attachment.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>List, edit, delete</h3>
+            <ul>
+              <li>A table shows event type and message text with per-row edit and delete actions.</li>
+              <li>Editing locks the event type and pre-fills text, price, and media.</li>
+              <li>Delete asks for confirmation and removes by event type.</li>
+              <li>An empty state reads <em>You have not setup any automated messages yet.</em></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="whitelabel">
+        <h2>White-label and safety</h2>
+        <div class="features">
+          <div>
+            <h3>White-label behavior</h3>
+            <ul>
+              <li>The conversation list is hidden unless the site allows DMs (<code>WLSAllowDMs</code>), or the user is the site owner.</li>
+              <li>Fans on a white-label site are sent straight to a chat with the site's creator.</li>
+              <li>Message payloads include the owner id as <code>wls_owner_id</code>.</li>
+              <li>Creators that are not available on the current site show <em>This Creator is not currently available on TopFan</em>.</li>
+              <li>Block is hidden and new message is limited to the owner.</li>
+              <li>Button text color for the waveform comes from the site's branding.</li>
+              <li>The page hides the site footer and keeps the header visible, so the inbox fills the viewport.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>Safety and hygiene</h3>
+            <ul>
+              <li>Right-click is disabled on message images.</li>
+              <li>Images use responsive WebP variants with lazy loading.</li>
+              <li>Subscriptions and timers are cleaned up on destroy.</li>
+              <li>Amounts, prices, and user ids come from the server or profile, not from hard-coded values.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section id="limits">
+        <h2>Hard limits worth keeping in a revamp</h2>
+        <ul>
+          <li>Paid attachments per message: <span class="num">5</span></li>
+          <li>Free preview items: <span class="num">1</span></li>
+          <li>Video size: <span class="num">512 MB</span></li>
+          <li>Attachment price: <span class="num">$1 to $10,000</span></li>
+          <li>Automated message text: <span class="num">1000</span> characters</li>
+          <li>Message list name: <span class="num">25</span> characters</li>
+          <li>Minimum users in a list: <span class="num">2</span>, or <span class="num">1</span> group</li>
+          <li>Minimum sender age: <span class="num">18</span></li>
+          <li>Composer height: up to <span class="num">4</span> rows</li>
+          <li>Unread badge cap: <span class="num">99+</span></li>
+          <li>Search debounce: <span class="num">500 ms</span></li>
+          <li>Presence heartbeat: every <span class="num">2 minutes</span></li>
+          <li>Guaranteed reply refund window: <span class="num">7 days</span></li>
+        </ul>
+      </section>
+
+      <section id="gaps">
+        <h2>Loose ends in the code</h2>
+        <p>Not features, but worth knowing before a revamp.</p>
+        <div class="features">
+          <div>
+            <h3>Older messages do not load</h3>
+            <p>The thread has infinite-scroll markup and a <code>getUserChatMessage(..., onSrcollItemUp)</code> path, but <code>onUp()</code> has its call commented out. Only the first page of history shows.</p>
+          </div>
+          <div>
+            <h3>Subscription prompt is unreachable</h3>
+            <p><code>openSubscriptionOptionPopup</code> and <code>goToPaymentForSubscription</code> exist in the container, but nothing in the template calls them. <code>onlySubscribers</code> is also declared and never set.</p>
+          </div>
+          <div>
+            <h3>Report user is unreachable</h3>
+            <p><code>reportUser</code> opens the report dialog, but no menu item triggers it.</p>
+          </div>
+          <div>
+            <h3>Size of the container</h3>
+            <p><code>MessageContainerComponent</code> is about <span class="num">3,950</span> lines of TypeScript and <span class="num">2,300</span> lines of template. Sending, uploads, payments, list management, and sharing all live in it.</p>
+          </div>
+          <div>
+            <h3>Two price modals</h3>
+            <p>The composer uses <code>MessagePriceModelComponent</code> with currency conversion. The automated-message form uses <code>MessagePriceModelV2Component</code> on top of <code>AlertModalComponent</code> with no conversion.</p>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>Source: <code>src/app/modules/messages</code> in TopFansLite-WebFrontend.</footer>
+  </div>
+</body>
+</html>

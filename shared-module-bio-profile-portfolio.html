@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Link in bio, profile and portfolio stop loading SharedModule</title>
+  <meta name="description" content="PR A of the SharedModule plan: link in bio, creator profiles and portfolio stop loading SharedModule. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Link in bio, profile and portfolio stop loading SharedModule</h1>
+      <p>Link in bio pages fetched <span class="bad">3.82 MB</span> of lazy JavaScript on a first visit. They now fetch <span class="ok">1.20 MB</span>. Creator profiles drop from 3.35 MB to 1.86 MB, and <code>/monetize/portfolio</code> from 5.10 MB to 2.07 MB. <code>ProfileModule</code> and <code>PortfolioModule</code> are gone. Of the 45 lazy entry points, 3 still load SharedModule, down from 6.</p>
+      <div class="meta">
+        <span>branch t3code/shared-module-profile-portfolio</span>
+        <span>on top of b0114afffd, step 4</span>
+        <span>PR A of <a href="standalone-routes-whats-left.html">the plan</a>, steps 5 and 6</span>
+        <span>3 commits, not pushed</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lazy JavaScript per route</h2>
+        <p>What a first visit fetches on top of the initial bundle, from the QA build. Before means after step 4. MB means a million bytes.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/bio/:userName</code></td><td class="num">3.82 MB</td><td class="num">1.20 MB</td></tr>
+              <tr><td>Creator profiles, <code>/:id</code> and <code>/wls/:id</code></td><td class="num">3.35 MB</td><td class="num">1.86 MB</td></tr>
+              <tr><td><code>/monetize/portfolio</code> and its pages</td><td class="num">5.10 MB</td><td class="num">2.07 MB</td></tr>
+              <tr><td><code>/dashboard</code>, still on SharedModule</td><td class="num">6.46 MB</td><td class="num">5.66 MB</td></tr>
+              <tr><td><code>/edit-preference</code>, still on SharedModule</td><td class="num">6.03 MB</td><td class="num">6.03 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>/dashboard</code> got 0.80 MB lighter because it no longer bundles the portfolio editor. It imported all of <code>PortfolioModule</code> to render one component.</p>
+        <p>The entries still on SharedModule are dashboard, edit preference and the whitelabel cover page. Every other entry grew by at most 3.8 KB, and the initial bundle by 1.1 KB. That's chunk overhead again. The build has 271 JavaScript files where step 4 had 260.</p>
+      </section>
+
+      <section>
+        <h2>Commit 00a1edbc5c: stop link in bio loading SharedModule</h2>
+        <p class="meta">4 files, +43 &minus;10</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The link in bio page, the monetize carousel, the welcome video preview and the feed content preview were standalone but imported all of SharedModule. They now import what the Angular compiler matched in their templates.</li>
+          <li>Everything they use was already standalone, so no other file changes.</li>
+          <li>The edit preference link in bio editor renders the same three previews. Edit preference still loads SharedModule through its own module, so its size doesn't move yet.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against step 4</td><td>All 653 components match.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as base. Development has none.</td></tr>
+              <tr><td>Server rendering, 87 URLs</td><td>All match step 4 once the compare script masks bundle hashes, style scope IDs and the hydration state. The list now includes link in bio, profile and portfolio URLs.</td></tr>
+              <tr><td>Logged-out browser run</td><td>Five link in bio URLs: two real creators, two unknown ones and an extra path segment. Same components and no page errors. The four changed components render on both real pages.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>The link in bio editor, its preview and its add page match step 4.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>No errors before or after.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit ae40c39204: make profile standalone</h2>
+        <p class="meta">8 files, +29 &minus;43</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>profile.module.ts</code> and <code>profile-routing.module.ts</code> are deleted. <code>/:id</code> and <code>/wls/:id</code> load <code>PROFILE_ROUTES</code> from the new <code>profile.routes.ts</code>, with the same single route to <code>DynamicSeoProfileComponent</code>.</li>
+          <li>The four components the module declared are standalone. They needed nothing else converted, because steps 2 and 3 already made <code>ProfileComponent</code> and everything it renders standalone.</li>
+          <li><code>SeoLandingComponent</code> and its creator card are converted too, but nothing renders or routes to them. With the module gone, the compiler no longer reaches them. They can be deleted.</li>
+          <li>The module set <code>CUSTOM_ELEMENTS_SCHEMA</code>. None of these templates needs it.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the link in bio commit</td><td>651 of 653 components match. The other two are the unused SEO landing components, which drop out of the compile.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass with the same warnings as before.</td></tr>
+              <tr><td>Server rendering, 92 URLs</td><td>All match. Four creator profile URLs render the full profile tree on the server, and an unknown creator renders not found, as before. Six URLs on the white-label builds match too, including the site root.</td></tr>
+              <tr><td>Hydration, main site</td><td>Four creator pages and an unknown one, logged out and logged in. Same components, no page errors, and no NG0 hydration errors in the console.</td></tr>
+              <tr><td>Hydration, white-label site</td><td>The root, <code>/wls/perfectcrew</code>, the creator path, <code>/about</code> and <code>/store</code>, logged out and logged in. Same results. Text length differed by one or two characters on two pages, which is a relative timestamp.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>1 error, down from 5. The 4 gone are <code>prefer-standalone</code>. The one left exists on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit 9897f212fd: make portfolio standalone</h2>
+        <p class="meta">26 files, +354 &minus;178</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>portfolio.module.ts</code> and <code>portfolio-routing.module.ts</code> are deleted. <code>/monetize/portfolio</code> loads <code>PORTFOLIO_ROUTES</code> from the new <code>portfolio.routes.ts</code>. The 26 routes, guards and data are the same.</li>
+          <li>The 18 components the module declared are standalone and needed nothing else converted. <code>PortfolioComponent</code> loses the phone directive. Its template has no phone input.</li>
+          <li><code>DashboardModule</code> imports <code>PortfolioBannerViewComponent</code>, the one portfolio component its templates render, instead of the whole module. The dashboard's own routes under <code>/dashboard/portfolio/:userId</code> are unchanged.</li>
+          <li>Importing the whole module also added its 26 routes to <code>/dashboard</code>. A URL such as <code>/dashboard/banner-view/:id</code> opened the portfolio editor. Nothing links to those paths. They now behave like any unknown dashboard URL.</li>
+          <li>The module's <code>CUSTOM_ELEMENTS_SCHEMA</code> hid four <code>[infoIconSize]="18"</code> bindings on <code>app-info-icon</code>, which has no such input. They never did anything, so I removed them. The icons stay at their default 16 pixels. If they should be 18, that's <code>[height]</code> and <code>[width]</code>, and a visible change.</li>
+          <li>The module's <code>NgCircleProgressModule.forRoot({})</code> duplicated the root providers.</li>
+          <li><code>SelectInterestsAccordionComponent</code> was only imported by the deleted module. Nothing uses it now.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the profile commit</td><td>649 of 651 components match. <code>PortfolioComponent</code> loses only the phone directive. The unused interests accordion drops out of the compile.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass with the same warnings as before, after removing the four bindings above.</td></tr>
+              <tr><td>Server rendering, 98 URLs</td><td>96 match. The two that differ are leaked paths. <code>/dashboard/banner-view/x</code> now returns not found, and <code>/dashboard/add-edit-portfolio</code> now falls through to the sub-page view, the same as <code>/dashboard/nonexistent-xyz</code> did before.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>20 URLs: the portfolio hub, a real banner view and album, all nine add and edit forms, the dashboard's portfolio, banner and album views, link in bio and the site root. Same components on both builds.</td></tr>
+              <tr><td>Interactions</td><td>Playing a track opens the player and the audio plays. Clicking an album, add album, add track and add portfolio lands on the same pages. The groups selector lists the same three groups. Emptying a required field shows the same validation error. Save stays disabled until the form is complete, on both builds.</td></tr>
+              <tr><td>Every component on 6 entries resolves in the browser</td><td>Portfolio, dashboard, monetize, profile, link in bio and edit preference. No problems and no page errors.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>1 error, down from 19. The 18 gone are <code>prefer-standalone</code>. The one left exists on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><code>/monetize/portfolio/add-edit-portfolio</code> without an ID throws "Cannot read properties of undefined (reading 'portfolio_shape')" in the console. It does the same on step 4.</p>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Use a creator account on its white-label site for the logged-in checks, and a private window for public pages. Keep the console open. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Portfolio editor</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c5-type"><span>Create a portfolio with a cover image, then edit its title.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-album"><span>Add an album and go through every step: basic info, streaming links, locking and tracks. Save it.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-album-edit"><span>Edit an existing album. Reorder its tracks by dragging and save.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-singles"><span>Add a single song, a podcast episode, a video and a custom item.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-locking"><span>Lock an item with a price and pick groups. The price and loyalty warnings show.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-crop"><span>Upload a cover image and crop it.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag high">High</span> Creator profile</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c5-profile-out"><span>Open a creator profile logged out on the main site. Posts, tabs and the header render with no flash on load.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-wls-root"><span>Open a white-label site root, logged out and logged in. The profile renders and scrolling loads more posts.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-profile-actions"><span>As a fan, follow the creator and open a post from the profile.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Fan views of portfolio</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c5-fan-banner"><span>As a fan, open a portfolio from a creator profile, then an album, then a track.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-fan-play"><span>Play a track. The player opens and keeps playing when you move to another page.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-fan-unlock"><span>Open a locked item. The unlock modal and the checkout open.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Link in bio</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c5-bio-public"><span>Open a creator's link in bio page. Feed posts, the monetize carousels, the welcome video and portfolio items show. A video plays.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-bio-editor"><span>In edit preference, the link in bio editor preview shows the same sections.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag low">Low</span> Routing</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c5-deeplink"><span>Reload on a deep link such as a portfolio album URL. It opens that page.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-leak"><span><code>/dashboard/banner-view/</code> followed by any ID no longer opens the portfolio editor. That's expected.</span></label></li>
+              <li><label><input type="checkbox" data-id="c5-unknown-creator"><span>An unknown creator name shows not found.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "shared-module-bio-profile-portfolio-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

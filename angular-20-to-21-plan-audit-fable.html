@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Audit of the TopFans Angular 20 to 21 upgrade plan: what checked out, what is wrong, and what is missing.">
+  <title>Audit of the Angular 20 to 21 upgrade plan</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    ul,
+    ol,
+    pre,
+    table {
+      margin: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    th,
+    strong {
+      color: var(--text);
+    }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.2em;
+    }
+
+    code {
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--green);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      padding: 0.1rem 0.35rem;
+    }
+
+    h1 code,
+    h2 code,
+    h3 code {
+      background: none;
+      padding: 0;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    header p {
+      font-size: 1.05rem;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      padding-top: 0.5rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+
+    nav {
+      padding-top: 2rem;
+    }
+
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    main {
+      padding-top: 3rem;
+    }
+
+    section + section {
+      padding-top: 2.5rem;
+    }
+
+    h2 {
+      padding-bottom: 0.75rem;
+      font-size: 1.35rem;
+    }
+
+    h3 {
+      padding-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .lede {
+      padding-bottom: 1.25rem;
+    }
+
+    .accent-blue {
+      color: var(--blue);
+    }
+
+    .accent-green {
+      color: var(--green);
+    }
+
+    .accent-amber {
+      color: var(--amber);
+    }
+
+    .accent-pink {
+      color: var(--pink);
+    }
+
+    .accent-violet {
+      color: var(--violet);
+    }
+
+    .findings {
+      display: grid;
+      gap: 1.75rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .findings li {
+      position: relative;
+      padding-left: 1.7rem;
+    }
+
+    .findings li::before {
+      position: absolute;
+      top: 0.45rem;
+      left: 0;
+      width: 0.75rem;
+      height: 0.75rem;
+      border: 0.12rem solid var(--pink);
+      border-radius: 0.2rem;
+      content: "";
+    }
+
+    .findings.gaps li::before {
+      border-color: var(--amber);
+    }
+
+    .findings.ok li::before {
+      border-color: var(--green);
+    }
+
+    .findings.ok {
+      gap: 0.8rem;
+    }
+
+    .findings h3 {
+      padding-bottom: 0.35rem;
+    }
+
+    .findings p + p,
+    .findings p + ul {
+      padding-top: 0.5rem;
+    }
+
+    .findings ul {
+      display: grid;
+      gap: 0.35rem;
+      padding-left: 1.25rem;
+    }
+
+    .findings .why {
+      display: block;
+      padding-top: 0.5rem;
+      color: var(--text);
+    }
+
+    pre {
+      overflow-x: auto;
+      background: var(--surface);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      padding: 1.25rem;
+      white-space: pre-wrap;
+    }
+
+    pre code {
+      background: none;
+      color: inherit;
+      font-size: inherit;
+      padding: 0;
+    }
+
+    .code-note {
+      padding-top: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.75rem 1rem 0.75rem 0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    td:first-child {
+      width: 30%;
+      color: var(--text);
+    }
+
+    .verdict {
+      border-left: 0.2rem solid var(--blue);
+      border-radius: 0.3rem;
+      padding-left: 1rem;
+    }
+
+    footer {
+      padding-top: 3rem;
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        padding-block: 3rem;
+      }
+
+      td:first-child {
+        width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Audit of the Angular 20 to 21 upgrade plan</h1>
+      <p>Every factual claim in <code>angular-20-to-21-upgrade-plan.html</code> was checked against the working tree, <code>node_modules</code>, the npm registry, the GitHub advisory database, and the Angular 21.0.0 release notes. This page records what held up, what is wrong, and what the plan does not cover.</p>
+      <div class="meta">
+        <span>repo: TopFansLite-WebFrontend</span>
+        <span>branch: feature/release-0.0.23/16-17-18-19-20-21</span>
+        <span>audited: 2026-09-18</span>
+      </div>
+      <nav aria-label="Sections">
+        <ul>
+          <li><a href="#verdict">Verdict</a></li>
+          <li><a href="#verified">Verified correct</a></li>
+          <li><a href="#wrong">Wrong or misleading</a></li>
+          <li><a href="#gaps">Gaps</a></li>
+          <li><a href="#phase-2">Corrected Phase 2</a></li>
+          <li><a href="#method">How this was checked</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main>
+      <section id="verdict">
+        <h2>Verdict</h2>
+        <p class="verdict">The plan is sound. The sequencing (Firebase swap first on Angular 20, then framework, then libraries) is the right call, the checklist covers every breaking change in the 21.0.0 release notes, and every version number resolves on the registry. Two claims are wrong in a way that <span class="accent-pink">changes what you do in Phase 2</span>, and there are a handful of inventory gaps that would have surfaced as surprises in Phase 4 or 6.</p>
+      </section>
+
+      <section id="verified">
+        <h2>Verified correct</h2>
+        <p class="lede">These claims were checked and hold. They are listed so the reader knows what does not need re-verifying.</p>
+        <ul class="findings ok">
+          <li><strong>Current state.</strong> Core 20.3.31, CLI 20.3.37, TypeScript 5.8.3, Node 24.5.0, npm 12.0.1, zone.js 0.15.1, Material and CDK 20.2.14, firebase 11.10.0 pulled in transitively by <code>@angular/fire</code> 20.0.1. Commits <code>64a1a3d259</code> and <code>35f314c117</code> exist with the described messages.</li>
+          <li><strong>Every target version exists and is the newest in its 21 line.</strong> Core 21.2.23, CLI 21.2.24, Material 21.2.14, TypeScript 5.9.3, <code>@angular-eslint</code> 21.4.0, primeng 21.1.10, ngx-bootstrap 21.2.2, ng-select 21.8.2, <code>@ngrx/store</code> 21.1.1, ng-bootstrap 20.0.0, ngx-toastr 20.0.5, ngx-mask 21.1.0, ngx-owl-carousel-o 21.0.3, ngx-infinite-scroll 21.0.0, <code>@zxing/ngx-scanner</code> 21.0.0, angular-fontawesome 4.0.0, ngx-device-detector 11.0.0.</li>
+          <li><strong>Peer ranges match.</strong> primeng wants <code>@angular/core ^21.0.7</code>, ngx-bootstrap <code>^21.2.0</code>, zxing <code>typescript ^5.9</code>, <code>@angular-eslint</code> allows <code>eslint ^8.57 || ^9 || ^10</code>. Angular 21 itself peers <code>zone.js ~0.15 || ~0.16</code> and <code>typescript &gt;=5.9 &lt;6.1</code>.</li>
+          <li><strong>Angular 22 requirements.</strong> Node <code>^22.22.3 || ^24.15.0 || &gt;=26</code> and TypeScript <code>&gt;=6.0 &lt;6.1</code>, exactly as the plan says.</li>
+          <li><strong>Builders survive.</strong> <code>@angular-devkit/build-angular@21.2.24</code> still ships <code>karma</code> and <code>server</code>, so the <code>test</code> and <code>serverless</code> targets keep working.</li>
+          <li><strong>SSR advisory.</strong> GHSA-x288-3778-4hhx is patched in <code>@angular/ssr</code> 21.1.5 (and 20.3.17). <code>allowedHosts</code> is already passed to <code>CommonEngine</code> at <code>server.ts:191</code>.</li>
+          <li><strong>AngularFire null-on-server behaviour.</strong> Both <code>provideMessaging</code> and <code>provideRemoteConfig</code> return <code>null</code> when <code>isPlatformServer</code>. The <code>&amp;&amp; this.remoteConfig</code> check in <code>getRemoteConfigValue</code> is what keeps the <code>isPrerendered</code> path safe today. The plan's analysis of that is right.</li>
+          <li><strong><code>@angular/fire</code> is stuck.</strong> The <code>next</code> tag is <code>21.0.0-rc.0</code>, <code>latest</code> is 20.0.1, and the rc depends on <code>firebase ^12.4.0</code>. Nothing newer exists.</li>
+          <li><strong>Codebase counts.</strong> 0 spec files, 46 files touching <code>NgZone</code>, 0 hits for <code>moduleId</code>, <code>interpolation</code>, <code>ngComponentOutletContent</code>, <code>ApplicationConfig</code>, <code>ignoreChangesOutsideZone</code>, <code>lastSuccessfulNavigation</code>, <code>NgModuleFactory</code>, <code>emitDeclarationOnly</code>. <code>@angular/elements</code> appears only in a comment in <code>main.server.ts</code>. Only <code>formArrayName</code> is used in templates. <code>FirebaseService</code> is referenced in 15 files. The service worker loads compat 9.6.1 from gstatic.</li>
+          <li><strong>SSR shape.</strong> <code>AppServerModule</code> imports <code>AppModule</code>, so the zone provider migration covers the server bundle too. <code>CommonEngine</code> still accepts an NgModule type as <code>bootstrap</code>.</li>
+        </ul>
+      </section>
+
+      <section id="wrong">
+        <h2>Wrong or misleading</h2>
+        <p class="lede">Ordered by how much they change the work.</p>
+        <ul class="findings">
+          <li>
+            <h3><code>.npmrc</code> already sets <code>legacy-peer-deps=true</code></h3>
+            <p>The repo has a committed <code>.npmrc</code> containing <code>legacy-peer-deps=true</code>. That single line invalidates three statements in the plan:</p>
+            <ul>
+              <li>"All three already fail <code>npm ls</code> peer checks today." They do not. <code>npm ls</code> exits 0 with zero <code>invalid</code> entries because peer resolution is switched off.</li>
+              <li>"AngularFire still needs <code>--legacy-peer-deps</code>" as a reason to drop it. Every install in this repo already runs that way, so it is not a differentiator. The Firebase 12 coupling is the real reason, and it stands on its own.</li>
+              <li>Phase 2: "add an <code>overrides</code> block rather than <code>--force</code> so future <code>npm install</code> runs are clean without a flag." The flag is already permanent, and <code>overrides</code> does not touch the check that will actually fail.</li>
+            </ul>
+            <span class="why">Why it matters: <code>ng update</code> runs its own peer check against installed <code>peerDependencies</code> (<code>@angular/cli/src/commands/update/schematic/index.js:198</code>) and throws <span class="accent-pink">Incompatible peer dependencies found</span>. The only way past it is <code>--force</code>. <code>ng-ivs</code> (declares Angular 12), <code>ngx-audio-player</code> (17) and <code>ngx-stripe</code> (18) will all trigger it. Plan for <code>--force</code> up front instead of discovering it mid-phase.</span>
+          </li>
+
+          <li>
+            <h3>Untracked files also block <code>ng update</code></h3>
+            <p>The cleanliness check is <code>git status --porcelain</code> (<code>update/cli.js:724</code>), and <code>??</code> entries count as dirty. Phase 0 says to commit or stash the 8 modified files, but the 12 untracked <code>*.html</code> plans in the repo root (this plan included) will stop <code>ng update</code> just the same.</p>
+            <span class="why">Fix: commit them, add them to <code>.gitignore</code>, or pass <code>--allow-dirty</code>. Do this in Phase 0, not when the command refuses.</span>
+          </li>
+
+          <li>
+            <h3>The <code>@HostBinding</code> inventory is incomplete</h3>
+            <p>The plan names three components plus <code>video-player-v2</code>. Two more files use <code>@HostBinding</code> and will be type-checked for the first time in 21:</p>
+            <ul>
+              <li><code>src/app/components/skeleton/profile-skeleton/profile-skeleton.component.ts</code>: <code>class.main-content</code> getter, typed <code>boolean</code>, probably fine.</li>
+              <li><code>src/app/modules/auth/components/signup-by-refer/signup-by-refer.component.ts</code>: <code>style.--profile-url</code> on an untyped getter.</li>
+            </ul>
+            <p>The <code>header.component.ts</code> getters are also untyped. The <code>host: {}</code> scan is correct: 37 files declare <code>host</code> metadata but only <code>video-player-v2</code> has actual <code>[...]</code> bindings, the rest are static attributes.</p>
+          </li>
+
+          <li>
+            <h3>CDK usage is undercounted</h3>
+            <p>The plan says "~25" files for drag-drop and clipboard. The real number is 33 for those two entry points, and 35 overall once you add <code>@angular/cdk/scrolling</code> in <code>promotional.module.ts</code> and <code>@angular/cdk/layout</code> in <code>shared/services/mobile-optimization.service.ts</code>. Neither of the extra two appears in the Phase 6 smoke list.</p>
+          </li>
+
+          <li>
+            <h3><code>@angular-devkit/architect</code> version is misstated</h3>
+            <p>The matrix lists it moving to 21.2.24. The architect package uses its own scheme; the matching release is <code>0.2102.24</code>. <code>ng update</code> handles it, so this is a documentation error, not a build risk.</p>
+          </li>
+
+          <li>
+            <h3>ngx-stripe and stripe-js</h3>
+            <p>The plan says ngx-stripe 21 "forces <code>@stripe/stripe-js</code> from 3 to 5 or later." The latest 21 release (21.9.0) requires <code>&gt;=9 &lt;10</code>. Separately, the installed ngx-stripe 18.1.0 already declares <code>@stripe/stripe-js &gt;=4 &lt;5</code> against installed 3.5.0, so stripe-js is out of range today, not only after an upgrade. It also sits in <code>devDependencies</code>, which is odd for a runtime SDK. All of this belongs in the deferred-task note.</p>
+          </li>
+
+          <li>
+            <h3>Small counts</h3>
+            <p>Material bottom-sheet: 6 files import <code>MatBottomSheet</code>, 7 import from the entry point (one module file). Untracked files: 12, not 11, once the plan itself is written to the repo root.</p>
+          </li>
+        </ul>
+      </section>
+
+      <section id="gaps">
+        <h2>Gaps</h2>
+        <p class="lede">Things the plan does not mention that the repo makes relevant.</p>
+        <ul class="findings gaps">
+          <li>
+            <h3>Custom <code>UrlSerializer</code> has a dedicated router change</h3>
+            <p>The 21.0.0 router notes include "Respect custom <code>UrlSerializer</code> handling of query parameters (#64449)". This repo provides <code>TrailingSlashUrlSerializer</code> as <code>UrlSerializer</code> at <code>app.module.ts:98</code>. That is a targeted behaviour change for exactly this class, separate from the general microtask-timing item the plan already lists.</p>
+            <span class="why">The serializer only overrides <code>parse</code> and delegates <code>serialize</code>, so it will most likely keep working, but it deserves a <span class="accent-amber">verify</span> row in the checklist and a smoke case such as <code>/username/?key=x</code> and <code>/creators?key=x</code>.</span>
+          </li>
+
+          <li>
+            <h3><code>requestFirebaseToken</code> has no browser guard</h3>
+            <p>Its only caller is <code>header.component.ts:825</code>. Today it survives on the server because <code>_messaging</code> is <code>null</code> and the promise <code>.catch</code> swallows the failure. With the raw SDK, <code>getMessaging()</code> throws synchronously on the server before any <code>.catch</code> can run.</p>
+            <span class="why">The plan's contract list says "guard with <code>isBrowser</code>", but only calls out <code>getRemoteConfigValue</code>. Apply the same guard, plus <code>isSupported()</code>, to the token path.</span>
+          </li>
+
+          <li>
+            <h3>Zone migration is mandatory, not a prompt</h3>
+            <p>Phase 2 says "say yes to the zone change detection migration when prompted." The <code>provideZoneChangeDetection</code> migration in <code>ng update @angular/core@21</code> is a required migration and runs without asking. Harmless, but the checkpoint should read "confirm the provider landed in <code>AppModule.providers</code>" rather than expecting a prompt.</p>
+          </li>
+
+          <li>
+            <h3>The extra CDK entry points need smoke coverage</h3>
+            <p><code>cdk/layout</code> drives <code>mobile-optimization.service.ts</code> (breakpoint observation) and <code>cdk/scrolling</code> is imported by the promotional module. Add "mobile breakpoint switch" and "promotional list scroll" to Phase 6.</p>
+          </li>
+        </ul>
+      </section>
+
+      <section id="phase-2">
+        <h2>Corrected Phase 2</h2>
+        <p class="lede">What the framework step should say once the findings above are folded in.</p>
+<pre><code>git add -A &amp;&amp; git commit -m "chore: commit marketing data and plan files before ng update"
+
+ng update @angular/core@21 @angular/cli@21 --force
+ng update @angular/material@21 --force</code></pre>
+        <p class="code-note"><code>--force</code> is needed because <code>ng update</code> checks installed peer ranges itself and <code>.npmrc</code> cannot influence that. It does not skip migrations. The <code>provideZoneChangeDetection()</code> migration runs automatically; verify it appears in <code>AppModule.providers</code> before committing. Do not add an <code>overrides</code> block for the three out-of-range libraries; <code>legacy-peer-deps</code> already covers <code>npm install</code>, and <code>overrides</code> would not affect the <code>ng update</code> check.</p>
+      </section>
+
+      <section id="method">
+        <h2>How this was checked</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Claim type</th>
+                <th scope="col">Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Installed versions and peer ranges</td>
+                <td><code>node_modules/*/package.json</code> read directly for every package named in the plan.</td>
+              </tr>
+              <tr>
+                <td>Target versions</td>
+                <td><code>npm view &lt;pkg&gt;@21 version peerDependencies</code> for each library; <code>dist-tags</code> for <code>@angular/fire</code>.</td>
+              </tr>
+              <tr>
+                <td>Builders in 21.2.24</td>
+                <td><code>builders.json</code> from the published <code>@angular-devkit/build-angular@21.2.24</code> tarball.</td>
+              </tr>
+              <tr>
+                <td>Advisory</td>
+                <td><code>gh api /advisories/GHSA-x288-3778-4hhx</code>.</td>
+              </tr>
+              <tr>
+                <td>Breaking changes list</td>
+                <td>Angular <code>21.0.0</code> GitHub release notes, Breaking Changes section, cross-checked row by row against the plan's table.</td>
+              </tr>
+              <tr>
+                <td>Codebase occurrences</td>
+                <td><code>rg</code> over <code>src/</code> and <code>server.ts</code> for each symbol, decorator, and import path.</td>
+              </tr>
+              <tr>
+                <td><code>ng update</code> behaviour</td>
+                <td>Read <code>@angular/cli/src/commands/update/cli.js</code> and <code>update/schematic/index.js</code> for the dirty-tree check and the peer compatibility check.</td>
+              </tr>
+              <tr>
+                <td>Install state</td>
+                <td><code>.npmrc</code>, <code>npm ls</code> exit code, <code>git status --porcelain</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Companion to <code>angular-20-to-21-upgrade-plan.html</code> in the TopFansLite-WebFrontend repo root. Findings reflect the registry and repo state on 2026-09-18.</p>
+    </footer>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

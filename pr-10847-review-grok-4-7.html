@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10847 review-grok-4-7</title>
+<meta name="description" content="Second review of lazy monetize routes, the dynamic home profile, and the post-price camera import. The camera request is cancelled with the lock dialog. Merge yes.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10847-review-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10847 review-grok-4-7</h1><p>The camera load now dies with the lock dialog. Monetize routes and the home profile are unchanged from the previous review.</p></div>
+<div class="meta"><span>Reviewed again 25 September 2026</span><span>4 files</span><span>315 added, 220 removed</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10847">PR 10847</a> · Base <code>81c5e10824</code> · Head <code>cb2893c092</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#camera">Camera guard</a><a href="#review">What still holds</a><a href="#limits">What I did not run</a></nav></header>
+<main>
+<section id="verdict"><h2>Should I merge it now? Yes.</h2>
+<p class="ok">The camera race from <code>6db341b485</code> is closed.</p>
+<p>Commit <code>cb2893c092</code> is the only change since the last review. It touches <code>openCameraTestModal</code>, <code>cancelModal</code>, and <code>ngOnDestroy</code>. Cancel and destroy bump a request id and clear the pending flag before the dialog goes away. After the import, the method shows the camera only if that id is still current. A second click while the import is in flight returns immediately.</p>
+<p>I would merge <code>cb2893c092</code>. The route split and the profile loader were already in good shape. This commit is the missing guard.</p></section>
+<section id="camera"><h2>How the camera request is dropped</h2>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/cb2893c09240ea49f476f5f951e286927d1bd72d/src/app/modules/dashboard/components/new-post/dialog-box/post-price/post-price.component.ts#L974-L1024">PostPriceComponent, lines 974 to 1024</a></p>
+<p><code>cameraLoadPending</code> blocks a second call. <code>cameraLoadRequest</code> is the generation. <code>dropPendingCameraLoad</code> increments that generation and sets pending to false. <code>cancelModal</code> calls it before <code>activeModal.close</code>. <code>ngOnDestroy</code> calls it before <code>destroy$</code> completes. <code>isCameraLoadCurrent</code> is a straight id compare.</p>
+<p>I stepped the same branches with a delayed import, a rejected import, and a second call. These are the outcomes.</p>
+<ul>
+<li>Cancel during the import. The continuation sees a stale id and does not call <code>show</code> or <code>startCamera</code>. Pending is already false.</li>
+<li>Destroy during the import. Same result. The capture subscription also uses <code>takeUntil(this.destroy$)</code>, so a late image does not write into the form.</li>
+<li>A second click while pending. That call returns. One import, one <code>show</code>.</li>
+<li>Cancel, then click again, with the old import resolving first. Only the new request calls <code>show</code>. The old <code>finally</code> does not clear the new pending flag, because its id no longer matches.</li>
+<li>Import failure while the request is current. <code>showErrorMessage</code> runs with <code>Messages.SOMETHING_WENT_WRONG</code>, pending clears, and a later click can try again.</li>
+<li>Import failure after cancel. No error toast, no modal.</li>
+</ul>
+<p>A click after the chunk is cached still reaches <code>show</code> and <code>startCamera</code>. <code>Messages</code> and <code>takeUntil</code> are already imported in this file. <code>showErrorMessage</code> already exists on <code>CommonService</code>.</p>
+<p>One leftover. If the camera modal is already open and the user then cancels the lock dialog, this commit does not hide that modal. <code>dropPendingCameraLoad</code> only invalidates a load that has not called <code>show</code> yet. The previous synchronous method left an already-open camera up as well. I would not hold the merge for that.</p></section>
+<section id="review"><h2>What still holds</h2>
+<div class="items">
+<div><h3>Routes and the home profile did not move</h3>
+<p>The diff from <code>6db341b485</code> to <code>cb2893c092</code> is one file. The 41 monetize route records still match the base. The profile loader still uses <code>PendingTasks</code>, a type-only import, and <code>ngComponentOutlet</code>.</p>
+<p>White-label cover-page visits still start the profile import in the constructor, including when the profile template will never render. That is extra JavaScript on those visits. It is the same behavior as the last review, and it is not a reason to wait.</p></div>
+<div><h3>The guard matches the last required fix</h3>
+<p>One pending load. Show the modal only if the component has not cancelled or destroyed that request. Clear the pending flag when the import fails. Those three were the block. They are in this commit.</p></div>
+</div></section>
+<section id="limits"><h2>What I did not run</h2>
+<p>I did not rebuild TopFans, compare SSR HTML, or click the lock dialog in a browser. The camera results above are the method's own branches, stepped with stand-in promises. They are not a signed-in webcam pass.</p>
+<p>The PR test plan is still unchecked. GitHub reports the pull request open and mergeable, with no status checks. After merge, the useful manual check is still the one in the test plan. Open the lock dialog, click the camera control, and also cancel once while the camera chunk is slow.</p></section>
+<section id="references"><h2>Review references</h2><ul>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10847">PR 10847</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/commit/cb2893c09240ea49f476f5f951e286927d1bd72d">Camera guard commit</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/81c5e10824f02a1c4beaff5716039b64445ffc3a...cb2893c09240ea49f476f5f951e286927d1bd72d">Exact comparison</a></li>
+<li><a href="/pr-10845-review-astra">Previous review, PR 10845</a></li>
+</ul></section>
+</main>
+<footer>Review applies to <code>cb2893c092</code>. Recheck if the PR moves again.</footer>
+</div></body></html>

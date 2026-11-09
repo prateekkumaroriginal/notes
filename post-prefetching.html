@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Post prefetching on the white-label homepage</title>
+  <meta name="description" content="How feature/post-prefetching starts page-1 posts and ads from index.html, holds paint until live privacy, and what the tf-site-4 lab showed.">
+  <link rel="canonical" href="https://notes.prateekkumar.site/post-prefetching">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+    strong { color: var(--text); font-weight: 650; }
+    .focus { color: var(--blue); }
+    .good { color: var(--green); }
+    .num { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .cmt { color: var(--muted); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+    section > * + * { padding-top: 0.75rem; }
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+    td:first-child { color: var(--text); }
+    td.good { color: var(--green); }
+    td.num { color: var(--amber); font-variant-numeric: tabular-nums; }
+
+    .file {
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <nav aria-label="Breadcrumb"><a href="/">Development notes</a></nav>
+      <h1>Post prefetching on the white-label homepage</h1>
+      <p>Owner prefetch already started <code>user_by_username</code> from <code>index.html</code>. This change starts page-1 posts and feed ads in that same early script, then holds the feed paint until the live owner GET and <code>checkPrivacy</code> finish. Media is not prefetched. <code>is_private</code> is not baked into the hint.</p>
+      <p class="meta">
+        <span>4 November 2026</span>
+        <span>branch <code>feature/post-prefetching</code></span>
+        <span>lab <a href="https://tf-site-4.web.app/">tf-site-4.web.app</a></span>
+      </p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What was already shipped</h2>
+        <p>PR 11122 put a tiny per-tenant hint at <code>/assets/owner-prefetch-&lt;user&gt;.json</code>. A script in <code>index.html</code> reads it and starts the owner profile GET before Angular exists. <code>consumeOwnerProfilePrefetch</code> hands that in-flight promise to <code>ProfileComponent</code> once, only if the URL matches. TopFans has no hint, the fetch 404s, nothing starts.</p>
+        <p>That moved <code>tf:profile-card:visible</code> under 2.5s on a warm host. The first feed row still waited for Angular to boot, then start <code>post/users/post/:gsi4pk</code>. This branch overlaps that GET with the owner GET.</p>
+      </section>
+
+      <section>
+        <h2>Rules that did not move</h2>
+        <ul>
+          <li>Do not prefetch media. JSON only.</li>
+          <li>Do not bake privacy into the hint. The live owner GET plus <code>checkPrivacy</code> still decide whether the feed may paint.</li>
+          <li>Cover-page tenants skip posts and ads. <code>isHomepageFeed</code> is false when <code>is_whitelabel_cover_page_published</code> is true.</li>
+          <li>Consume once. URL must match. Another profile on the same tenant must not swallow the owner posts.</li>
+          <li>Do not prefetch every API. Owner, page-1 posts, and the two feed ads. That is the set.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>The hint now names three URLs</h2>
+        <p class="file">scripts/prerender-routes.constants.js</p>
+        <pre><code>OWNER_PREFETCH_PATHS: {
+  owner: (username) =&gt; <span class="str">`api/user_by_username/${username}?wlsOwner=true`</span>,
+  posts: (gsi4pk) =&gt; <span class="str">`post/users/post/${gsi4pk}`</span>,
+  ads: (gsi4pk) =&gt;
+    <span class="str">`post/user/ads?limit=2&amp;ad_format=Feed&amp;from=${gsi4pk}&amp;request_from=profile_feed`</span>,
+}</code></pre>
+        <p class="file">scripts/write-owner-prefetch.mjs</p>
+        <pre><code><span class="kw">const</span> coverPublished = <span class="str">/is_whitelabel_cover_page_published:\s*true/</span>.<span class="fn">test</span>(text);
+<span class="kw">const</span> isHomepageFeed = !coverPublished &amp;&amp; !!username &amp;&amp; !!gsi4pk;
+<span class="kw">const</span> postsPath = isHomepageFeed ? paths.<span class="fn">posts</span>(gsi4pk) : <span class="str">''</span>;
+<span class="kw">const</span> adsPath = isHomepageFeed ? paths.<span class="fn">ads</span>(gsi4pk) : <span class="str">''</span>;</code></pre>
+        <p>Bonded-wealth QA is a feed homepage, so the generated hint looks like this. The file is gitignored and written at prerender time from the tenant env.</p>
+        <pre><code>{
+  <span class="str">"username"</span>: <span class="str">"bonded-wealth"</span>,
+  <span class="str">"gsi4pk"</span>: <span class="str">"98dceb83-…"</span>,
+  <span class="str">"ownerUrl"</span>: <span class="str">"https://backendapi-qa…/api/user_by_username/bonded-wealth?wlsOwner=true"</span>,
+  <span class="str">"postsUrl"</span>: <span class="str">"https://backendapi-qa…/post/users/post/98dceb83-…"</span>,
+  <span class="str">"adsUrl"</span>: <span class="str">"https://backendapi-qa…/post/user/ads?limit=2&amp;ad_format=Feed&amp;from=…"</span>,
+  <span class="str">"isHomepageFeed"</span>: <span class="kw">true</span>
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>One hint fetch, three GETs</h2>
+        <p>The early script still does one same-origin hint fetch. If the homepage is a feed, it fans that hint into three API GETs. Each slot stores <code>{ url, data }</code> so consume can match the path later. <code>encodeURI</code> is on the API URL so a QA <code>baseURL</code> with odd characters does not break the request.</p>
+        <p class="file">src/index.html</p>
+        <pre><code><span class="kw">var</span> hintP = <span class="fn">fetch</span>(<span class="str">'/assets/owner-prefetch.json'</span>)
+  .<span class="fn">then</span>(<span class="kw">function</span> (res) { <span class="kw">return</span> res.ok ? res.<span class="fn">json</span>() : <span class="kw">null</span>; })
+  .<span class="fn">catch</span>(<span class="kw">function</span> () { <span class="kw">return null</span>; });
+
+window.__tfOwnerProfile = hintP
+  .<span class="fn">then</span>(<span class="kw">function</span> (hint) {
+    <span class="kw">return</span> <span class="fn">fetchJson</span>(hint &amp;&amp; (hint.ownerUrl || hint.url));
+  })
+  .<span class="fn">catch</span>(emptyPayload);
+
+window.__tfOwnerPosts = hintP
+  .<span class="fn">then</span>(<span class="kw">function</span> (hint) {
+    <span class="kw">if</span> (!hint || !hint.isHomepageFeed || !hint.postsUrl) {
+      <span class="kw">return</span> <span class="fn">emptyPayload</span>();
+    }
+    <span class="kw">return</span> <span class="fn">fetchJson</span>(hint.postsUrl);
+  })
+  .<span class="fn">catch</span>(emptyPayload);
+
+window.__tfOwnerAds = hintP
+  .<span class="fn">then</span>(<span class="kw">function</span> (hint) {
+    <span class="kw">if</span> (!hint || !hint.isHomepageFeed || !hint.adsUrl) {
+      <span class="kw">return</span> <span class="fn">emptyPayload</span>();
+    }
+    <span class="kw">return</span> <span class="fn">fetchJson</span>(hint.adsUrl);
+  })
+  .<span class="fn">catch</span>(emptyPayload);</code></pre>
+        <p>White-label generate rewrites the hint path to <code>/assets/owner-prefetch-bonded-wealth.json</code> in that project's index. Slot names live in <code>APP_SHELL_CONSTANTS.OWNER_PREFETCH</code> so the HTML script and <code>AuthService</code> stay on the same strings.</p>
+      </section>
+
+      <section>
+        <h2>Consume once, URL must match</h2>
+        <p>The early promise is not an Angular cache entry. <code>ProfileComponent</code> still goes through <code>ApiCacheService</code>. If the early slot is present and the absolute URL matches, it uses that payload. Then the slot is cleared. A miss falls back to a normal GET.</p>
+        <p class="file">src/app/core/auth.service.ts</p>
+        <pre><code><span class="kw">const</span> consumeEarlyPrefetch = (slot, expectedPath) =&gt; {
+  <span class="kw">const</span> pending = ownerEarly()[slot];
+  <span class="kw">if</span> (!pending) <span class="kw">return null</span>;
+  <span class="kw">const</span> expectedAbs = <span class="fn">expectedOwnerAbsoluteUrl</span>(expectedPath);
+  <span class="kw">const</span> response$ = <span class="fn">from</span>(pending).<span class="fn">pipe</span>(
+    <span class="fn">map</span>((payload) =&gt;
+      payload?.url &amp;&amp; payload.url === expectedAbs ? payload.data ?? <span class="kw">null</span> : <span class="kw">null</span>
+    )
+  );
+  ownerEarly()[slot] = <span class="kw">undefined</span>;
+  <span class="kw">return</span> response$;
+};
+
+<span class="kw">export function</span> <span class="fn">consumeOwnerPostsPrefetch</span>(url: <span class="kw">string</span>) {
+  <span class="kw">if</span> (!<span class="fn">hasWhiteLabelConfig</span>() || !url) <span class="kw">return null</span>;
+  <span class="kw">return</span> <span class="fn">consumeEarlyPrefetch</span>(
+    APP_SHELL_CONSTANTS.OWNER_PREFETCH.POSTS,
+    url
+  );
+}</code></pre>
+        <p>Posts and ads are only consumed when the page is looking at the white-label owner. A deep link to someone else on the same site leaves the owner slots alone so a later visit to <code>/</code> can still use them.</p>
+        <p class="file">src/app/modules/shared/components/profile/profile.component.ts</p>
+        <pre><code>getOtherPosts(userId) {
+  <span class="kw">const</span> postsUrl = APIENDPOINT.<span class="fn">otherPosts</span>(userId);
+  <span class="kw">const</span> prefetched = <span class="kw">this</span>.<span class="fn">isViewingWhiteLabelOwner</span>()
+    ? <span class="fn">consumeOwnerPostsPrefetch</span>(postsUrl)
+    : <span class="kw">null</span>;
+  <span class="kw">const</span> fresh$ = <span class="kw">this</span>.apiCacheService.<span class="fn">get</span>(postsUrl, CacheTypes.ALWAYS_FRESH);
+  <span class="kw">const</span> otherPosts$ = prefetched
+    ? prefetched.<span class="fn">pipe</span>(<span class="fn">switchMap</span>((data) =&gt; (data ? <span class="fn">of</span>(data) : fresh$)))
+    : fresh$;
+  <span class="cmt">// …commitFeedPosts on next</span>
+}</code></pre>
+        <p>Ads use the same consume on <code>post/user/ads?limit=2&amp;ad_format=Feed&amp;from=:gsi4pk&amp;request_from=profile_feed</code>. The Angular ads helper may append <code>device_id</code>. Consume matches the path without that extra query. A miss just does the live GET.</p>
+      </section>
+
+      <section>
+        <h2>Hold paint until privacy is live</h2>
+        <p>The early posts GET can finish before the owner GET. That is expected. The feed still must not paint a private creator's posts from a public prefetch. <code>commitFeedPosts</code> parks the rows until <code>checkPrivacy</code> has run on the live owner payload.</p>
+        <p class="file">src/app/modules/shared/components/profile/profile.component.ts</p>
+        <pre><code><span class="kw">private</span> <span class="fn">commitFeedPosts</span>(posts: <span class="kw">any</span>[]): <span class="kw">void</span> {
+  <span class="kw">if</span> (!<span class="kw">this</span>.feedPrivacyKnown) {
+    <span class="kw">this</span>.pendingPrefetchPosts = posts;
+    <span class="kw">return</span>;
+  }
+  <span class="kw">if</span> (<span class="kw">this</span>.isPrivate) {
+    <span class="kw">this</span>.pendingPrefetchPosts = <span class="kw">null</span>;
+    <span class="kw">this</span>.userPosts = [];
+    <span class="kw">this</span>.isLoader = <span class="kw">false</span>;
+    <span class="kw">return</span>;
+  }
+  <span class="kw">this</span>.pendingPrefetchPosts = <span class="kw">null</span>;
+  <span class="kw">this</span>.userPosts = posts;
+  <span class="kw">this</span>.isLoader = <span class="kw">false</span>;
+}</code></pre>
+        <p><code>handleUserProfileResponse</code> still calls <code>checkPrivacy</code>. When the homepage is a feed and the prefetch is sitting in <code>pendingPrefetchPosts</code>, privacy flips <code>feedPrivacyKnown</code> and commits in the same turn:</p>
+        <pre><code><span class="kw">if</span> (<span class="kw">this</span>.<span class="fn">shouldReusePrefetchedFeed</span>(gsi4pk)) {
+  <span class="kw">if</span> (<span class="kw">this</span>.pendingPrefetchPosts) {
+    <span class="kw">this</span>.<span class="fn">commitFeedPosts</span>(<span class="kw">this</span>.pendingPrefetchPosts);
+    <span class="kw">this</span>.<span class="fn">runFeedPostCommitEffects</span>();
+  }
+}</code></pre>
+        <p>White-label owner pages no longer skip <code>prefetchFeedIfPossible</code>. The old skip waited for the owner GET before even starting posts. That fight the early script. The owner path now starts <code>startOtherPosts(ownerGsi4pk)</code> immediately and consumes the early promise.</p>
+      </section>
+
+      <section>
+        <h2>Why the two marks land on the same millisecond</h2>
+        <p><code>tf:profile-card:visible</code> is scheduled with <code>afterNextRender</code> when the owner profile lands. That same handler calls <code>checkPrivacy</code>, which commits the parked posts and schedules <code>tf:profile:first-card</code> with another <code>afterNextRender</code>. Both callbacks run after one paint. Lighthouse reports whole milliseconds, so they print as the same number.</p>
+        <p>That is the point of the overlap. On owner-prefetch-only tf-site-2, first-card was typically about 800ms later than the card. Here the posts JSON is already in memory when privacy resolves, so the first row is ready in the same frame as the header.</p>
+      </section>
+
+      <section>
+        <h2>What the tf-site-4 lab showed</h2>
+        <p>Bonded-wealth QA, desktop Lighthouse, three runs each, cold. Host is <a href="https://tf-site-4.web.app/">tf-site-4.web.app</a>. Marks were copied onto this branch so the lab could see them. LCP is still the prerendered banner. Judge the chain and the app marks, not host TTFB.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Auth</th><th>Profile GET</th><th>Feed GET</th><th>Card</th><th>First card</th><th>LCP</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>logged-out median</td>
+                <td class="num">118 → 1724</td>
+                <td class="num">119 → 1515</td>
+                <td class="num">4311ms</td>
+                <td class="num">4311ms</td>
+                <td class="num">3128ms</td>
+              </tr>
+              <tr>
+                <td>logged-in median</td>
+                <td class="num">85 → 2233</td>
+                <td class="num">85 → 1852</td>
+                <td class="good">2377ms</td>
+                <td class="good">2377ms</td>
+                <td class="num">3259ms</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>On the 2377ms logged-in run both GETs started at <span class="num">85ms</span>. Feed finished at <span class="num">1852ms</span>, profile at <span class="num">2233ms</span>. The first-card mark still waited for privacy, so it sat at 2377ms even though the posts JSON had been in memory for about 500ms.</p>
+        <p>Logged-out has no CORS preflight. The early <code>fetch</code> has no <code>Content-Type</code>. Logged-in adds <code>Authorization</code> from <code>fm_user</code>, so the browser sends OPTIONS first. That is why logged-in GET start times in some earlier traces sat near 1.3s even though the script ran at ~266ms. The remasure above caught the actual GETs at 85ms; a later Angular GET with extra headers can still preflight.</p>
+        <p>Logged-out card marks were noisy across three runs: 4681, 4311, 2006. Same shape every time: profile and feed start together. The median 4311ms is Lighthouse simulated throttling plus a cold host, not a second feed GET. Do not compare that 4311ms to the old warm tf-site-2 1.7–2.3s cluster without saying the host and cache state.</p>
+      </section>
+
+      <section>
+        <h2>Files that changed</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>File</th><th>Role</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>scripts/prerender-routes.constants.js</code></td><td>Owner, posts, ads path builders</td></tr>
+              <tr><td><code>scripts/write-owner-prefetch.mjs</code></td><td>Hint with <code>isHomepageFeed</code>, posts, ads</td></tr>
+              <tr><td><code>src/index.html</code></td><td>Early parallel fetches</td></tr>
+              <tr><td><code>src/app/app.constants.ts</code></td><td>Slot names</td></tr>
+              <tr><td><code>src/app/core/api-url.enum.ts</code></td><td><code>profileFeedAds</code></td></tr>
+              <tr><td><code>src/app/core/auth.service.ts</code></td><td>Shared consume-once</td></tr>
+              <tr><td><code>src/app/modules/shared/components/profile/profile.component.ts</code></td><td>Consume, hold, commit</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The measurement apparatus (<code>profile-perf-marks.ts</code>, <code>measure-page-lab</code>) was copied onto this branch so tf-site-4 reports could show <code>tf:</code> marks. That is lab-only. It is not required for the prefetch to work.</p>
+      </section>
+    </main>
+
+    <footer>
+      <p>Related: <a href="/profile-card-visible">How the profile card got under 2.5s</a> · <a href="/bondedwealth-vs-tf-site-2">bondedwealth.com vs tf-site-2</a></p>
+    </footer>
+  </div>
+</body>
+</html>

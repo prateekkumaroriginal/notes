@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Marketing pages and the home page stop loading SharedModule</title>
+  <meta name="description" content="Step 2 of the SharedModule plan in two commits: MarketingPageSharedModule becomes standalone pieces, then the home and search pages drop SharedModule. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Marketing pages and the home page stop loading SharedModule</h1>
+      <p>Every marketing page, comparison page and the home page imported SharedModule through <code>MarketingPageSharedModule</code>, so each one fetched about <span class="bad">4.4 MB</span> of lazy JavaScript. After these two commits the marketing pages fetch about <span class="ok">2.2 MB</span>, <code>/creators-home</code> fetches <span class="ok">1.29 MB</span>, and <code>/</code> fetches <span class="ok">3.22 MB</span>. Of the 45 lazy entry points, 15 still load SharedModule, down from 21.</p>
+      <div class="meta">
+        <span>branch t3code/drop-shared-module-imports</span>
+        <span>on top of 81797c0569, step 1</span>
+        <span>step 2 of <a href="standalone-routes-whats-left.html">the plan</a></span>
+        <span>2 commits</span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lazy JavaScript per route</h2>
+        <p>This is what a first visit fetches on top of the initial bundle, from the QA build. Before means after step 1. MB means a million bytes, the same unit the plan uses.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th><th>Commit</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/creators-home</code></td><td class="num">4.45 MB</td><td class="num">1.29 MB</td><td>0beb9e0e04</td></tr>
+              <tr><td>Creator sub pages, <code>/:user/:subPage</code> and the white-label root sub pages</td><td class="num">4.41 MB</td><td class="num">1.36 MB</td><td>0beb9e0e04</td></tr>
+              <tr><td>Marketing pages such as <code>/athletes</code> and <code>/music-artists</code></td><td class="num">4.40 MB</td><td class="num">2.15 MB</td><td>0beb9e0e04</td></tr>
+              <tr><td>Comparison pages, <code>/topfan-vs-*</code></td><td class="num">4.40 MB</td><td class="num">2.16 MB</td><td>0beb9e0e04</td></tr>
+              <tr><td>Marketing pro pages, <code>/apps/*</code></td><td class="num">4.42 MB</td><td class="num">2.19 MB</td><td>0beb9e0e04</td></tr>
+              <tr><td><code>/</code>, <code>/home</code> and its category pages, <code>/search-result</code></td><td class="num">4.44 MB</td><td class="num">3.22 MB</td><td>dd02f5c329</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The 15 entries that still load SharedModule grew by at most 8 KB each, the dashboard being the largest. The initial bundle grew by 2.3 KB, from 7,131,151 to 7,133,428 bytes. The code inside it actually shrank by 586 bytes. esbuild split the shared code into 8 more small chunks, and each chunk adds its own import and export lines. I think that's fine for now, and it should go back down once SharedModule is gone.</p>
+      </section>
+
+      <section>
+        <h2>Why step 2 became two commits</h2>
+        <p>The plan counted about 22 SharedModule pieces for this step. That number only covered the marketing layouts. The page behind <code>/</code> also renders <code>ProfileComponent</code> on white-label sites and <code>SearchedPostListComponent</code> on the search page, and those two pull in the post card and everything around it. Converting both brought the step to 54 SharedModule pieces plus the 55 marketing components. I split it so the marketing pages and the home page can be reviewed apart.</p>
+      </section>
+
+      <section>
+        <h2>Commit 0beb9e0e04: make MarketingPageSharedModule a list of standalone pieces</h2>
+        <p class="meta">94 files, +1114 &minus;191</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The 55 components <code>MarketingPageSharedModule</code> declared are standalone now. Each imports what the Angular compiler matched in its template and nothing else.</li>
+          <li><code>MarketingPageSharedModule</code> has no declarations and no longer imports SharedModule. It lists the same pieces in its imports and keeps its exports list unchanged, so anything still importing it gets the same components.</li>
+          <li><code>/creators-home</code> and the sub page view import their layout components directly and no longer use the module.</li>
+          <li>Those components needed 27 SharedModule pieces, which became standalone and moved from SharedModule's declarations to its imports. They include comments, the like and share bar, poll options, the four store detail views, unlock content, fundraiser progress, the @mention and #hashtag inputs, and pipes and directives such as <code>PostLiked</code>, <code>ConvertDate</code>, <code>CurrencyConversionPipe</code>, <code>UserTimeZone</code> and <code>TranslateDirective</code>. SharedModule still exports all of them.</li>
+          <li>Three store layout items, for event tickets, feed content and portfolio items, are no longer bundled. <code>MarketingPageSharedModule</code> imported them but never exported them, and no template uses them. The files are still in the repo.</li>
+          <li>Five components lose ngx-intl-tel-input's <code>NativeElementInjectorDirective</code>: comments, the comparison layout, the newsletter layout, fundraiser progress and merchandise details. None of their templates has a phone input.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against step 1</td><td>648 of 656 components match. Five lose only the phone directive, as listed above. The other three are the unused store layout items, which the compiler no longer sees.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as base. Development has none.</td></tr>
+              <tr><td>Component definitions in a browser</td><td>Loaded 9 entry chunks, including the marketing, comparison, pro, profile and white-label cover page chunks, and walked every reachable component. All dependencies resolve and there are no page errors.</td></tr>
+              <tr><td>Server rendering, 65 URLs</td><td>The step 1 URLs plus every marketing and comparison page, the pro pages and a creator profile with sub pages. All match step 1 once the compare script masks bundle hashes, style scope IDs and the hydration state. On the first run <code>/creators/login</code> differed. It matched on the rerun, so the QA data changed between the two requests.</td></tr>
+              <tr><td>Logged-out browser run, main site</td><td>10 routes, including <code>/</code>, <code>/home</code>, <code>/creators-home</code>, two marketing pages and two comparison pages. Same components after hydration, no page errors.</td></tr>
+              <tr><td>Logged-in browser run, main site</td><td>12 routes. Most redirect the test creator to its white-label setup on both builds. Same components on all of them after a 15 second wait.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>7 routes, including <code>/</code>, the creator profile, a sub page and the white-label editor with its full marketing preview. Same components, no page errors. Clicking the comment count on a profile post opens the comments on both builds.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>12 errors, down from 96. The 84 gone are <code>prefer-standalone</code>. The 12 left exist on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The first browser runs used a 9 second wait and showed differences in both directions. Sometimes base was further along, sometimes this commit. The QA API was slow that hour. With 15 to 20 seconds and both builds loaded side by side, every route matched.</p>
+      </section>
+
+      <section>
+        <h2>Commit dd02f5c329: stop the home and search pages loading SharedModule</h2>
+        <p class="meta">31 files, +410 &minus;80</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The promotional landing, promotional, promotional detail and search result components import what their templates use. That covers <code>/</code>, <code>/home</code> and its category pages, and <code>/search-result</code>. Two of them stop importing <code>MarketingPageSharedModule</code> too.</li>
+          <li>27 more SharedModule pieces became standalone and moved to SharedModule's imports. The big ones are <code>ProfileComponent</code>, <code>SearchedPostListComponent</code> and <code>PostCardComponent</code> with its locked and sensitive overlays, stats and footer. The rest are the profile sidebar, followers and followings, the welcome video post, the sponsored ad, the event countdown, the badge, user groups, giveaway, fund and user type modals, the audio slider directive, and eight pipes.</li>
+          <li><code>BlockedUserStatus</code> is one of those pipes. It has an <code>@Injectable()</code> decorator under its <code>@Pipe</code>, and my scan for NgModule pieces missed it. The compiler caught it, and I converted it by hand. Two components still provide it as a service, which works the same for a standalone pipe.</li>
+          <li><code>ProfileComponent</code> loses the phone directive. Its template has no phone input.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the previous commit</td><td>652 of 653 components match. <code>ProfileComponent</code> loses only the phone directive.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. Same 42 QA warnings, none in development.</td></tr>
+              <tr><td>Component definitions in a browser</td><td>6 entry chunks, including <code>/</code>, the profile, the dashboard and post detail. No problems, no page errors.</td></tr>
+              <tr><td>Server rendering, 70 URLs</td><td>The 65 above plus <code>/home/music</code>, <code>/home/music/rock</code> and three search result URLs. 67 match the same way. The other three are explained below.</td></tr>
+              <tr><td>Logged-out browser run, main site</td><td>8 routes, including <code>/</code>, <code>/home/music/rock</code>, two search result pages and a creator profile. Same components after hydration, no page errors.</td></tr>
+              <tr><td>Profile tabs, logged out</td><td>The posts tab shows the same components on both builds. Followers and Following show the same sign-in prompt on both.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>7 routes. <code>/</code> shows the creator profile with posts on both builds, with the same components. The comments open on a profile post.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>2 errors, down from 29. Both exist on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The three server rendering differences were <code>/help-faq</code>, <code>/perfectcrew</code> and <code>/perfectcrew/store</code>. This commit doesn't touch <code>/help-faq</code>, and on a refetch both builds returned the same page. The two profile pages differ only in their list of chunks to preload, because this commit splits the JavaScript into different chunks. I also compared the hydration state the compare script masks. It differs only in template numbers, since the server keeps counting templates across requests. With those renamed in order of first use, it matched exactly.</p>
+        <p>What I couldn't test. The followers and followings lists need a logged-in fan on the main site, and the only test account is a white-label creator. Those components compile to the same dependencies as before, but nobody has opened them on this branch yet. They're in the checklist.</p>
+      </section>
+
+      <section>
+        <h2>What's still heavy</h2>
+        <p>None of this is in these commits. I found it while measuring and I'd rather write it down than forget it.</p>
+        <ul>
+          <li><code>/</code> still fetches 3.22 MB. On the main site most of that is <code>ProfileComponent</code> and the post card, which only white-label sites show there. Loading the profile with <code>loadComponent</code> or <code>@defer</code> would move it off the main site's home page.</li>
+          <li>Every marketing page ships all 55 layouts, about 900 KB, because the full preview picks a layout per section at runtime. A <code>@defer</code> block per layout type would fetch only the layouts a page uses.</li>
+          <li><code>comparison-layout.utils.ts</code> imports constants from the page editor's <code>add-marketing-page-section</code> folder, which adds about 107 KB of editor code to public pages. The pro contact form layout uses the dynamic form builder, which brings in PrimeNG, the timepicker and luxon.</li>
+          <li>The three unused store layout item components can be deleted.</li>
+          <li><code>pro-hero-layout.component.ts</code> has a <code>console.log</code> from before this branch.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Keep the console open. White-label checks need a creator account on its white-label site. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Home page and posts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c2-home-main"><span><code>/</code> on the main site: every section renders, the counters animate, and the buttons navigate.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-home-wls"><span><code>/</code> on a white-label site without a cover page shows the creator profile, and its posts load.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-post-like"><span>On a post, like and unlike work, and the like count updates.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-comments"><span>Comments open. Posting a comment with an @mention and a #hashtag shows suggestions and saves the comment.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-poll"><span>Voting on a poll post records the vote and shows results.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-locked"><span>A locked post shows the locked overlay, and its unlock button opens the unlock flow.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-sensitive"><span>A sensitive post shows the blur overlay, and revealing it works.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-audio"><span>An audio post plays and its slider seeks.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-search"><span><code>/search-result/post/</code> with a term lists matching posts and loads more on scroll.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Marketing pages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c2-marketing"><span><code>/athletes</code> and one more marketing page: carousels slide, stats count up, and sections fade in on scroll.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-newsletter"><span>A newsletter section rejects a bad email and accepts a good one.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-comparison"><span><code>/topfan-vs-patreon</code>: the hero, key wins, feature sections and full table render.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-pro"><span>A marketing pro page, if one exists on the environment: the contact form validates and submits. The two pro slugs in the repo return 404 on QA.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-creators-home"><span><code>/creators-home</code>: the video plays, the book demo form opens, and the FAQ expands.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-subpage"><span>A published sub page on a white-label site renders its sections.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-editor"><span>White-label editor: the full preview renders, and a newly added section appears in it.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> The converted pieces on other pages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c2-followers"><span>Logged in as a fan on the main site, open a creator's Followers and Following tabs. The lists load and Follow works. Nobody has run this one yet.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-feed"><span>Dashboard feed: post cards, fundraiser progress, the gift details modal and the contributors modal work.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-store"><span>From a profile store, the merchandise, downloadable, experience and course detail views open.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-sidebar-modals"><span>The profile sidebar shows, and the badge detail and user groups modals open.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-welcome"><span>The welcome video post plays. A sponsored ad and an upcoming event countdown show where they did before.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag low">Low</span> Formatting</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="c2-currency"><span>Prices show in the viewer's currency where they did before.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-dates"><span>Post dates and event times show in the viewer's time zone.</span></label></li>
+              <li><label><input type="checkbox" data-id="c2-translate"><span>Translating a post's text works.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "shared-module-marketing-home-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Inbox and message-history cursor pagination changes, verification results, and a checklist for populated staging accounts.">
+  <title>Inbox and history pagination · sol-6-1</title>
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,dl,dt,dd { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    p,li,dd,td,.meta { color: var(--muted); }
+    a { color: var(--blue); border-radius: .25rem; text-underline-offset: .2em; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--blue); font-weight: 600; }
+    .meta { padding-top: 1.25rem; }
+    nav { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; padding-top: 1.75rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    ul,ol { padding-left: 1.25rem; display: grid; gap: .85rem; }
+    section > p { padding-bottom: 1.25rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border-radius: .6rem; border: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th,td { padding: .85rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); }
+    tbody tr + tr { border-top: 1px solid var(--line); }
+    tbody th { font-weight: 500; }
+    .pass { color: var(--green); white-space: nowrap; }
+    .pending { color: var(--amber); }
+    .definitions { display: grid; gap: 1.75rem; }
+    dt { color: var(--text); padding-bottom: .5rem; }
+    .method { color: var(--violet); }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Inbox and history pagination</h1>
+    <p>Inbox tabs and message history now use server cursors. Unread badges use response counts, and history loads send permissions in the same request.</p>
+    <p class="meta">Verified 6 October 2026 · <code>sol-6-1</code> · TopFans Angular frontend</p>
+    <nav aria-label="Document sections">
+      <a href="#changes">Changes</a><a href="#requests">Request contract</a><a href="#verification">Verification results</a><a href="#checklist">Live verification checklist</a><a href="#files">Changed files</a>
+    </nav>
+  </header>
+  <main>
+    <section id="changes">
+      <h2>What changed</h2>
+      <ul>
+        <li><strong>Server-owned inbox tabs.</strong> Priority requests <code>featured</code>, General requests <code>general</code>, and Message Lists requests <code>broadcast</code>. Fans request <code>all</code> and see one list without tab controls.</li>
+        <li><strong>Rows keep the backend's membership and order.</strong> The frontend no longer splits, filters, or sorts each inbox response by featured flags, tips, broadcasts, or an empty last message. Existing badge normalization and row rendering stay in place.</li>
+        <li><strong>Inbox scroll loads the next page.</strong> Rows append using the returned cursor. A tab change or a new search replaces the list and starts without a cursor. A null or missing cursor ends pagination.</li>
+        <li><strong>Unread badges use server counts.</strong> Tab badges use their matching <code>counts</code> fields. The shared Messages total is <code>general + featured + broadcast</code>, independent of the number of loaded rows. Sidebar badge refreshes fetch fresh inbox counts, and the open inbox follows those updates.</li>
+        <li><strong>History supplies send permissions.</strong> The first history request asks for validation and assigns it to <code>dmValidations</code>. The separate <code>ChatUserValidation</code> request is gone. Permission retry uses history with validation again.</li>
+        <li><strong>Scroll-up loads older messages.</strong> Older pages prepend using the history cursor and keep the current validation. The scrollbar adjusts by the added content height to preserve the reading position. A null cursor stops further requests.</li>
+        <li><strong>Broadcast history keeps its sender.</strong> Existing broadcast <code>from</code> stays on first and subsequent history requests.</li>
+        <li><strong>Requests survive rapid navigation.</strong> Replacing a tab, search, or conversation cancels its previous request. Old responses cannot replace the new list, messages, or validation. Pending pagination requests cannot start duplicate pages.</li>
+        <li><strong>Search handles input and paste.</strong> Searches remain debounced. Blank search text is omitted, and query values are URL-encoded.</li>
+      </ul>
+    </section>
+    <section id="requests">
+      <h2>Request contract</h2>
+      <dl class="definitions">
+        <div><dt>Inbox first page</dt><dd><code>GET api/get-chatGroups-and-users?tab=featured&amp;counts=true</code>. Replace the selected tab's rows; store <code>counts</code> and <code>cursor</code>.</dd></div>
+        <div><dt>Inbox next page</dt><dd>Keep the same <code>tab</code> and nonempty <code>search_key</code>. Add <code>cursor</code> from the last response and append <code>data</code>.</dd></div>
+        <div><dt>History first page</dt><dd><code>POST api/getpreviousMessagesFromHttp</code> with <code>{ groupId, include_validation: true }</code>. Use <code>response</code> for messages and <code>validation</code> for send permissions.</dd></div>
+        <div><dt>History next page</dt><dd>Send <code>{ groupId, cursor }</code>. Preserve broadcast <code>from</code>. Omit <code>include_validation</code> and the old timestamp pagination field.</dd></div>
+      </dl>
+    </section>
+    <section id="verification">
+      <h2>Verification results</h2>
+      <p><span class="pass">26 checks passed on the running dev server</span>, plus 12 isolated contract checks against the component methods. TypeScript checking and Angular development compilation passed. The table distinguishes real staging responses from controlled responses used to exercise populated lists.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th scope="col">Check</th><th scope="col">Result</th><th scope="col">Evidence</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Required staging setup</th><td class="pass">Passed</td><td>Ran <code>generate-white-label-staging</code>, copied the Rudeus Greyrat staging environment into <code>environment.ts</code>, then ran <code>cleanup-white-label</code> before starting the dev server with the 10 GB Node memory setting.</td></tr>
+            <tr><th scope="row">Live creator tabs</th><td class="pass">Passed live</td><td>Signed in to staging. Priority, General, and Message Lists returned successful responses with empty data, zero counts, and null cursors. The empty state rendered correctly.</td></tr>
+            <tr><th scope="row">Live search and clearing</th><td class="pass">Passed live</td><td>A search sent <code>search_key</code> on the selected tab. Clearing it omitted both <code>search_key</code> and <code>cursor</code>.</td></tr>
+            <tr><th scope="row">Backend membership and ordering</th><td class="pass">Passed controlled</td><td>Rendered 30 Priority rows whose users were not locally featured. Fan rows retained backend order, including a broadcast row with an empty last message.</td></tr>
+            <tr><th scope="row">Inbox pagination and stop</th><td class="pass">Passed controlled</td><td>Scrolling requested an encoded cursor and appended two rows, taking the list from 30 to 32. A null cursor prevented more page requests.</td></tr>
+            <tr><th scope="row">Unread badges</th><td class="pass">Passed controlled</td><td>Tab counts were 7, 3, and 2. The sidebar showed 12 while the list had 30 rows with zero row unread counts.</td></tr>
+            <tr><th scope="row">Sidebar refresh and tab synchronization</th><td class="pass">Passed controlled</td><td>Sidebar refresh requested fresh creator counts. A later response with counts 1, 2, and 3 changed the shared total to 6 and updated the open inbox's tab badges.</td></tr>
+            <tr><th scope="row">First history and validation</th><td class="pass">Passed controlled</td><td>The request included <code>include_validation: true</code>. The response supplied <code>dmValidations</code> and unlocked message actions.</td></tr>
+            <tr><th scope="row">Older history and reading position</th><td class="pass">Passed controlled</td><td>Scroll-up sent only the group and cursor. Ten older messages prepended to 25 messages. The viewport moved by exactly 867 pixels, matching the added height, while validation remained the same.</td></tr>
+            <tr><th scope="row">History termination</th><td class="pass">Passed controlled</td><td>Scrolling up after a null cursor did not send another history request.</td></tr>
+            <tr><th scope="row">Fan presentation</th><td class="pass">Passed controlled</td><td>Requested <code>tab=all</code>, retained the returned list, and verified that the tab component was hidden.</td></tr>
+            <tr><th scope="row">Broadcast sender</th><td class="pass">Passed controlled</td><td>Both first and subsequent history requests retained <code>from</code>. Only the first request asked for validation.</td></tr>
+            <tr><th scope="row">Stale responses and permission retry</th><td class="pass">Passed controlled</td><td>Old tab, search, and conversation responses were ignored. Missing direct-message validation kept actions locked. Retry requested validation through history.</td></tr>
+            <tr><th scope="row">Failure and concurrency handling</th><td class="pass">Passed contract checks</td><td>Checked duplicate-page guards, history errors, retained cursors after older-page failures, and permission retry after a failed first page.</td></tr>
+            <tr><th scope="row">Compilation and setup cleanup</th><td class="pass">Passed</td><td>TypeScript and Angular development compilation passed. The main project also compiled with its original environment and returned HTTP 200. Temporary environment and generated-file changes were restored after verification.</td></tr>
+            <tr><th scope="row">Populated live history and fan account</th><td class="pending">Needs live data</td><td>The supplied creator account had no inbox rows. Real multi-page history, backend validation payloads, nonzero unread transitions, and a signed-in fan account still need the populated-account checks below. Controlled tests cover the frontend contract.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <section id="checklist">
+      <h2>Live verification checklist</h2>
+      <p>Use a creator and a fan account with enough conversations and history to produce non-null cursors. Inspect the request payloads alongside the visible list.</p>
+      <ol>
+        <li>Open each creator tab. Confirm <code>featured</code>, <code>general</code>, and <code>broadcast</code>, always with <code>counts=true</code>. Compare each rendered row and its order with <code>data</code>.</li>
+        <li>Scroll the inbox to load another page. Confirm the next request keeps the tab and search, sends the previous cursor, and appends rows. Continue until the cursor is null or missing; further scrolling must send no request.</li>
+        <li>Switch tabs after loading several pages. The first request for the new tab must omit the cursor. Search, change the search quickly, paste text, and clear it. Confirm stale results never appear and blank <code>search_key</code> is omitted.</li>
+        <li>Compare unread tab badges with <code>counts</code>. Confirm the sidebar and header Messages total equals their sum. Open an unread conversation, then check the refreshed server counts rather than the number of loaded rows.</li>
+        <li>Navigate away from Messages and cause an unread badge refresh. Confirm the sidebar requests fresh inbox counts and updates the shared total. Return to Messages and compare the tab badges with the latest counts.</li>
+        <li>Open a direct conversation. Confirm a single history request sends <code>include_validation: true</code>, validation controls the composer, and no <code>api/chat-user-validation</code> request appears.</li>
+        <li>Scroll up through multiple history pages. Confirm cursor requests, older messages above the current content, stable reading position, and unchanged send permissions. After a null cursor, confirm scrolling sends no additional history request.</li>
+        <li>Open broadcast history. Confirm <code>from</code> on the first and subsequent pages and no validation flag on subsequent pages.</li>
+        <li>Switch conversations before history returns. Confirm the old response changes neither the messages nor the new conversation's send permissions.</li>
+        <li>Simulate a history failure. First-page failure must keep actions locked until retry succeeds through history. An older-page failure must preserve the conversation and allow the same cursor to be retried.</li>
+        <li>Sign in as a fan. Confirm one list, no creator tabs, <code>tab=all</code>, and the same search and scroll behavior.</li>
+      </ol>
+    </section>
+    <section id="files">
+      <h2>Changed files</h2>
+      <dl class="definitions">
+        <div><dt>Messages component</dt><dd><code>src/app/modules/messages/components/message-container/message-container.component.ts</code> and its HTML template contain the inbox requests, cursor state, scrolling, validation, cancellation, and search event changes.</dd></div>
+        <div><dt>Constants and response shape</dt><dd><code>src/app/modules/messages/constants/messages.constant.ts</code> defines inbox tab values and labels. <code>src/app/modules/messages/interfaces/messages.interface.ts</code> defines <code>InboxCounts</code>.</dd></div>
+        <div><dt>Shared unread counts</dt><dd><code>src/app/services/core.service.ts</code> stores server counts and their total. <code>src/app/modules/shared/components/sidebar/sidebar.component.ts</code> refreshes counts and clears them on sign-out.</dd></div>
+        <div><dt>Verification evidence</dt><dd><code>docs/messages-chat-pagination-verification-sol-6-1.json</code> records the dev-server assertions. This report uses the palette from the existing notes pages and <code>COLORS.md</code>.</dd></div>
+      </dl>
+    </section>
+  </main>
+  <footer>Verification used the development server at <code>localhost:4201</code>. No test messages or payments were sent.</footer>
+</div>
+</body>
+</html>

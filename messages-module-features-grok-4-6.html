@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Feature inventory of the TopFans Messages module: inbox, paid DMs, tips, message lists, and automated messages.">
+  <title>Messages module features</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, table { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .fn { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+      overflow-wrap: anywhere;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 0.75rem; }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol {
+      padding-left: 1.2rem;
+      display: grid;
+      gap: 0.35rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+    }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.875rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Messages module features</h1>
+      <p>What the current Messages inbox already does, taken from <code>src/app/modules/messages</code>. This is the baseline for a revamp, not a proposal.</p>
+    </header>
+
+    <main>
+      <section>
+        <h2>What the module is</h2>
+        <p>One lazy-loaded route at <code>/messages</code> that renders <code>MessageContainerComponent</code>. Creators and fans use the same page. The left column is the conversation list. The right column is the thread and composer. Creators also get a second top tab for automated messages.</p>
+        <p>Leaving the page is blocked while an upload queue is still in flight. The route provides <code>AudioRecordingService</code> for in-thread voice notes.</p>
+      </section>
+
+      <section>
+        <h2>Inbox and conversation list</h2>
+        <p>Creators switch between three list tabs. Fans only see their 1:1 threads. Counts sit on the Priority and General tabs.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Tab</th>
+                <th scope="col">Who sees it</th>
+                <th scope="col">What it holds</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Priority</strong></td>
+                <td>Creators</td>
+                <td>1:1 threads with featured or subscribed fans. Online and offline badges show here.</td>
+              </tr>
+              <tr>
+                <td><strong>General</strong></td>
+                <td>Creators and fans</td>
+                <td>Ordinary 1:1 threads. Fans only have this list.</td>
+              </tr>
+              <tr>
+                <td><strong>Message Lists</strong></td>
+                <td>Creators</td>
+                <td>Broadcast lists. Each row shows a list name, optional icon, and recipient count.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <ul>
+          <li>Search filters the open list as the user types.</li>
+          <li>Rows show last-message preview, relative time, unread count (caps at <span class="warn">99+</span>), verification tick, subscriber mark, and fan badges.</li>
+          <li>A tip icon marks an unread tip. A refund icon marks a pending guaranteed reply.</li>
+          <li>Last-message preview collapses attachments to the word <span class="fn">Media</span> and strips URLs from text.</li>
+          <li>On phones, picking a thread hides the list. A close control on the thread header brings the list back.</li>
+          <li>Empty lists say <span class="fn">No Messages Found</span>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Starting a conversation</h2>
+        <p>Adult users on TopFan, or the white-label owner on a branded site, get <span class="fn">+ New Message</span>. On the Message Lists tab that button becomes <span class="fn">+ New Message List</span>.</p>
+        <ul>
+          <li>A 1:1 start is a search plus a single radio pick, then <span class="fn">Select Recipient</span>.</li>
+          <li>A list start is a two-step modal. Step 1 picks recipients. Step 2 names the list (max 25 characters) and optionally crops a round icon.</li>
+          <li>Step 1 can add existing lists or individual people, not both at once. Selected names show as chips.</li>
+          <li>Prebuilt audience keys include All Followers and Subscribers, Current Followers, All Current Subscribers, Previously Paid Subscribers, Top 20 Spenders, and Prior Paid DM Users. The UI relabels the first two to Fans and Subscribers and Current Fans.</li>
+          <li>From Message Lists, a row menu can edit details, edit recipients, or delete the list. Delete asks for confirmation.</li>
+          <li>The recipients modal splits current vs suggested people, searches both, and refuses a list with nobody left.</li>
+          <li>Deep links open a specific person or list from <code>?user=</code>, <code>?id=</code>, or router state such as <code>user_key</code> and <code>groupId</code>. A tip-back path from wallet can land on the matching thread.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Thread header and history</h2>
+        <ul>
+          <li>The header shows the other person's name, photo, badges, and verification. Featured 1:1 threads also show Online or Offline.</li>
+          <li>Clicking a 1:1 avatar opens that profile. Broadcast headers stay inert. List threads show recipient count and open the recipients editor.</li>
+          <li>On TopFan, a menu on the list row and the featured thread header can block the other person. Report exists in code but is not wired in the template.</li>
+          <li>History loads oldest-first as the user scrolls up. Day labels split the thread. Each bubble has a time stamp and the sender photo. Broadcast bubbles use a distinct avatar treatment.</li>
+          <li>Incoming and outgoing bubbles sit on opposite sides. Links in text become clickable.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Message types in the thread</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Type</th>
+                <th scope="col">What the receiver sees</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Text</strong></td>
+                <td>Plain copy, including first-name tokens on list sends.</td>
+              </tr>
+              <tr>
+                <td><strong>Image</strong></td>
+                <td>WebP preview. Tap opens a lightbox with prev and next. Receivers can download.</td>
+              </tr>
+              <tr>
+                <td><strong>Video</strong></td>
+                <td>Poster with play. Playback uses the IVS player. Receivers can download.</td>
+              </tr>
+              <tr>
+                <td><strong>Audio</strong></td>
+                <td>Inline player with duration. Locked audio shows a placeholder icon instead of a player.</td>
+              </tr>
+              <tr>
+                <td><strong>File</strong></td>
+                <td>Name and size. Receivers can download.</td>
+              </tr>
+              <tr>
+                <td><strong>Store share</strong></td>
+                <td>Merchandise card. Tap goes to the store item.</td>
+              </tr>
+              <tr>
+                <td><strong>Portfolio share</strong></td>
+                <td>Portfolio item card. Tap goes to the item.</td>
+              </tr>
+              <tr>
+                <td><strong>Event ticket share</strong></td>
+                <td>Event name, venue, date, timezone, and a View Ticket action.</td>
+              </tr>
+              <tr>
+                <td><strong>Tip</strong></td>
+                <td>Amount in the sender's currency plus a Tip label.</td>
+              </tr>
+              <tr>
+                <td><strong>Guaranteed reply</strong></td>
+                <td>Amount plus a refund icon and Guaranteed Reply label. Fulfillment can pop a wallet-credit notice.</td>
+              </tr>
+              <tr>
+                <td><strong>Order dispute</strong></td>
+                <td>Product image, name, price, and the dispute reason.</td>
+              </tr>
+              <tr>
+                <td><strong>Paid lock</strong></td>
+                <td>Blurred or placeholder media, a Paid header with price, optional free preview above, and Unlock. Unlock sends the fan to checkout and back to this thread.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Uploads show a circular percent while they sit in the send queue. Senders see their own locked media unlocked. Currency-aware prices prefer the converted amount when one exists.</p>
+      </section>
+
+      <section>
+        <h2>Composer</h2>
+        <p>Adults get a textarea, send, and a row of tools. Enter sends. The box grows with the text. Send stays disabled until there is text, media, or a share card.</p>
+        <ul>
+          <li><span class="fn">Emoji</span> inserts at the caret from an Apple emoji picker. Clicking outside closes it.</li>
+          <li><span class="fn">Camera</span> attaches images, video, audio, or files. Native apps go through the mobile file bridge. Video over <span class="warn">512 MB</span> is rejected. Images can be compressed before upload.</li>
+          <li><span class="fn">Mic</span> records a voice note. A waveform and timer run while recording. Start, stop, cancel, and a preview player are all there. White-label waveform color follows the tenant button text color.</li>
+          <li>Creators can insert a store item, a portfolio item, or an event ticket. Those pickers are disabled while a tip popup is open.</li>
+          <li>On Message Lists, <span class="fn">+ Insert First Name</span> drops a first-name token into the draft.</li>
+          <li>People under 18 see a blocked composer and a support link instead of the tools.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Paid attachments</h2>
+        <p>Creators with the lock-message permission can price attachments on Priority, General, Message Lists, and some restricted-DM threads. The price control stays off until at least one attachment is present. Tips and share cards cannot mix with a lock price.</p>
+        <ul>
+          <li>The price modal is <span class="fn">Price to Unlock Direct Message Attachments</span>. Allowed range is <span class="warn">$1 to $10,000</span>.</li>
+          <li>The older modal can open a currency conversion sheet so the same lock has per-currency prices.</li>
+          <li>Automated-message attachments use a slimmer price modal without conversion.</li>
+          <li>Up to <span class="warn">5</span> paid items and <span class="warn">1</span> free preview. A priced message must have at least one paid item.</li>
+          <li>Paid items and the preview sit in two drag lists. Dragging a paid item into the preview makes it the teaser. Store, portfolio, and ticket cards cannot become the free preview.</li>
+          <li>The preview can also be a fresh image upload. Clearing the price drops both lists back to ordinary attachments.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Tips, credits, and paid DMs</h2>
+        <p>Fans messaging a creator can attach a tip. Creators who offer guaranteed replies get a stronger path. The tip popup has preset amounts plus a custom field, all in the fan's currency.</p>
+        <ul>
+          <li>A guaranteed-reply offer shows a minimum-tip badge. Sending below that amount, or sending with no tip, opens a modal that explains the 7-day refund. The fan can add a tip or send without one.</li>
+          <li>Delegates skip the guaranteed-reply prompt and send without a tip.</li>
+          <li>When the creator charges for DMs, the composer shows remaining free messages, unlimited free messages, or the pay-per-message price after credits run out.</li>
+          <li>A send with leftover credits calls <code>consumeDMCredits</code>. A send with no credits and no tip goes through pay-for-message checkout. A send with no credits plus a tip goes through pay-for-message-and-tip. A send with credits plus a tip goes through the tip payment path.</li>
+          <li>Some creators require a subscription before a fan can keep messaging. That path opens the creator's plan picker.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Automated messages</h2>
+        <p>Creators with the automated-messages permission, and white-label host owners, get a second page tab. It is a table of event type plus body, with edit and delete. An empty state says no automated messages exist yet.</p>
+        <p>Each event type can be used once. The setup modal takes an event, body text (required, max 1000 characters, can insert first name), and the same paid-media composer used in the inbox.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Event</th>
+                <th scope="col">When it fires</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Fan Registers</strong></td>
+                <td>A fan follows or registers. Value is <code>FOLLOW_MESSAGE</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Fan Purchases Subscription</strong></td>
+                <td>A fan buys a subscription. Value is <code>SUBSCRIPTION_PURCHASE_MESSAGE</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Fan Purchases Content Post</strong></td>
+                <td>A fan buys a post. Value is <code>CONTENT_PURCHASE_MESSAGE</code>.</td>
+              </tr>
+              <tr>
+                <td><strong>Fan's Birthday</strong></td>
+                <td>The fan's birthday. Value is <code>BIRTHDAY_WISH_MESSAGE</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Realtime, uploads, and safety</h2>
+        <ul>
+          <li>Live delivery goes through <code>ChatService</code>. Private messages append to the open thread. A members payload drives online dots. Presence refreshes on a 2-minute idle timer.</li>
+          <li>1:1 sends use <code>sendPrivateAndSave</code>. List sends use <code>sendPublic</code> against the list id.</li>
+          <li>Media goes to S3 with progress, then the message is sent. Restricted uploads open the restricted-content carousel instead of sending.</li>
+          <li>White-label exclusive creators who are hidden from TopFan show a lock pane instead of the composer.</li>
+          <li>The Messages tab itself is permission-gated. Lock pricing and automated messages have their own permission keys.</li>
+          <li>The footer hides on this page. The header stays visible.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2>Hard limits worth keeping in a revamp</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Limit</th>
+                <th scope="col">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Paid attachments per message</td>
+                <td class="warn">5</td>
+              </tr>
+              <tr>
+                <td>Free preview items</td>
+                <td class="warn">1</td>
+              </tr>
+              <tr>
+                <td>Video size</td>
+                <td class="warn">512 MB</td>
+              </tr>
+              <tr>
+                <td>Attachment price</td>
+                <td class="warn">$1 to $10,000</td>
+              </tr>
+              <tr>
+                <td>Automated message text</td>
+                <td class="warn">1000 characters</td>
+              </tr>
+              <tr>
+                <td>Message list name</td>
+                <td class="warn">25 characters</td>
+              </tr>
+              <tr>
+                <td>Minimum sender age</td>
+                <td class="warn">18</td>
+              </tr>
+              <tr>
+                <td>Unread badge cap</td>
+                <td class="warn">99+</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Source lives in <code>src/app/modules/messages</code>. Related wallet purchase history and the welcome-video preference screen are outside this module.
+    </footer>
+  </div>
+</body>
+</html>

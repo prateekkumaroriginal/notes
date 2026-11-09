@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Messages Phase 1: stop waiting</title>
+  <meta name="description" content="What Phase 1 of the messages page speed pass shipped through PR 10885. History paints before send permissions. Sending another DM updates the inbox row locally. Search and inbox tracking stay off the open thread.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, h4, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .good { color: var(--green); }
+    .num { color: var(--amber); }
+    .bad { color: var(--pink); }
+    .be { color: var(--violet); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code, h4 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .cmt { color: var(--muted); }
+    .add { color: var(--green); }
+    .del { color: var(--pink); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *,
+    section > h3 + * { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: 0.6rem;
+      border: 1px solid var(--line);
+    }
+
+    table { width: 100%; border-collapse: collapse; min-width: 520px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td:first-child { color: var(--text); }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+    .tag.skip { background: rgba(213, 166, 255, 0.14); color: var(--violet); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="index.html">Development notes</a>
+      <h1>Messages Phase 1: stop waiting</h1>
+      <p>Opening a thread no longer sits on a 1s timer and then <code>chat-user-validation</code> before you can read anything. History and permissions run together. The composer is visible with send locked until the server says you may send. Sending another DM to a conversation already in the list patches that row and skips <code>get-chatGroups-and-users</code>.</p>
+      <div class="meta">
+        <span>dc5f52683a</span>
+        <span>hotfix/release-0.0.23/messages-phase-1</span>
+        <span>into hotfix/release-0.0.23/messages-revamp</span>
+        <span><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10885">PR 10885</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>What shipped</h2>
+        <p>Phase 1 from <a href="/messages-page-load-fast-opus-5-5">the opus-5-5 notes</a>, minus two items we skipped on purpose, plus the send and tab fixes that landed on the same branch. Almost all of it is <code>message-container</code>. <a href="/pr-10885-grok-4-7">PR 10885 review</a> covers the last commit in more detail.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Point</th><th scope="col">Commit</th><th scope="col">What you should see</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1. Kill the 1s timer. Start history and validation together</td>
+                <td><code>e92434dddd</code>, then <code>10fb9557c5</code></td>
+                <td>Receiver comes from the inbox row <code>gsi4pk</code>. Validation starts with the history POST, not after it.</td>
+              </tr>
+              <tr>
+                <td>2 + 4. Separate cancel streams. Stop validating from the inbox list</td>
+                <td><code>70fc2cc615</code></td>
+                <td>A list refetch or a thread switch cancels only its own request. A late reply for thread A cannot write into thread B.</td>
+              </tr>
+              <tr>
+                <td>3. Split the right-pane loader</td>
+                <td><code>10fb9557c5</code></td>
+                <td><code>historyLoading</code> hides only the timeline. The composer stays up. Send, tip, and unlock stay disabled until permissions arrive.</td>
+              </tr>
+              <tr>
+                <td>5, scroll half. <code>afterNextRender</code> instead of a 500ms timer</td>
+                <td><code>e92434dddd</code></td>
+                <td>Scroll runs in the write phase after the list paints. The inbox skeleton from this point was skipped.</td>
+              </tr>
+              <tr>
+                <td>7. Partition, then sort once. Track by ids</td>
+                <td><code>c4e7a4ccee</code></td>
+                <td>Each tab is sorted once. Conversations track <code>groupId</code>. Messages track <code>sk</code> or <code>uinqueId</code>.</td>
+              </tr>
+              <tr>
+                <td>8. Search stream</td>
+                <td><code>bc6edfba1d</code></td>
+                <td>Still waits <span class="num">500ms</span>. Unchanged text is ignored. <code>switchMap</code> drops the old query.</td>
+              </tr>
+              <tr>
+                <td>Compile leftovers</td>
+                <td><code>ac1526e2e5</code></td>
+                <td>Unused <code>isMailingList</code> and <code>initial</code> args renamed so <code>noUnusedParameters</code> passes. Call sites did not change.</td>
+              </tr>
+              <tr>
+                <td>Search listener after login, not in the constructor</td>
+                <td><code>2945620591</code></td>
+                <td><code>listenForInboxSearch()</code> starts after <code>fetchInitialData</code>. The empty-string GET no longer races the first inbox load.</td>
+              </tr>
+              <tr>
+                <td>Tab heading is a signal. Prefetch emoji CSS</td>
+                <td><code>ce0dc226ae</code></td>
+                <td><code>changeTab</code> reads <code>event.heading()</code>. Hover or click on the emoji button loads the mart CSS. No <code>@defer</code>. This runtime's <code>Promise</code> is named <code>$</code> and has no <code>allSettled</code>.</td>
+              </tr>
+              <tr>
+                <td>Do not refetch the inbox on another DM. Fail closed if permissions never arrive</td>
+                <td><code>dc5f52683a</code></td>
+                <td>Existing conversation: patch preview text, <code>timeStamp</code>, and <code>updated_at</code>. New conversation still fetches. Send stays locked if group create fails or the receiver has no id. Mailing list send no longer reads <code>dmValidations.minTipKeys</code> when that object is null.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>What we left alone</h2>
+        <p><span class="tag skip">Skipped</span> Point 6, <code>ngAfterViewChecked</code> still calls <code>detectChanges()</code>. Taking that out without a pass over missed updates is how you get a silent blank pane. Do it in its own change.</p>
+        <p><span class="tag skip">Skipped</span> The inbox list skeleton from point 5. The first inbox GET still uses the existing spinner. Later refetches only turn that spinner on when every tab is empty.</p>
+        <p>History is still <code>POST api/getpreviousMessagesFromHttp</code>. No combined thread bootstrap. A new incoming thread still refetches the inbox. Sending another DM to a row you already have does not. Phase 2 click-time imports and video CSS were left alone. <code>@defer</code> was tried and dropped.</p>
+      </section>
+
+      <section>
+        <h2>The wait this removes</h2>
+        <p>On a creator open of an existing thread, after the route chunk and profile were already in memory, the old path was:</p>
+        <ol>
+          <li>Inbox GET</li>
+          <li>History POST</li>
+          <li><span class="num">1000ms</span> of <code>setTimeout</code> that guessed the other user from <code>messageList[0]</code></li>
+          <li>Validation POST</li>
+          <li><code>msgrightLoader</code> finally false, so both the timeline and the composer appear</li>
+          <li>Another <span class="num">500ms</span> before scroll</li>
+        </ol>
+        <p>History and validation only need the selected <code>groupId</code> and the other user's <code>gsi4pk</code>. The inbox row already has both. The shared <code>userValidationCancel$</code> was the other problem. Starting either call cancelled the other, so you could not run them together, and an inbox refetch in the middle of a thread switch cancelled history.</p>
+      </section>
+
+      <section>
+        <h2>1. Kill the 1s timer. Start history and validation together</h2>
+        <p><code>getUserChatMessage</code> used to POST history, then call <code>getUserEmail</code> from the subscribe. <code>getUserEmail</code> waited a second, then started validation. Now, on a fresh thread open, it sets both loaders, starts validation, then fires the history POST. Pagination does not restart permissions and does not hide the list.</p>
+        <pre><code><span class="kw">if</span> (!onSrcollItemUp) {
+  <span class="fn">this</span>.historyLoading = <span class="kw">true</span>;
+  <span class="fn">this</span>.permissionsLoading = <span class="kw">true</span>;
+  <span class="fn">this</span>.permissionsFailed = <span class="kw">false</span>;
+  <span class="fn">this</span>.dmValidations = <span class="kw">null</span>;
+}
+<span class="fn">this</span>.historyCancel$.next();
+<span class="kw">const</span> requestedGroupId = email;
+<span class="kw">if</span> (!onSrcollItemUp) {
+  <span class="fn">this</span>.getUserEmail(selectedUser, showMainLoader);
+}
+<span class="kw">const</span> sub = <span class="fn">this</span>.apiCallService
+  .post(API_URLS.previousMessages, messageObj, showMainLoader)
+  .pipe(takeUntil(<span class="fn">this</span>.historyCancel$))</code></pre>
+        <p>The 1s guess is gone. The other user is <code>selectedUser?.gsi4pk || this.gsi4pk</code>, which is the inbox <code>users[0]</code>, not the logged-in account. Broadcast and followers skip validation and unlock the composer immediately.</p>
+        <pre><code><span class="del">- setTimeout(() =&gt; {</span>
+<span class="del">-   const data = this.messageList[0];</span>
+<span class="del">-   this.fetchedUser = data?.from === this.loggedInUser ? data?.to : data?.from;</span>
+<span class="del">-   this.checkNewUserValidation(this.fetchedUser, ...);</span>
+<span class="del">- }, 1000);</span>
+<span class="add">+ const receiver = selectedUser?.gsi4pk || this.gsi4pk;</span>
+<span class="add">+ this.checkNewUserValidation(receiver, false, showMainLoader);</span></code></pre>
+      </section>
+
+      <section>
+        <h2>2 + 4. Separate cancel streams. Stop validating from the inbox list</h2>
+        <p>The inbox handler used to call <code>checkNewUserValidation</code> on every list response. That fired <code>userValidationCancel$</code>, which history also listened to. A websocket refresh or a search result could kill the thread you just opened.</p>
+        <pre><code><span class="del">- private userValidationCancel$ = new Subject&lt;void&gt;();</span>
+<span class="add">+ private historyCancel$ = new Subject&lt;void&gt;();</span>
+<span class="add">+ private validationCancel$ = new Subject&lt;void&gt;();</span>
+<span class="add">+ private searchChatLogs$ = new Subject&lt;string&gt;();</span></code></pre>
+        <p>Each request stores the <code>groupId</code> it was started for. If <code>this.sid</code> has moved on, the reply is dropped. Destroy <code>next()</code>s both cancel subjects so in-flight work dies with the page.</p>
+        <pre><code><span class="fn">this</span>.historyCancel$.next();
+<span class="kw">const</span> requestedGroupId = email;
+<span class="cmt">// ...</span>
+.subscribe({
+  next: (res) =&gt; {
+    <span class="kw">if</span> (<span class="fn">this</span>.sid !== requestedGroupId) {
+      <span class="kw">return</span>;
+    }
+    <span class="cmt">// write messageList, then historyLoading = false</span>
+  }
+});</code></pre>
+        <p>The inbox <code>complete</code> handler used to flip <code>msgrightLoader</code> false while history could still be in flight. That is gone. Inbox completion does not touch the right pane.</p>
+      </section>
+
+      <section>
+        <h2>3. Split the right-pane loader</h2>
+        <p><code>msgrightLoader</code> gated both panes. Ten places set it. Split:</p>
+        <pre><code><span class="del">- msgrightLoader = false;</span>
+<span class="add">+ historyLoading = false;</span>
+<span class="add">+ permissionsLoading = false;</span>
+<span class="add">+ permissionsFailed = false;</span></code></pre>
+        <p>Timeline:</p>
+        <pre><code><span class="del">- @if (msgrightLoader) { &lt;app-loader&gt; }</span>
+<span class="del">- @if (messageList?.length &amp;&amp; !msgrightLoader) { ... }</span>
+<span class="add">+ @if (historyLoading) { &lt;app-loader&gt; }</span>
+<span class="add">+ @if (messageList?.length &amp;&amp; !historyLoading) { ... }</span></code></pre>
+        <p>Composer. While permissions are in flight we still show it, even if the last thread had <code>is_hidden</code>. After a success we honor <code>is_hidden</code> again. Send, tip, unlock, the textarea, and the footer icons use <code>areMessageActionsLocked</code>, which is loading or failed. The methods themselves return early too. That matters. Paid DM must not look free for a frame.</p>
+        <pre><code><span class="del">- @if (!msgrightLoader &amp;&amp; (cs.isWhiteLabelWeb || !dmValidations?.is_hidden) &amp;&amp; ...)</span>
+<span class="add">+ @if ((permissionsLoading || cs.isWhiteLabelWeb || !dmValidations?.is_hidden) &amp;&amp; ...)</span>
+
+<span class="kw">get</span> <span class="fn">areMessageActionsLocked</span>(): <span class="kw">boolean</span> {
+  <span class="kw">return</span> <span class="fn">this</span>.permissionsLoading || <span class="fn">this</span>.permissionsFailed;
+}</code></pre>
+        <p>If validation returns <code>status: false</code> or errors, the thread stays. A <code>Retry</code> button calls <code>retryThreadPermissions()</code>. Copy lives in <code>messages.constant.ts</code>: <code>PERMISSIONS_UNAVAILABLE</code> and <code>RETRY</code>.</p>
+      </section>
+
+      <section>
+        <h2>5, scroll half. <code>afterNextRender</code> instead of a 500ms timer</h2>
+        <p><code>scrollToBottom</code> used a timer so the scrollbar existed. That is what <code>afterNextRender</code> <code>write</code> is for. A bare callback is <code>mixedReadWrite</code> and Angular nags. The write phase is the one that moves the scroller.</p>
+        <pre><code>afterNextRender(
+  {
+    write: () =&gt; {
+      <span class="kw">const</span> chatListDiv = <span class="fn">this</span>.chatListDiv();
+      <span class="kw">if</span> (chatListDiv) {
+        chatListDiv.scrollTo({ bottom: <span class="num">0</span>, duration: <span class="num">0</span> });
+      }
+    }
+  },
+  { injector: <span class="fn">this</span>.injector }
+);</code></pre>
+      </section>
+
+      <section>
+        <h2>7. Partition, then sort once. Track by ids</h2>
+        <p><code>searchResults</code> used to <code>push</code> then <code>sort</code> on every row. A 200-conversation inbox paid for hundreds of sorts. It now fills three arrays, sorts each once, then assigns.</p>
+        <pre><code><span class="kw">const</span> broadcast = [];
+<span class="kw">const</span> featured = [];
+<span class="kw">const</span> general = [];
+usersList.forEach((item) =&gt; { <span class="cmt">/* partition into those three */</span> });
+broadcast.sort((a, b) =&gt; b.updated_at - a.updated_at);
+featured.sort((a, b) =&gt; b.last_message.timeStamp - a.last_message.timeStamp);
+general.sort((a, b) =&gt; b.last_message.timeStamp - a.last_message.timeStamp);</code></pre>
+        <p>Fans still land everything in tab index 2. Featured and general are concatenated and sorted by timestamp, which is what the old shared-array sorts ended up doing.</p>
+        <p>Identity <code>track</code> rebuilt every row on refetch. Optimistic sends have <code>uinqueId</code> and sometimes an empty <code>sk</code>, so the message track is <code>sk || uinqueId</code>.</p>
+        <pre><code><span class="del">- track data;</span>
+<span class="add">+ track data.groupId;</span>
+
+<span class="del">- track trackItem(idx, log);</span>
+<span class="add">+ track log.groupId;</span>
+
+<span class="del">- track message;</span>
+<span class="add">+ track message.sk || message.uinqueId;</span></code></pre>
+      </section>
+
+      <section>
+        <h2>8. Search stream</h2>
+        <p>There was already a 500ms <code>setTimeout</code>. A slow first query could land after a later one and put the old list back. The input now pushes into a subject. <code>switchMap</code> unsubscribes the previous GET.</p>
+        <pre><code><span class="fn">this</span>.searchChatLogs$
+  .pipe(
+    debounceTime(Application.FIVE_HUNDRED),
+    distinctUntilChanged(),
+    tap(() =&gt; { <span class="fn">this</span>.isLoadingChatLogList = <span class="kw">true</span>; }),
+    switchMap((value) =&gt;
+      <span class="fn">this</span>.apiCallService
+        .get(API_URLS.chatLogsUsersList + <span class="str">`?search_key=${value}`</span>, <span class="kw">false</span>)
+        .pipe(catchError((err) =&gt; {
+          <span class="fn">this</span>.cs.showErrorMessage(err);
+          <span class="fn">this</span>.isLoadingChatLogList = <span class="kw">false</span>;
+          <span class="kw">return</span> EMPTY;
+        }))
+    ),
+    takeUntil(<span class="fn">this</span>.destroyV2$)
+  )
+  .subscribe((res) =&gt; { <span class="cmt">/* updateCount + searchResults */</span> });</code></pre>
+        <p>Initial inbox load still goes through <code>getUserChatLogs</code>. Only the search box uses the stream. That is intentional. Block-user refetch and group-create refetch stay on the old function.</p>
+        <p><code>2945620591</code> moved this subscription out of the constructor. It now starts in <code>listenForInboxSearch()</code> after the first login fetch. Same operators. The page-lifetime listener no longer fires an empty search while the inbox is still loading.</p>
+      </section>
+
+      <section>
+        <h2>Tab heading is a signal. No <code>@defer</code></h2>
+        <p>ngx-bootstrap <code>TabDirective.heading</code> is an <code>InputSignal</code>. <code>changeTab</code> used to assign <code>event.heading</code> to <code>this.active</code>, which is <code>Application</code>. The tab never matched <code>'Messages'</code>, so the automated-messages tab looked selected and the messages pane stayed up. Call <code>heading()</code>.</p>
+        <pre><code><span class="del">- this.active = event.heading;</span>
+<span class="add">+ this.active = event.heading();</span></code></pre>
+        <p>Phase 2 tried <code>@defer</code> on the automated tab and on the emoji picker. This app's <code>Promise</code> is a custom <code>$</code> without <code>allSettled</code>, so the deferred view never swapped, then threw on hover. Both <code>@defer</code> blocks are gone. The emoji button prefetches the mart CSS on <code>mouseenter</code> and click instead.</p>
+      </section>
+
+      <section>
+        <h2>Do not refetch the inbox on another DM</h2>
+        <p>Send used to call <code>get-chatGroups-and-users?search_key=</code> because <code>updateUserList</code> looked for <code>this.sid</code> only in the tab it was sorting. Creators sort Featured and General. Sean lives in Priority. General's <code>!foundObj</code> was true, so it refetched. The open-thread <code>receiveMessage</code> branch also fetched on the send echo.</p>
+        <p>The list already has the row. Patch it. Refetch only if that <code>groupId</code> is in no tab.</p>
+        <pre><code>data[i].last_message.text = selectedObj.text;
+data[i].last_message.timeStamp = Date.now();
+data[i].updated_at = Date.now();
+<span class="cmt">// ...</span>
+<span class="kw">const</span> foundInInbox = <span class="fn">this</span>.chatLogsList.some((tab) =&gt;
+  tab?.data?.some((el) =&gt; el.groupId === <span class="fn">this</span>.sid)
+);
+<span class="kw">if</span> (!foundInInbox) {
+  <span class="fn">this</span>.getUserChatLogs(<span class="kw">false</span>, <span class="str">''</span>);
+}</code></pre>
+        <p>The time label is <code>getTimeDiff(updated_at || last_message.timeStamp)</code>. Updating only <code>timeStamp</code> left "5 Minutes Ago" on screen. Set both.</p>
+        <p><code>getUserChatLogs</code> used to flip <code>isLoadingChatLogList</code> on every call, which is why the inbox spinner appeared after send. The spinner now turns on only when the list has no rows. A first message to someone new still fetches. An incoming message from a thread that is not in the list still fetches. A mailing-list send still refetches when the send socket reports <code>status</code>.</p>
+      </section>
+
+      <section>
+        <h2>Fail closed when permissions never arrive</h2>
+        <p>Opening a mailing list after a custom tip on a DM left <code>dmValidations</code> null and the tip amount still set. <code>sendMessage</code> read <code>this.dmValidations.minTipKeys</code> and threw. The tip read is optional now. Broadcast open calls <code>closeTipPopup()</code>.</p>
+        <pre><code><span class="kw">const</span> minTip = Number(
+  <span class="fn">this</span>.dmValidations?.minTipKeys?.min_tip_guaranteed_reply ||
+    <span class="fn">this</span>.minimumTip
+);</code></pre>
+        <p>If <code>generateGroudId</code> rejects, or the response has no group id, or the receiver has no email, <code>permissionsFailed</code> stays true and <code>dmValidations</code> is null. Send, tip, unlock, and emoji stay disabled until Retry gets <code>status: true</code>.</p>
+      </section>
+
+      <section>
+        <h2>How I checked it</h2>
+        <p>Logged in on local <code>:4200</code> as the Perfect Crew creator. Vite overlay from a 500 on <code>wls-config.json</code> is unrelated and was dismissed. The later send and tab rows were checked on the same account after <code>dc5f52683a</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th scope="col">Check</th><th scope="col">Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Open <code>/messages</code></td><td>Inbox tabs, default thread Sean Andrew, history visible, composer visible, textarea enabled, send disabled while empty.</td></tr>
+              <tr><td>Switch to Newton James</td><td>Header and 126 messages for Newton. Composer still enabled. No permissions error.</td></tr>
+              <tr><td>Search <code>Triple</code></td><td>After the debounce, only Triple Spur Band in the list. Sean Andrew thread stayed open.</td></tr>
+              <tr><td>Type <code>ok</code> in the composer</td><td>Send enabled. Cleared, not sent.</td></tr>
+              <tr><td>Click a display name</td><td>Still navigates to that profile. Existing. Click the last-message preview to stay on Messages.</td></tr>
+              <tr><td>Send <code>time-check-176</code> to Sean after the inbox-refetch change</td><td>Row preview became that text. Time flipped to Now. No <code>get-chatGroups-and-users</code>.</td></tr>
+              <tr><td>Automated Messages tab</td><td>After <code>heading()</code>, the tab and pane match. No <code>@defer</code> skeleton stuck on that tab.</td></tr>
+              <tr><td>Production build</td><td>Not run. This is <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10885">PR 10885</a> into <code>messages-revamp</code>.</td></tr>
+              <tr><td>Fan, paid DM, guaranteed reply, <code>?user=</code>, tip-back</td><td>Not run in this pass.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Verification checklist</h2>
+        <p>Creator on a white-label site for most of this. A fan account for the last group. DevTools Network open, disable cache. Watch <code>getpreviousMessagesFromHttp</code> and <code>chat-user-validation</code>. They should start in the same window, not 1s apart. Grouped by what this PR can actually break.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> First paint and the two loaders</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-open"><span>Hard refresh <code>/messages</code> as a creator with existing threads. History is readable before <code>chat-user-validation</code> finishes. The composer is on screen. Send is disabled until that call returns.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-network"><span>Network. History POST and validation POST overlap. There is no 1000ms gap between history ending and validation starting.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-empty"><span>Empty composer. Send stays disabled. Type a character. Send enables only after permissions have succeeded.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-hidden"><span>If the other user has DMs hidden, the composer disappears after validation, not while it is still loading.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Thread switch and stale replies</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-switch"><span>Click the last-message preview on another row, not the name. Header, history, and composer belong to that person. Fast switch A to B to A. No mix of messages.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-stale"><span>Throttle to Slow 3G. Open A, immediately open B. When both return, you still see B. A late A response does not replace B.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-ws"><span>Keep a thread open. Trigger an incoming message or any inbox refetch. The open history does not blank and does not reload from scratch as if you just arrived.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-name"><span>Click the display name. You leave Messages for that profile. That is current product behavior, not a regression to fix in this PR.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> Paid DM, tip, unlock</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-paid"><span>Paid DM thread. While validation is in flight, send / tip / unlock do nothing. After it returns, the price banner and lock rules match the server, not a free default.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-tip"><span>Tip-required / guaranteed reply. Minimum tip badge. Send without a tip still opens the existing modal. Refund copy is unchanged.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-unlock"><span>Locked paid attachment from the other user. Unlock stays inert until permissions succeed, then goes to payment as before.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-retry"><span>Force validation to fail, or use a bad receiver if you can. History stays. Retry banner. Retry restores send without a full page reload.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Search, sort, tracking</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-search"><span>Type a name, pause, type another. The list matches the last query. An older request must not put the first list back.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-clear"><span>Clear the search box. Full inbox returns. Active thread stays the one you had open.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-tabs"><span>Priority, General, Message Lists. Order is still newest activity first. Counts on the tabs still move when unread changes.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-send"><span>Send a text message. The optimistic bubble stays put and does not flicker into a new DOM node when the server id arrives, if <code>uinqueId</code> is how that send is keyed.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-inbox-api"><span>Send another DM to a conversation already in Priority or General. Network has no <code>get-chatGroups-and-users?search_key=</code>. The row preview and time both update. The inbox spinner does not appear.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-tabs-heading"><span>Switch Messages and Automated Messages. The heading signal must change the pane. Hover the emoji button. No <code>then</code> TypeError.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-mail-tip"><span>Set a custom tip on a DM, then open a mailing list and send. No throw on <code>minTipKeys</code>. Tip popup is closed.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Entry paths</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-query"><span><code>/messages?user=someone</code> opens that thread. History and validation still run together.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-tipback"><span>Tip-back <code>id</code> in the route or query still selects that group.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-new"><span>+ New Message for a user with no existing group. Group create still ends in an empty thread you can send in once permissions return.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-bulk"><span>Broadcast / mailing list. Composer is usable without <code>chat-user-validation</code>. Recipients count and edit participants still open.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag low">Low</span> Fan, white-label, leftovers</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="v-fan"><span>Fan account. One inbox list. Open a creator thread. Same history-then-permissions behavior.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-wls"><span>White-label fan with the user list hidden. Default owner chat still opens. <code>WLSAllowDMs</code> still controls the list.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-under18"><span>Under-18 account still sees the existing block copy, not the composer.</span></label></li>
+              <li><label><input type="checkbox" data-id="v-cd"><span><code>ngAfterViewChecked</code> is still there. Typing in the composer should feel like before this PR, not worse. If it is worse, that is pre-existing, but write it down.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <a href="/messages-page-load-fast-opus-5-5">Phase 1 notes</a>
+      ·
+      <a href="/pr-10885-grok-4-7">PR 10885 review</a>
+      ·
+      <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10885">PR 10885</a>
+    </footer>
+  </div>
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "messages-phase-1-stop-waiting-v1";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

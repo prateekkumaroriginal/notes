@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Release verification checklist for the TopFans Angular 20 upgrade.">
+  <title>Verify the Angular 20 upgrade</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--muted);
+      font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.6;
+    }
+
+    h1,
+    h2,
+    h3,
+    p,
+    ul,
+    ol,
+    pre,
+    table {
+      margin: 0;
+    }
+
+    h1,
+    h2,
+    h3,
+    th,
+    .release-stop {
+      color: var(--text);
+    }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.2em;
+    }
+
+    code {
+      border-radius: 0.3rem;
+      background: var(--surface);
+      color: var(--green);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9em;
+      padding: 0.1rem 0.35rem;
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    header p {
+      font-size: 1.05rem;
+    }
+
+    .release {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1rem;
+      padding-top: 0.5rem;
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.85rem;
+    }
+
+    nav {
+      padding-top: 2rem;
+    }
+
+    nav ul {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem 1.25rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    main {
+      padding-top: 3rem;
+    }
+
+    section + section {
+      padding-top: 2.5rem;
+    }
+
+    h2 {
+      padding-bottom: 0.75rem;
+      font-size: 1.35rem;
+    }
+
+    h3 {
+      padding-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .lede {
+      padding-bottom: 1.25rem;
+    }
+
+    .accent-blue {
+      color: var(--blue);
+    }
+
+    .accent-green {
+      color: var(--green);
+    }
+
+    .accent-amber {
+      color: var(--amber);
+    }
+
+    .accent-pink {
+      color: var(--pink);
+    }
+
+    .checks {
+      display: grid;
+      gap: 0.8rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .checks li {
+      position: relative;
+      padding-left: 1.7rem;
+    }
+
+    .checks li::before {
+      position: absolute;
+      top: 0.45rem;
+      left: 0;
+      width: 0.75rem;
+      height: 0.75rem;
+      border: 0.12rem solid var(--blue);
+      border-radius: 0.2rem;
+      content: "";
+    }
+
+    .checks strong {
+      color: var(--text);
+    }
+
+    .checks .risk::before {
+      border-color: var(--amber);
+    }
+
+    .checks .release-stop::before {
+      border-color: var(--pink);
+    }
+
+    .group + .group {
+      padding-top: 1.75rem;
+    }
+
+    pre {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 0.65rem;
+      background: var(--surface);
+      color: var(--text);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      padding: 1.25rem;
+      white-space: pre-wrap;
+    }
+
+    .command-note {
+      padding-top: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 0.75rem 1rem 0.75rem 0;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+
+    td:first-child {
+      width: 27%;
+      color: var(--text);
+    }
+
+    .evidence {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem 2rem;
+      padding: 0;
+      list-style: none;
+    }
+
+    .evidence span {
+      display: block;
+      color: var(--text);
+      font-weight: 700;
+    }
+
+    .release-stop {
+      border-left: 0.2rem solid var(--pink);
+      border-radius: 0.3rem;
+      padding-left: 1rem;
+    }
+
+    .release-stop + .release-stop {
+      margin-top: 0.75rem;
+    }
+
+    footer {
+      padding-top: 3rem;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    @media (max-width: 720px) {
+      .page {
+        padding-block: 3rem;
+      }
+
+      .evidence {
+        grid-template-columns: 1fr;
+      }
+
+      td:first-child {
+        width: 38%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Verify the Angular 20 upgrade</h1>
+      <p>Sign off the TopFans browser, live SSR, PrimeNG rewrite, and one white-label tenant. PrimeNG is the highest-risk part of this release, even when the TypeScript build is clean.</p>
+      <div class="release" aria-label="Release identity">
+        <span>commit 22cf82a7bb</span>
+        <span>Angular 20.3.31</span>
+        <span>PrimeNG 20.4.0</span>
+        <span>Node 20.19.6</span>
+      </div>
+    </header>
+
+    <nav aria-label="Page sections">
+      <ul>
+        <li><a href="#artifact">Artifact</a></li>
+        <li><a href="#server">SSR</a></li>
+        <li><a href="#primeng">PrimeNG</a></li>
+        <li><a href="#product">Product</a></li>
+        <li><a href="#tenant">White-label</a></li>
+        <li><a href="#noise">Known noise</a></li>
+        <li><a href="#stop">Release blockers</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="artifact">
+        <h2>Use the QA artifact</h2>
+        <p class="lede">Run the application with the repository's pinned Node version. Verify the optimized QA browser and server bundles, then use the Express SSR process for the checks below.</p>
+        <pre>export PATH="$HOME/.nvm/versions/node/v20.19.6/bin:$PATH"
+node --max_old_space_size=10048 ./node_modules/@angular/cli/bin/ng build --configuration=qa --prerender=false
+PORT=4000 node dist/TopFans/server/server.mjs</pre>
+        <p class="command-note"><code>build-dev</code> is not the sign-off artifact. This checkout cannot run it because <code>src/environments/environment.dev.ts</code> is absent.</p>
+
+        <div class="group">
+          <h3>Release fingerprint</h3>
+          <ul class="evidence">
+            <li><span>Angular</span>Core 20.3.31, CLI and SSR 20.3.37</li>
+            <li><span>Material</span>Material and CDK 20.2.14</li>
+            <li><span>PrimeNG</span>PrimeNG 20.4.0 with themes 1.2.5</li>
+            <li><span>ng-select</span>20.4.0, pinned because later 20.x drops Node 20</li>
+            <li><span>TypeScript</span>5.8.3 with <code>moduleResolution: bundler</code></li>
+            <li><span>Architecture held</span>NgModules, zone.js, and the application builder remain</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="server">
+        <h2>Prove SSR from the response body</h2>
+        <p class="lede">A page loading in Chrome is not enough. An unapproved host can quietly receive the CSR shell with HTTP 200. Inspect the HTML and server output.</p>
+        <ul class="checks">
+          <li><strong>Home and login return HTTP 200.</strong> Test <code>/</code> and <code>/auth/login</code> with the expected Host header.</li>
+          <li><strong><code>&lt;app-root&gt;</code> contains rendered markup.</strong> An empty root is a CSR fallback, not a pass.</li>
+          <li><strong>PrimeNG theme CSS is in the HTML.</strong> Find style elements with <code>data-primeng-style-id</code>. The verified build emitted four.</li>
+          <li><strong>Use one route that was not prerendered.</strong> A creator profile is a good live-SSR check.</li>
+          <li><strong>Unknown routes return 404.</strong> Do not accept a 200 blank shell for a garbage path.</li>
+          <li><strong>Server output stays clean.</strong> There must be no <code>is not allowed</code>, Angular runtime error, or unhandled rejection.</li>
+          <li><strong>Browser hydration preserves the page.</strong> Home and login remain populated after JavaScript starts, with no flash to an empty layout.</li>
+        </ul>
+      </section>
+
+      <section id="primeng">
+        <h2>PrimeNG is the visual regression gate</h2>
+        <p class="lede">PrimeNG moved from saga-blue CSS files to Lara styled mode and renamed the classes used by the application's overrides. Check behavior and appearance together.</p>
+
+        <div class="group">
+          <h3>Custom MultiSelect</h3>
+          <ul class="checks">
+            <li class="release-stop"><strong>Open the overlay.</strong> It has the expected dark tenant colors, rounded shape, spacing, and scroll container.</li>
+            <li><strong>Search from the custom header.</strong> Filtering updates options and does not clear selected values.</li>
+            <li><strong>Select all and clear all.</strong> The circular checkbox changes state and option selection matches the control value.</li>
+            <li><strong>Select individual options.</strong> Selected rows and checked boxes are visibly distinct.</li>
+            <li><strong>Remove a chip.</strong> The times-circle icon is visible and removes only that value.</li>
+            <li><strong>Test both display modes.</strong> Exercise <code>chip</code> and comma-separated labels.</li>
+            <li><strong>Use the custom footer.</strong> Cancel, confirm, and any feature-specific custom action are visible, themed, and clickable.</li>
+            <li><strong>Use card view at three widths.</strong> Check desktop, tablet, and phone layouts for option cards and checkbox positioning.</li>
+          </ul>
+          <p class="command-note">Start with dynamic forms, then repeat on the song, podcast, item, video, and album portfolio editors. Also check Create Plan and discount-code forms.</p>
+        </div>
+
+        <div class="group">
+          <h3>Carousel</h3>
+          <ul class="checks">
+            <li><strong>Image overlay and image overlay v2.</strong> Previous and next controls appear outside the image at desktop width and remain reachable on mobile.</li>
+            <li><strong>Restricted-content and alert modals.</strong> Arrows retain their background, size, contrast, and click target.</li>
+            <li><strong>Reels mobile view.</strong> The carousel list does not inherit an unwanted transform and swiping still changes the reel.</li>
+            <li><strong>Circular and autoplay modes.</strong> Where enabled, wrapping and timed movement still work without duplicating or skipping items.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section id="product">
+        <h2>Library and product smoke matrix</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Area</th>
+                <th>Pass when</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Public pages</td>
+                <td>Home, login, creator profile, and a marketing page paint without an empty layout or console exception.</td>
+              </tr>
+              <tr>
+                <td>ngx-bootstrap</td>
+                <td>Login, share, and unlock modals open and close. Datepicker, dropdown, tabs, accordion, and typeahead respond.</td>
+              </tr>
+              <tr>
+                <td>ng-select</td>
+                <td>A representative select opens, filters, chooses, clears, and renders its existing theme correctly.</td>
+              </tr>
+              <tr>
+                <td>Messages</td>
+                <td>Conversation list and thread load. Sending text and opening attachment UI do not throw.</td>
+              </tr>
+              <tr>
+                <td>Wallet and Stripe</td>
+                <td>Balance and forms render. Test checkout and Connect complete against a safe environment. <code>ngx-stripe</code> intentionally remains on 18.</td>
+              </tr>
+              <tr>
+                <td>Firebase</td>
+                <td>Application startup initializes messaging and remote config without a provider or injection error.</td>
+              </tr>
+              <tr>
+                <td>Owl carousel</td>
+                <td>Marketing carousels move in both directions, respond to breakpoints, and do not stack slides.</td>
+              </tr>
+              <tr>
+                <td>Audio player</td>
+                <td>An audio post loads, plays, pauses, seeks, and closes. This package still peers on Material 17.</td>
+              </tr>
+              <tr>
+                <td>Course expiry</td>
+                <td>The displayed year is the calendar year. Test a date near the December and January boundary to catch the old week-year format.</td>
+              </tr>
+              <tr>
+                <td>HMR</td>
+                <td>A small template or style edit updates under <code>ng serve</code>. If it does not, compare with <code>npm run start:no-hmr</code>.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="tenant">
+        <h2>Build and render one white-label tenant</h2>
+        <ul class="checks">
+          <li><strong>Generate in an isolated or disposable working tree.</strong> Do not commit generated tenant files or environment data with this release.</li>
+          <li><strong>The generated builder remains <code>application</code>.</strong> It must not switch to the new <code>@angular/build</code> package during this hop.</li>
+          <li><strong>The generated styles contain no <code>primeng/resources</code> paths.</strong> PrimeIcons stays.</li>
+          <li><strong>The QA tenant build succeeds on Node 20.19.6.</strong> Use the same 10 GB heap as TopFans.</li>
+          <li><strong>Request SSR with the tenant's real host.</strong> The response has populated app markup and PrimeNG style tags, with no host-allowlist error.</li>
+          <li><strong>Branding survives hydration.</strong> Logo, title, theme colors, login, and cover-page behavior stay tenant-specific.</li>
+          <li><strong>Repeat the MultiSelect and Carousel spot checks.</strong> Tenant variables must override Lara without losing contrast or control states.</li>
+        </ul>
+      </section>
+
+      <section id="noise">
+        <h2>Known noise and deliberate holds</h2>
+        <ul class="checks">
+          <li class="risk"><strong>Karma has zero specs.</strong> <code>ng test --watch=false</code> compiles and Chrome reports <code>0 of 0 SUCCESS</code>, but the command may still exit 1.</li>
+          <li class="risk"><strong>Full lint exhausts the heap.</strong> It ran out of memory even at 10 GB. Targeted lint still reports existing <code>prefer-standalone</code> findings because this release keeps NgModules.</li>
+          <li><strong>Serverless is not a gate.</strong> Do not migrate or build the webpack serverless target for this release.</li>
+          <li><strong>Control-flow syntax is unchanged.</strong> The optional <code>@if</code> and <code>@for</code> migration was declined.</li>
+          <li><strong>Zone.js and dynamic platform bootstrap remain.</strong> Their Angular 20 deprecation warnings do not mean this release should rewrite bootstrap.</li>
+          <li><strong>ngx-toastr and ngx-stripe remain on their existing majors.</strong> Their next majors would pull Angular 21 or a Stripe.js major into this release.</li>
+        </ul>
+      </section>
+
+      <section id="stop">
+        <h2>Stop the release if any of these fail</h2>
+        <p class="release-stop">The optimized TopFans QA browser or server bundle does not compile on Node 20.19.6.</p>
+        <p class="release-stop">A permitted host receives an empty <code>&lt;app-root&gt;</code>, PrimeNG theme styles are absent from SSR HTML, or server output reports a host rejection.</p>
+        <p class="release-stop">MultiSelect cannot open, select, remove chips, or use its custom footer in dynamic forms and portfolio editors.</p>
+        <p class="release-stop">Carousel navigation is missing or unusable in overlays, restricted content, or reels.</p>
+        <p class="release-stop">Wallet checkout, Stripe Connect, audio playback, or a representative white-label tenant regresses.</p>
+      </section>
+    </main>
+
+    <footer>
+      TopFans branch <code>feature/release-0.0.23/16-17-18-19-20</code>. Upgrade commit <code>22cf82a7bb</code>.
+    </footer>
+  </div>
+</body>
+</html>

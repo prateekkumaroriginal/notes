@@ -1,0 +1,419 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Review of TopFans web frontend pull requests 10823 and 10824, which enable Angular 21 client hydration and replace RouterModule.forRoot with provideRouter.">
+  <title>PR 10823 and 10824: hydration and provideRouter review</title>
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --paper: #131a24;
+      --panel: #1a2331;
+      --ink: #e8edf4;
+      --muted: #8593a6;
+      --dim: #4e5b6e;
+      --rule: #2a3546;
+      --minus: #f0776f;
+      --minus-bg: rgba(240, 119, 111, 0.13);
+      --plus: #5fcf8f;
+      --plus-bg: rgba(95, 207, 143, 0.13);
+      --focus: #8fb4ff;
+      --focus-bg: rgba(143, 180, 255, 0.13);
+      /* aliases for code-blocks.css */
+      --line: var(--rule);
+      --surface: var(--panel);
+      --text: var(--ink);
+      --blue: var(--focus);
+      --green: var(--plus);
+      --pink: var(--minus);
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, figure, table, dl, dd { margin: 0; }
+
+    a {
+      color: var(--focus);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--focus);
+      outline-offset: 3px;
+    }
+
+    p, li, dd, td { color: var(--muted); }
+
+    strong { color: var(--ink); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--ink);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--panel);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    pre .add { color: var(--plus); }
+    pre .del { color: var(--minus); }
+    pre .kw { color: var(--focus); }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1.25rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .lede { color: var(--muted); }
+
+    .verdict {
+      display: grid;
+      gap: 0.5rem;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      background: var(--plus-bg);
+    }
+
+    .verdict h2 { color: var(--plus); font-size: 1rem; padding: 0; }
+
+    .verdict p { color: var(--ink); }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--dim);
+      font-family: var(--mono);
+      font-size: 0.8rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    section > p + p { padding-top: 0.75rem; }
+
+    .findings { display: grid; gap: 1.75rem; }
+
+    .finding {
+      display: grid;
+      grid-template-columns: 6.5rem minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .tag {
+      display: inline-block;
+      width: fit-content;
+      border-radius: 999px;
+      padding: 0.25rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: var(--focus-bg);
+      color: var(--focus);
+    }
+
+    .tag.fix { background: var(--minus-bg); color: var(--minus); }
+    .tag.ok { background: var(--plus-bg); color: var(--plus); }
+
+    .finding-body { display: grid; gap: 0.5rem; }
+
+    .finding-body h3 { color: var(--ink); font-size: 1rem; }
+
+    .finding-body ul { padding-left: 1.2rem; display: grid; gap: 0.3rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--rule); }
+
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; min-width: 560px; }
+
+    col.aspect { width: 22%; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+      overflow-wrap: anywhere;
+    }
+
+    td code { overflow-wrap: anywhere; }
+
+    th {
+      background: var(--panel);
+      color: var(--ink);
+      font-size: 0.78rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--rule); }
+
+    td.better { color: var(--plus); }
+    td.worse { color: var(--minus); }
+    td.same { color: var(--muted); }
+
+    .better::before { content: "+ "; }
+    .worse::before { content: "- "; }
+
+    .steps { display: grid; gap: 1.75rem; padding-left: 1.4rem; }
+
+    .steps li { display: grid; gap: 0.75rem; }
+
+    .steps li::marker { color: var(--ink); font-weight: 700; }
+
+    .steps p strong { color: var(--ink); }
+
+    ol.qa { padding-left: 1.4rem; display: grid; gap: 0.5rem; }
+
+    .footnote { color: var(--dim); font-size: 0.9rem; padding-top: 0.75rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .finding { grid-template-columns: 1fr; gap: 0.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>PR 10823 and 10824: hydration and <code>provideRouter</code> review</h1>
+      <p class="lede">Two pull requests, opened thirteen seconds apart from the same base commit, each enable Angular 21 client hydration with event replay and replace <code>RouterModule.forRoot</code> with <code>provideRouter</code> while converting eleven class guards to functions. They touch the same 23 files and are alternatives, not a stack. This review compares them line by line and checks the parts of the migration that the diff alone does not show.</p>
+
+      <div class="verdict">
+        <h2>Verdict</h2>
+        <p>Merge <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10824">PR 10824</a> after two small fixes: replace the deprecated <code>ENVIRONMENT_INITIALIZER</code> token with <code>provideEnvironmentInitializer</code>, and decide explicitly about the HTTP transfer cache that <code>provideClientHydration()</code> switches on. Close <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10823">PR 10823</a> as superseded. Both compile cleanly and preserve guard behaviour; 10824 makes better structural choices and its defects are one-line changes, while 10823 introduces a layering inversion that would need a real rework.</p>
+      </div>
+
+      <div class="meta">
+        <span>reviewed 2026-09-22</span>
+        <span>base 0accd16451</span>
+        <span>10823 head 8d4761ac72 (+614 / -615)</span>
+        <span>10824 head 7c66c9e741 (+531 / -626)</span>
+        <span>Angular 21.2.23</span>
+      </div>
+    </header>
+
+    <main>
+      <section aria-labelledby="scope">
+        <h2 id="scope">What both PRs change</h2>
+        <p>Each PR has two commits. The first adds <code>provideClientHydration(withEventReplay())</code> to <code>AppModule</code> providers, which the server module inherits because <code>AppServerModule</code> imports <code>AppModule</code>. The second removes <code>RouterModule.forRoot(routes, {...})</code> and rebuilds the same configuration with <code>provideRouter</code> plus <code>withComponentInputBinding</code>, <code>withPreloading(NoPreloading)</code>, <code>withInMemoryScrolling</code>, and <code>withRouterConfig</code>. The <code>initialNavigation: 'enabledBlocking'</code> option is dropped. The eleven guards in <code>src/app/core</code> and <code>src/app/services</code> become exported functions that call <code>inject()</code>, and every <code>canActivate</code> and <code>canDeactivate</code> array in the routing modules is updated to reference them. <code>SocialAuthService</code> stops injecting <code>CreatorApprovalGuard</code> and calls the extracted <code>getBlockedTabRedirectPath</code> helper instead.</p>
+      </section>
+
+      <section aria-labelledby="shared">
+        <h2 id="shared">Findings that apply to both PRs</h2>
+        <div class="findings">
+          <article class="finding">
+            <span class="tag fix">fix</span>
+            <div class="finding-body">
+              <h3>Hydration silently turns on Angular's HTTP transfer cache, on top of the app's own</h3>
+              <p><code>provideClientHydration()</code> includes <code>withHttpTransferCache({})</code> unless <code>withNoHttpTransferCache()</code> or <code>withHttpTransferCacheOptions()</code> is passed (<code>@angular/platform-browser</code>, <code>provideClientHydration</code> body). Neither PR passes either. From now on every GET or HEAD request made during server rendering, without an <code>Authorization</code> header, is serialized into the <code>ng-state</code> script and replayed on the client's first matching request.</p>
+              <p>The codebase already does this by hand: <code>src/app/modules/shared/services/cache.service.ts</code> writes API responses into <code>TransferState</code> on the server and reads them back in the browser. With both layers active, public SSR pages such as the homepage, creator profiles, and post detail will carry every API response twice in the HTML payload, and two caches with different keys and lifetimes will answer the same requests.</p>
+              <ul>
+                <li>Either add <code>withNoHttpTransferCache()</code> and keep <code>CacheService</code>, or keep the built-in cache and remove the custom <code>TransferState</code> writes in a follow-up. The PR should state which.</li>
+                <li>Check the size of <code>&lt;script id="ng-state"&gt;</code> on <code>/</code> and on a creator profile before and after.</li>
+              </ul>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3><code>withComponentInputBinding()</code> is a behaviour change unrelated to hydration</h3>
+              <p>It binds route params, query params, resolved data, and static <code>data</code> keys to any <code>@Input()</code> of the same name on the routed component. With <code>paramsInheritanceStrategy: 'always'</code> also set, parent params flow down too. A scan of the 181 routed components found five whose inputs collide with route param names: <code>CustomerInformationComponent</code>, <code>MerchandiseDetailComponent</code>, <code>MerchandiseDetailsComponent</code>, and <code>OrderPaymentComponent</code> all declare <code>@Input() redirect</code> and sit on routes with a <code>:redirect</code> segment; <code>MerchandiseDetailsComponent</code> also has <code>@Input() type</code> on a <code>:type</code> route. Each of them already does <code>this.redirect = this.redirect || snapshot.params.redirect</code>, so the bound value is the one they would have read anyway and no regression is expected.</p>
+              <p><code>LeaderboardComponent</code> has <code>@Input() userId</code> and reads <code>:id</code> from the route; a stray <code>?userId=</code> query string would now overwrite it. Low risk, but the feature is not needed for this migration and neither PR description explains why it was added. Keep it if the audit asked for it, and mention it in the QA plan.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>Dropping <code>enabledBlocking</code> is required, not optional</h3>
+              <p>Angular 21 ships a dev-mode detector inside <code>provideClientHydration</code> that warns with <code>NG05001</code> when hydration and <code>enabledBlocking</code> initial navigation are both present. Both PRs remove the option and rely on the default non-blocking navigation. Server rendering still waits for the router because navigation registers a pending task, so SSR output is unchanged.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">correct</span>
+            <div class="finding-body">
+              <h3>The 64px scroll offset survives the migration</h3>
+              <p><code>withInMemoryScrolling</code> accepts only <code>anchorScrolling</code> and <code>scrollPositionRestoration</code>; the old <code>scrollOffset: [0, 64]</code> has no <code>provideRouter</code> equivalent. Both PRs noticed and call <code>ViewportScroller.setOffset([0, 64])</code> from an environment initializer, which is what <code>RouterModule.forRoot</code> did internally. They differ in which API they use for that initializer; see below.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag ok">assessed</span>
+            <div class="finding-body">
+              <h3>Hydration mismatch risk is lower than the template count suggests</h3>
+              <p>234 templates branch on <code>isBrowser</code>. That looks alarming for hydration, but almost all of them live behind <code>authGuard</code>, which returns <code>false</code> on the server, so those routes never render on the server and never hydrate. Of the modules that do SSR (promotional, profile, post-detail, public, global) fifteen templates branch on <code>cs.isBrowser</code> or <code>platformService.isBrowser</code>. Angular tolerates an <code>*ngIf</code> that is false on the server and true on the client: it creates the view fresh and removes unclaimed server views afterwards, without throwing. The failure mode that does throw is DOM mutated inside Angular-rendered elements before hydration finishes; the four occurrences in SSR-rendered code all append <code>&lt;script&gt;</code> tags to <code>document.body</code>, outside the root component. No template uses <code>i18n</code>, so <code>withI18nSupport()</code> is not needed. Neither PR adds <code>ngSkipHydration</code>, and on this evidence none is required. The QA list below still exercises the public routes.</p>
+            </div>
+          </article>
+
+          <article class="finding">
+            <span class="tag">note</span>
+            <div class="finding-body">
+              <h3>No specs cover the migrated guards</h3>
+              <p>None of the eleven guards has a test before or after. The conversions were verified by reading each branch side by side with the class version; every condition, redirect target, and early return is preserved in both PRs. Role-based routes still need a manual pass.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="diff">
+        <h2 id="diff">Where the two PRs differ</h2>
+        <p>Only 14 files differ between the two heads. The routing module edits in <code>auth</code>, <code>dashboard</code>, <code>portfolio</code>, <code>edit-preference</code>, <code>monetize</code>, <code>promotional</code>, <code>wallet</code>, and <code>messages</code> are byte-identical, as is the <code>SocialAuthService</code> change.</p>
+        <div class="table-wrap">
+          <table>
+            <colgroup>
+              <col class="aspect">
+              <col>
+              <col>
+            </colgroup>
+            <thead>
+              <tr>
+                <th scope="col">Aspect</th>
+                <th scope="col">PR 10823</th>
+                <th scope="col">PR 10824</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Environment initializer for the scroll offset</td>
+                <td class="better"><code>provideEnvironmentInitializer(() =&gt; ...)</code>, the current API.</td>
+                <td class="worse"><code>{ provide: ENVIRONMENT_INITIALIZER, multi: true, useValue }</code>. The token is marked <code>@deprecated from v19.0.0</code> in <code>@angular/core</code> types.</td>
+              </tr>
+              <tr>
+                <td>Where the router is configured</td>
+                <td class="worse">Inline in <code>app.module.ts</code>, which now imports seven router symbols and <code>ViewportScroller</code>. Routes and their options live in different files.</td>
+                <td class="better"><code>appRouterProviders</code> exported from <code>app-routing.module.ts</code> and spread into providers. Routing stays in one place.</td>
+              </tr>
+              <tr>
+                <td>Mutable guard state (<code>deferredCheckActive</code>)</td>
+                <td class="better">Two root-injected <code>*GuardState</code> classes. Per-injector, so per-request on the server, and resettable in tests. Verbose: the deferred check helper takes seven positional arguments.</td>
+                <td class="worse">Module-level <code>let deferredCheckActive</code> in two files. Shared across every SSR request in the Node process and not resettable between tests. Not a live bug today because the flag is only written behind an <code>isBrowser</code> check, but it is hidden global state.</td>
+              </tr>
+              <tr>
+                <td>Permission guard data source</td>
+                <td class="worse">Keeps a <code>PermissionGuardState</code> service that subscribes to the store forever and mirrors it into a <code>BehaviorSubject</code>, copied from the old class.</td>
+                <td class="better">Pipes <code>store.select(getUserProfileItems)</code> directly. NgRx selectors emit synchronously from a <code>BehaviorSubject</code>, so the guard still resolves on the current value. The lingering subscription and the duplicate state are gone.</td>
+              </tr>
+              <tr>
+                <td>Unsaved-changes confirmation text</td>
+                <td class="worse">Added to <code>MESSAGES</code> in <code>@modules/messages/constants</code>. The global <code>src/app/services/can-deactivate-guard.service.ts</code> now imports a feature module constant, inverting the dependency direction.</td>
+                <td class="better">New <code>CAN_DEACTIVATE_CONSTANTS</code> (<code>as const</code>) in <code>@shared/constants/confirmation.constant.ts</code>, matching the repository's constants convention.</td>
+              </tr>
+              <tr>
+                <td>Guard typing</td>
+                <td class="better">Every guard is annotated <code>CanActivateFn</code> or <code>CanDeactivateFn&lt;ComponentCanDeactivate&gt;</code>, so a wrong signature fails to compile.</td>
+                <td class="same">Plain arrow functions with explicit parameter types. Inferred return types are compatible with the router, but the contract is not stated.</td>
+              </tr>
+              <tr>
+                <td>Guard helper structure</td>
+                <td class="same">Separate <code>evaluateApproval</code>, <code>deferredApprovalCheck</code>, and <code>tabIsVisible</code> functions.</td>
+                <td class="same">One <code>shouldShowTabForProfile</code> helper and the deferred check inlined. Shorter and reads top to bottom.</td>
+              </tr>
+              <tr>
+                <td>Net size</td>
+                <td class="same">-1 line</td>
+                <td class="same">-95 lines</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="changes">
+        <h2 id="changes">Requested changes on PR 10824 before merge</h2>
+        <ol class="steps">
+          <li>
+            <p><strong>Use the current initializer API.</strong> In <code>src/app/app-routing.module.ts</code>, replace the deprecated token with the function Angular introduced in v19. Import <code>provideEnvironmentInitializer</code> from <code>@angular/core</code> and drop <code>ENVIRONMENT_INITIALIZER</code>.</p>
+<pre><code><span class="del">-  {
+-    provide: ENVIRONMENT_INITIALIZER,
+-    multi: true,
+-    useValue: () =&gt; inject(ViewportScroller).setOffset([0, 64])
+-  }</span>
+<span class="add">+  provideEnvironmentInitializer(() =&gt; {
++    inject(ViewportScroller).setOffset([0, 64]);
++  })</span></code></pre>
+          </li>
+          <li>
+            <p><strong>Decide about the HTTP transfer cache.</strong> The smallest safe change keeps the existing <code>CacheService</code> as the only server-to-client cache. In <code>src/app/app.module.ts</code>:</p>
+<pre><code><span class="del">-    provideClientHydration(withEventReplay()),</span>
+<span class="add">+    provideClientHydration(withEventReplay(), withNoHttpTransferCache()),</span></code></pre>
+            <p>If the team would rather adopt Angular's cache and retire the custom one, say so in the PR and open a follow-up; do not ship both.</p>
+          </li>
+          <li>
+            <p><strong>Optional: annotate the guards.</strong> Adding <code>: CanActivateFn</code> to the eight <code>canActivate</code> guards and <code>: CanDeactivateFn&lt;ComponentCanDeactivate&gt;</code> to <code>canDeactivateGuard</code> costs nothing and catches signature drift. If the module-level <code>deferredCheckActive</code> flags bother anyone, the root-injected state class from 10823 is the alternative, but it is not required for correctness.</p>
+          </li>
+        </ol>
+      </section>
+
+      <section aria-labelledby="verification">
+        <h2 id="verification">What was verified</h2>
+        <ul class="qa">
+          <li>Both heads were checked out into temporary worktrees and type-checked with <code>tsc --noEmit -p tsconfig.app.json</code> against the repository's <code>node_modules</code>. Both pass with no errors.</li>
+          <li>The eleven guard conversions were read side by side with the class versions in both PRs. Every branch, redirect, and platform check is preserved.</li>
+          <li><code>userProfileSubscription()</code> was confirmed to be <code>store.select(getUserProfileItems)</code>, so PR 10824's direct subscription keeps synchronous emission.</li>
+          <li><code>ENVIRONMENT_INITIALIZER</code> deprecation, the <code>NG05001</code> enabled-blocking detector, and the default <code>withHttpTransferCache({})</code> were confirmed in the installed <code>@angular/core</code> 21.2.23 and <code>@angular/platform-browser</code> sources.</li>
+          <li>Routed components were scanned for <code>@Input()</code> names colliding with route params, query params, and <code>data</code> keys.</li>
+          <li>SSR-rendered modules were scanned for <code>isBrowser</code> template branches, direct DOM mutation, and <code>i18n</code> attributes.</li>
+        </ul>
+        <p class="footnote">Not run here: a full <code>ng build</code> with SSR and a browser session. A previous review of the same two heads reported both builds passing and no hydration errors on <code>/</code> and <code>/privacy-policy</code>; this review does not contradict that.</p>
+      </section>
+
+      <section aria-labelledby="qa">
+        <h2 id="qa">QA after merge</h2>
+        <ol class="qa">
+          <li>Load <code>/</code>, a creator profile, and a post detail page with the network tab open. Confirm no <code>NG0500</code> to <code>NG0507</code> console errors and that the server HTML is not replaced wholesale.</li>
+          <li>Inspect <code>&lt;script id="ng-state"&gt;</code> on the same pages and confirm each API response appears once.</li>
+          <li>Signed out, open <code>/wallet</code> and <code>/messages</code> and confirm the redirect to login. Sign in and confirm the saved return URL is honoured.</li>
+          <li>Walk the role matrix: fan, pending creator, approved creator, delegated user, white-label owner, white-label non-owner. Each blocked tab should redirect where it did before.</li>
+          <li>On a white-label site, confirm marketing routes redirect home and <code>/monetize</code>, <code>/insights</code>, and <code>/resources</code> are owner-only.</li>
+          <li>Type in Messages, navigate away, and confirm the native confirm dialog appears and both buttons behave.</li>
+          <li>Open a merchandise detail and order payment page from a link that includes a <code>redirect</code> segment; confirm the back navigation target is unchanged.</li>
+          <li>Click an anchor link on a marketing page and confirm the target sits 64px below the top, under the fixed header.</li>
+          <li>Generate and prerender one white-label project (for example AJ White QA) and confirm the cover page and profile HTML are written.</li>
+        </ol>
+      </section>
+    </main>
+  </div>
+  <script src="copy-code.js"></script>
+</body>
+</html>

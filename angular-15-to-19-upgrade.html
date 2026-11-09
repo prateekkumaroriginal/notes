@@ -1,0 +1,1384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Angular 15 to 19: TopFans web frontend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #131A24;
+    --panel: #1A2331;
+    --ink: #E8EDF4;
+    --muted: #8593A6;
+    --dim: #4E5B6E;
+    --rule: #2A3546;
+    --minus: #F0776F;
+    --minus-bg: rgba(240, 119, 111, 0.13);
+    --plus: #5FCF8F;
+    --plus-bg: rgba(95, 207, 143, 0.13);
+    --focus: #8FB4FF;
+    --sans: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  /* Stage: fixed 1280x720 design space, scaled to fit */
+  .stage {
+    width: 1280px;
+    height: 720px;
+    transform-origin: center center;
+    display: grid;
+    grid-template-rows: 56px 1fr 48px;
+    background: var(--paper);
+  }
+
+  /* Chapter rail */
+  .rail {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--rule);
+    padding: 0 48px;
+    gap: 4px;
+  }
+  .rail button {
+    appearance: none;
+    background: none;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    padding: 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .rail button.current {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+  }
+  .rail button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  /* Slides */
+  .deck { position: relative; overflow: hidden; }
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 40px 48px 32px;
+    display: none;
+    grid-template-rows: auto 1fr;
+    gap: 22px;
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+  .slide::-webkit-scrollbar { width: 8px; }
+  .slide::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+  .slide::-webkit-scrollbar-track { background: transparent; }
+  .slide.current { display: grid; }
+  .slide:focus { outline: none; }
+  .slide:has(> .hero) { grid-template-rows: 1fr; }
+
+  h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  h1 { font-size: 64px; line-height: 1; font-variation-settings: 'wdth' 88; }
+  h2 { font-size: 36px; line-height: 1.1; font-variation-settings: 'wdth' 92; }
+  h3 { font-size: 18px; line-height: 1.25; margin-bottom: 10px; color: var(--muted); font-weight: 600; }
+  p { margin: 0 0 12px; max-width: 62ch; }
+  p.lede { font-size: 22px; line-height: 1.35; max-width: 48ch; }
+  .fine { font-size: 13.5px; color: var(--muted); }
+
+  ul { margin: 0; padding-left: 18px; max-width: 60ch; }
+  li { margin-bottom: 7px; }
+  ul.tight li { margin-bottom: 4px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; min-height: 0; }
+  .cols.wide-right { grid-template-columns: 5fr 7fr; }
+  .cols.wide-left { grid-template-columns: 7fr 5fr; }
+
+  /* Small CSS arrow, reused in flows and move rows */
+  .arr { position: relative; display: inline-block; width: 18px; height: 1em; vertical-align: middle; }
+  .arr::before { content: ''; position: absolute; left: 1px; right: 4px; top: 50%; height: 2px; margin-top: -1px; background: var(--muted); }
+  .arr::after { content: ''; position: absolute; right: 4px; top: 50%; width: 7px; height: 7px; border-top: 2px solid var(--muted); border-right: 2px solid var(--muted); transform: translate(2px, -50%) rotate(45deg); }
+
+  /* Flow: a left-to-right chain of nodes joined by arrows */
+  .flow { display: grid; grid-template-columns: repeat(var(--n, 5), 1fr); gap: 0 44px; align-items: stretch; }
+  .flow .step {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 18px 18px 16px;
+    box-shadow: inset 0 3px 0 var(--rule);
+  }
+  .flow .step.fw { box-shadow: inset 0 3px 0 var(--ink); }
+  .flow .step.bd { box-shadow: inset 0 3px 0 var(--plus); }
+  .flow .step + .step::before,
+  .flow .step + .step::after { content: ''; position: absolute; top: 50%; }
+  .flow .step + .step::before { left: -44px; width: 36px; height: 2px; margin-top: -1px; background: var(--muted); }
+  .flow .step + .step::after {
+    left: -10px;
+    margin-top: -6px;
+    border-left: 10px solid var(--muted);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+  }
+  .flow .kind { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .flow .num {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .flow .node { font-size: 18px; font-weight: 700; line-height: 1.2; }
+  .flow.titles .step { padding: 22px 18px; display: grid; place-items: center; text-align: center; }
+  .flow ul { font-size: 14px; color: var(--muted); padding-left: 16px; margin: 10px 0 0; }
+  .flow ul li { margin-bottom: 4px; }
+  .flow ul code { color: var(--ink); }
+
+  /* Moves: old -> new pairs with a one-line reason */
+  .moves { display: grid; gap: 16px; align-content: start; }
+  .move { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+  .move .a, .move .b { font-family: var(--mono); font-size: 13.5px; line-height: 1.45; overflow-wrap: break-word; }
+  .move .a { color: var(--minus); }
+  .move .b { color: var(--plus); }
+  .move .b.dim, .move .a.dim { color: var(--muted); font-family: var(--sans); font-size: 14px; }
+  .move .why { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
+  .move .why code { color: var(--ink); }
+  .moves.compact { gap: 12px; }
+  .moves.compact .why { font-size: 13.5px; }
+
+  /* Case: symptom / cause / fix */
+  dl.case { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 12px 16px; margin: 0 0 24px; }
+  dl.case:last-child { margin-bottom: 0; }
+  dl.case dt { font-size: 13.5px; font-weight: 600; padding-top: 2px; }
+  dl.case dt.sym { color: var(--minus); }
+  dl.case dt.cause { color: var(--muted); }
+  dl.case dt.fix { color: var(--plus); }
+  dl.case dd { margin: 0; }
+  dl.case dd ul { margin-top: 4px; }
+  dl.case.two { margin-bottom: 18px; }
+  dl.case.two dd { font-size: 15px; }
+
+  /* Diff panels */
+  pre.diff {
+    margin: 0;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 12px 0;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  pre.diff span { display: block; padding: 0 16px 0 32px; text-indent: -16px; }
+  pre.diff .del { background: var(--minus-bg); color: var(--minus); }
+  pre.diff .add { background: var(--plus-bg); color: var(--plus); }
+  pre.diff .ctx { color: var(--muted); }
+  pre.diff .hunk { color: var(--muted); font-style: italic; padding-top: 6px; }
+  pre.diff .file { color: var(--ink); font-weight: 500; padding-bottom: 6px; }
+  pre.diff.small { font-size: 12.5px; }
+
+  /* Version hero */
+  .hero { display: grid; align-content: center; gap: 36px; height: 100%; }
+  .comp {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.22em;
+    font-variation-settings: 'wdth' 70, 'wght' 800;
+    font-weight: 800;
+    font-size: 220px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .comp.text { font-size: 104px; }
+  .comp .from { color: var(--dim); }
+  .comp .to { color: var(--ink); }
+  .comp .arrow { width: .72em; height: .44em; align-self: center; margin: 0 .06em; overflow: visible; }
+  .comp .arrow path {
+    fill: none;
+    stroke: var(--plus);
+    stroke-width: 9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .slide.current .comp .shaft { animation: draw .5s cubic-bezier(.3,.6,.2,1) .3s both; }
+  .slide.current .comp .head { animation: draw .32s cubic-bezier(.3,.6,.2,1) .78s both; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .hero p.lede { margin: 0; max-width: 60ch; color: var(--muted); }
+  .hero p.lede code { color: var(--ink); }
+
+  /* Tables */
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  td.del { color: var(--minus); }
+  td.add { color: var(--plus); font-weight: 500; }
+  td code { background: none; padding: 0; font-size: .92em; }
+  td.mute { color: var(--muted); }
+  table.rules td:first-child { width: 64%; padding-right: 24px; }
+  table.rules td:last-child { color: var(--muted); font-size: 14px; }
+  table.rules td:last-child code { color: var(--ink); }
+
+  /* Footer */
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 48px;
+    border-top: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .foot .nav { display: flex; gap: 6px; }
+  .foot button {
+    appearance: none;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .foot button:hover { border-color: var(--ink); }
+  .foot button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .foot .progress { display: flex; gap: 3px; align-items: center; }
+  .foot .progress i { display: block; width: 6px; height: 6px; background: var(--rule); }
+  .foot .progress i.done { background: var(--ink); }
+  .foot .progress i.now { background: var(--plus); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.current .comp .shaft,
+    .slide.current .comp .head { animation: none; }
+    .comp .arrow path { stroke-dashoffset: 0; }
+  }
+
+  @media print {
+    body { display: block; overflow: visible; height: auto; position: static; }
+    .stage { transform: none !important; width: auto; height: auto; display: block; }
+    .rail, .foot { display: none; }
+    .deck { overflow: visible; }
+    .slide { display: grid; position: static; height: 720px; page-break-after: always; border-bottom: 1px solid var(--rule); overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <nav class="rail" id="rail" aria-label="Pages"></nav>
+
+  <main class="deck" id="deck">
+
+    <!-- ============================================================ -->
+    <!-- Page 1: Premise -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="Premise">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp" data-from="15" data-to="19" aria-label="Angular 15 to 19"></div>
+          <p class="lede">TopFans web frontend. Four majors, two bundlers, one SSR engine swap. NgModules, PrimeNG 17 and zone.js stay where they are.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What moved</h2>
+        <div class="cols wide-left">
+          <table>
+            <thead><tr><th>Thing</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+              <tr><td>Angular</td><td class="del">15.2.10</td><td class="add">19.2.25</td></tr>
+              <tr><td>TypeScript</td><td class="del">4.9.5</td><td class="add">5.8.3</td></tr>
+              <tr><td>zone.js</td><td class="del">0.11</td><td class="add">0.15</td></tr>
+              <tr><td>rxjs</td><td class="del">7.5</td><td class="add">7.8</td></tr>
+              <tr><td>Node</td><td class="del"><code>node:20-slim</code>, unpinned</td><td class="add">20.19.6, pinned</td></tr>
+              <tr><td>Client builder</td><td class="del"><code>browser</code> (webpack)</td><td class="add"><code>application</code> (esbuild)</td></tr>
+              <tr><td>SSR engine</td><td class="del"><code>@nguniversal</code> ngExpressEngine</td><td class="add"><code>@angular/ssr</code> CommonEngine</td></tr>
+              <tr><td>Server bundle</td><td class="del"><code>server/main.js</code> (CJS)</td><td class="add"><code>server/server.mjs</code> (ESM)</td></tr>
+              <tr><td>PrimeNG</td><td class="del">15.4</td><td class="add">17.18, held</td></tr>
+              <tr><td>Angular Material</td><td class="del">15.2</td><td class="add">19.2</td></tr>
+              <tr><td>Component flag</td><td class="del">implicit</td><td class="add"><code>standalone: false</code>, explicit</td></tr>
+            </tbody>
+          </table>
+          <div>
+            <h3>Where the effort went</h3>
+            <div class="moves">
+              <div class="move">
+                <span class="a dim">webpack</span><i class="arr"></i><span class="b dim">esbuild</span>
+                <span class="why">Stricter about module shape. Code that quietly relied on <code>require()</code> failed at runtime, not at build.</span>
+              </div>
+              <div class="move">
+                <span class="a dim">library APIs</span><i class="arr"></i><span class="b dim">new majors</span>
+                <span class="why">PrimeNG MultiSelect, Material slider, ngx-mask and ngx-audio-player each changed under us.</span>
+              </div>
+            </div>
+            <p class="fine" style="margin-top:18px">Not done, on purpose: standalone components, signals. Last page.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Order of work</h2>
+        <div>
+          <div class="flow" style="--n:6">
+            <div class="step fw">
+              <div class="kind">Framework</div>
+              <div class="node">15 to 16</div>
+              <ul><li>Follow-up for API migrations <code>ng update</code> missed</li></ul>
+            </div>
+            <div class="step fw">
+              <div class="kind">Framework</div>
+              <div class="node">16 to 17</div>
+              <ul>
+                <li><code>@nguniversal</code> to <code>@angular/ssr</code></li>
+                <li>PrimeNG 17 and Material 17 fixes</li>
+              </ul>
+            </div>
+            <div class="step bd">
+              <div class="kind">Bundler, still on 17</div>
+              <div class="node">webpack to browser-esbuild</div>
+              <ul>
+                <li><code>require()</code> crashes</li>
+                <li>Import cycle</li>
+              </ul>
+            </div>
+            <div class="step bd">
+              <div class="kind">Bundler, still on 17</div>
+              <div class="node">browser-esbuild to application</div>
+              <ul>
+                <li>One build target, ESM server</li>
+                <li>Prerender bugs, IVS import</li>
+              </ul>
+            </div>
+            <div class="step fw">
+              <div class="kind">Framework</div>
+              <div class="node">17 to 18</div>
+              <ul>
+                <li>Seven files</li>
+                <li>DOMPurify interop</li>
+              </ul>
+            </div>
+            <div class="step fw">
+              <div class="kind">Framework</div>
+              <div class="node">18 to 19</div>
+              <ul>
+                <li><code>standalone: false</code>, 490 times</li>
+                <li>SSR <code>allowedHosts</code></li>
+              </ul>
+            </div>
+          </div>
+          <p class="fine" style="margin-top:36px; max-width: 80ch">One change per bump: versions and schematic migrations only. Fixes land separately. The bundler moved on a fixed framework version, so every breakage points at exactly one cause. Each page ahead has the same shape: what changed, then a slide on what broke.</p>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 2: 15 to 16 -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="15 to 16">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp" data-from="15" data-to="16" aria-label="Angular 15 to 16"></div>
+          <p class="lede">The smallest step. Mostly removing deprecated shapes the framework had been warning about since 15.2. Still on webpack and <code>@nguniversal</code>.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Environment and config</h2>
+        <div class="cols">
+          <table>
+            <thead><tr><th>Thing</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+              <tr><td>Node</td><td class="del"><code>node:20-slim</code>, floating</td><td class="add">18.20.8 in <code>.nvmrc</code> and Dockerfile</td></tr>
+              <tr><td>TypeScript</td><td class="del">4.9.5</td><td class="add">5.1.6</td></tr>
+              <tr><td>zone.js</td><td class="del">0.11</td><td class="add">0.13</td></tr>
+              <tr><td>rxjs</td><td class="del">7.5</td><td class="add">7.8</td></tr>
+              <tr><td>zone import</td><td class="del"><code>zone.js/dist/zone-node</code></td><td class="add"><code>zone.js/node</code></td></tr>
+              <tr><td>typeRoots</td><td class="del"><code>@types</code></td><td class="add"><code>node_modules/@types</code></td></tr>
+              <tr><td><code>buildOptimizer</code></td><td class="del">implied</td><td class="add">explicit per configuration</td></tr>
+              <tr><td>angular-eslint</td><td class="del">15.2</td><td class="add">16.3, plus <code>builder</code>, <code>schematics</code>, <code>template-parser</code></td></tr>
+            </tbody>
+          </table>
+          <pre class="diff"><span class="file">server.ts, serverless.ts</span><span class="del">- import 'zone.js/dist/zone-node';</span><span class="add">+ import 'zone.js/node';</span><span class="hunk">Dockerfile</span><span class="del">- FROM public.ecr.aws/docker/library/node:20-slim</span><span class="add">+ FROM public.ecr.aws/docker/library/node:18.20.8-slim</span><span class="hunk">.nvmrc (new)</span><span class="add">+ 18.20.8</span><span class="hunk">angular.json, every configuration</span><span class="add">+ "buildOptimizer": true</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Framework API changes</h2>
+        <div class="cols">
+          <div class="moves">
+            <div class="move">
+              <span class="a">class AuthGuard implements CanActivate</span><i class="arr"></i><span class="b">class AuthGuard</span>
+              <span class="why">Nine guards, plus one <code>CanDeactivate&lt;T&gt;</code>. The interfaces are deprecated; the router calls <code>canActivate()</code> by name, so the classes keep working unchanged.</span>
+            </div>
+            <div class="move">
+              <span class="a">entryComponents: [...]</span><i class="arr"></i><span class="b dim">removed</span>
+              <span class="why">Ivy has ignored it since Angular 9. 16 rejects it. Only <code>SharedModule</code> still had one.</span>
+            </div>
+            <div class="move">
+              <span class="a">BrowserModule.withServerTransition({ appId })</span><i class="arr"></i><span class="b">BrowserModule</span>
+              <span class="why">The app id is no longer needed for the server to client handoff.</span>
+            </div>
+            <div class="move">
+              <span class="a">import { TransferState } from '@angular/platform-browser'</span><i class="arr"></i><span class="b">from '@angular/core'</span>
+              <span class="why">Same for <code>makeStateKey</code>. Three services: <code>ApiCacheService</code>, <code>PlatformService</code>, <code>CacheService</code>.</span>
+            </div>
+          </div>
+          <pre class="diff"><span class="file">src/app/core/auth-guard.ts</span><span class="del">- import { CanActivate, ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';</span><span class="add">+ import { ActivatedRouteSnapshot, RouterStateSnapshot, Router } from '@angular/router';</span><span class="del">- export class AuthGuard implements CanActivate {</span><span class="add">+ export class AuthGuard {</span><span class="hunk">src/app/app.module.ts</span><span class="del">- BrowserModule.withServerTransition({ appId: 'serverApp' }),</span><span class="add">+ BrowserModule,</span><span class="hunk">src/app/core/cache/api-cache.service.ts</span><span class="del">- import { Injectable } from '@angular/core';</span><span class="del">- import { TransferState, makeStateKey } from '@angular/platform-browser';</span><span class="add">+ import { Injectable, TransferState, makeStateKey } from '@angular/core';</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Third-party libraries</h2>
+        <div class="cols wide-left">
+          <table>
+            <thead><tr><th>Library</th><th>From</th><th>To</th><th>Code change</th></tr></thead>
+            <tbody>
+              <tr><td>ngx-mask</td><td class="del">12</td><td class="add">16</td><td>Module became directive + pipe + <code>provideNgxMask()</code></td></tr>
+              <tr><td>primeng</td><td class="del">15.4</td><td class="add">16.9</td><td>MultiSelect <code>removeChip</code> is <code>removeOption</code></td></tr>
+              <tr><td>ngx-drag-and-drop-lists</td><td class="del">1.3</td><td class="add">removed</td><td><code>DndListModule</code> was imported and unused</td></tr>
+              <tr><td>ngx-bootstrap</td><td class="del">8</td><td class="add">11</td><td class="mute">none</td></tr>
+              <tr><td>ng-bootstrap</td><td class="del">12</td><td class="add">15</td><td class="mute">none</td></tr>
+              <tr><td>ng-select</td><td class="del">8</td><td class="add">11</td><td class="mute">none</td></tr>
+              <tr><td>ngrx/store</td><td class="del">13</td><td class="add">16</td><td class="mute">none</td></tr>
+              <tr><td>ngx-material-timepicker</td><td class="del">5</td><td class="add">13</td><td class="mute">none</td></tr>
+              <tr><td>stripe-js / ngx-stripe</td><td class="del">1 / 13</td><td class="add">3 / 16</td><td class="mute">none</td></tr>
+              <tr><td>angular-fontawesome</td><td class="del">0.7</td><td class="add">0.13</td><td class="mute">none</td></tr>
+              <tr><td>domino, luxon</td><td class="del">transitive</td><td class="add">explicit</td><td class="mute">none</td></tr>
+            </tbody>
+          </table>
+          <pre class="diff"><span class="file">src/app/modules/wallet/wallet.module.ts</span><span class="del">- import { NgxMaskModule, IConfig } from 'ngx-mask';</span><span class="add">+ import { NgxMaskDirective, NgxMaskPipe, provideNgxMask, IConfig } from 'ngx-mask';</span><span class="ctx">  imports: [</span><span class="del">-   NgxMaskModule.forRoot(),</span><span class="add">+   NgxMaskDirective,</span><span class="add">+   NgxMaskPipe,</span><span class="ctx">  ],</span><span class="del">- providers: [DatePipe, WalletHomeService]</span><span class="add">+ providers: [DatePipe, WalletHomeService, provideNgxMask()]</span><span class="hunk">custom-multiselect.component.ts</span><span class="del">- multiSelect.removeChip(item, event);</span><span class="add">+ multiSelect.removeOption(item, event);</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke</h2>
+        <div class="cols">
+          <dl class="case">
+            <dt class="sym">Symptom</dt>
+            <dd>Build green after the bump. Deprecated APIs still live in five files.</dd>
+            <dt class="cause">Cause</dt>
+            <dd><code>ng update</code> schematics do not rewrite every pattern, and deprecations compile without complaint.</dd>
+            <dt class="fix">Fix</dt>
+            <dd>
+              A follow-up change:
+              <ul class="tight">
+                <li><code>WhitelabelSiteOnlyGuard</code> still implementing <code>CanActivate</code></li>
+                <li><code>TransferState</code> still from <code>platform-browser</code> in three services</li>
+                <li><code>withServerTransition</code> still in <code>AppModule</code></li>
+              </ul>
+              Rule from here: grep for the deprecated symbol after every <code>ng update</code>.
+            </dd>
+          </dl>
+          <pre class="diff"><span class="file">the follow-up, 5 files</span><span class="ctx">  src/app/app.module.ts                        | 2 +-</span><span class="ctx">  src/app/core/cache/api-cache.service.ts      | 3 +--</span><span class="ctx">  src/app/core/services/platform.service.ts    | 9 +++++++--</span><span class="ctx">  src/app/core/whitelabel-site-only.guard.ts   | 4 ++--</span><span class="ctx">  src/app/modules/shared/services/cache.service.ts | 3 +--</span></pre>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 3: 16 to 17 -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="16 to 17">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp" data-from="16" data-to="17" aria-label="Angular 16 to 17"></div>
+          <p class="lede">The SSR engine swap. <code>@nguniversal</code> is gone and <code>@angular/ssr</code> takes its place. The client build stays on webpack for now.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Environment and config</h2>
+        <div class="cols">
+          <table>
+            <thead><tr><th>Thing</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+              <tr><td>Node</td><td class="del">18.20.8</td><td class="add">20.19.6, the 18 line is end of life</td></tr>
+              <tr><td>TypeScript</td><td class="del">5.1.6</td><td class="add">5.4.5</td></tr>
+              <tr><td>zone.js</td><td class="del">0.13</td><td class="add">0.14</td></tr>
+              <tr><td>ESLint</td><td class="del">8.12</td><td class="add">8.57</td></tr>
+              <tr><td>typescript-eslint</td><td class="del">5</td><td class="add">7</td></tr>
+              <tr><td>angular-eslint</td><td class="del">16.3</td><td class="add">17.5</td></tr>
+              <tr><td><code>.gitignore</code></td><td class="del"></td><td class="add">+20 patterns for generated white-label files</td></tr>
+              <tr><td><code>tsconfig.server.json</code></td><td class="del"><code>server.ts</code></td><td class="add">+ <code>serverless.ts</code></td></tr>
+            </tbody>
+          </table>
+          <pre class="diff"><span class="file">angular.json</span><span class="del">- "browserTarget": "TopFans:build:production"</span><span class="add">+ "buildTarget": "TopFans:build:production"</span><span class="del">- "builder": "@nguniversal/builders:ssr-dev-server",</span><span class="add">+ "builder": "@angular-devkit/build-angular:ssr-dev-server",</span><span class="del">- "builder": "@nguniversal/builders:prerender",</span><span class="add">+ "builder": "@angular-devkit/build-angular:prerender",</span><span class="del">- "guessRoutes": false</span><span class="add">+ "discoverRoutes": false</span><span class="hunk">package.json</span><span class="del">- "@nguniversal/builders": "~16.2.0",</span><span class="del">- "@nguniversal/express-engine": "~16.2.0",</span><span class="add">+ "@angular/ssr": "~17.3.17",</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>SSR engine</h2>
+        <div class="cols wide-right">
+          <div class="moves">
+            <div class="move">
+              <span class="a">server.engine('html', ngExpressEngine({...}))</span><i class="arr"></i><span class="b">new CommonEngine()</span>
+              <span class="why">Not a view engine any more. <code>render()</code> returns HTML, so one <code>renderApp(req, res, next)</code> helper replaces the three <code>res.render('index')</code> call sites, 404 fallback included.</span>
+            </div>
+            <div class="move">
+              <span class="a">'@nguniversal/express-engine/tokens'</span><i class="arr"></i><span class="b">'@core/express.tokens'</span>
+              <span class="why"><code>REQUEST</code> and <code>RESPONSE</code> are our own <code>InjectionToken</code>s now. <code>NotFoundComponent</code> imports from there.</span>
+            </div>
+            <div class="move">
+              <span class="a">renderModule from './src/main.server'</span><i class="arr"></i><span class="b">from '@angular/platform-server'</span>
+              <span class="why"><code>serverless.ts</code>. <code>inlineCriticalCss: true</code> kept on both paths.</span>
+            </div>
+          </div>
+          <pre class="diff small"><span class="file">server.ts</span><span class="del">- import { ngExpressEngine } from '@nguniversal/express-engine';</span><span class="add">+ import { APP_BASE_HREF } from '@angular/common';</span><span class="add">+ import { CommonEngine } from '@angular/ssr';</span><span class="add">+ import { REQUEST, RESPONSE } from './src/app/core/express.tokens';</span><span class="del">- server.engine('html', ngExpressEngine({ bootstrap: AppServerModule, inlineCriticalCss: true }));</span><span class="add">+ const commonEngine = new CommonEngine();</span><span class="add">+ const renderApp = (req, res, next?) =&gt;</span><span class="add">+   commonEngine.render({</span><span class="add">+     bootstrap: AppServerModule,</span><span class="add">+     documentFilePath: join(distFolder, 'index.html'),</span><span class="add">+     url: `${req.protocol}://${req.headers.host}${req.originalUrl}`,</span><span class="add">+     publicPath: distFolder,</span><span class="add">+     inlineCriticalCss: true,</span><span class="add">+     providers: [</span><span class="add">+       { provide: APP_BASE_HREF, useValue: req.baseUrl || '/' },</span><span class="add">+       { provide: REQUEST, useValue: req },</span><span class="add">+       { provide: RESPONSE, useValue: res }</span><span class="add">+     ]</span><span class="add">+   }).then((html) =&gt; res.send(html)).catch((err) =&gt; next?.(err));</span><span class="del">- return res.render('index', { req, providers: [{ provide: 'REQUEST', useValue: req }] });</span><span class="add">+ return renderApp(req, res);</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Templates, router, libraries</h2>
+        <div class="cols">
+          <div class="moves">
+            <div class="move">
+              <span class="a">@{{ data.get('fName').value }}</span><i class="arr"></i><span class="b">&amp;#64;{{ data.get('fName').value }}</span>
+              <span class="why"><code>@</code> is reserved for control flow now. One occurrence, in <code>post-price.component.html</code>. The compiler found it.</span>
+            </div>
+            <div class="move">
+              <span class="a">return this.defaultSerializer.parse(url)</span><i class="arr"></i><span class="b">try { parse(url) } catch { parse('/') }</span>
+              <span class="why"><code>TrailingSlashUrlSerializer</code>. Router 17 throws on malformed input the old one swallowed.</span>
+            </div>
+            <div class="move">
+              <span class="a dim">nothing</span><i class="arr"></i><span class="b">browser-sync</span>
+              <span class="why">Dev dependency for the SSR dev server.</span>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Library</th><th>From</th><th>To</th></tr></thead>
+            <tbody>
+              <tr><td>primeng</td><td class="del">16.9</td><td class="add">17.18, see next slides</td></tr>
+              <tr><td>@angular/fire</td><td class="del">7</td><td class="add">17</td></tr>
+              <tr><td>@zxing/ngx-scanner</td><td class="del">3</td><td class="add">17</td></tr>
+              <tr><td>ng-select</td><td class="del">11</td><td class="add">12</td></tr>
+              <tr><td>ngrx/store</td><td class="del">16</td><td class="add">17</td></tr>
+              <tr><td>ngx-bootstrap</td><td class="del">11</td><td class="add">12</td></tr>
+              <tr><td>ng-bootstrap</td><td class="del">15</td><td class="add">16</td></tr>
+              <tr><td>angular-fontawesome</td><td class="del">0.13</td><td class="add">0.14</td></tr>
+              <tr><td>ngx-stripe</td><td class="del">16</td><td class="add">17</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke: audio player</h2>
+        <div class="cols">
+          <dl class="case">
+            <dt class="sym">Symptom</dt>
+            <dd>Seeking does nothing; <code>audio.currentTime</code> becomes <code>NaN</code>. Card, button and slider styles off.</dd>
+            <dt class="cause">Cause</dt>
+            <dd>Material 17's slider is the MDC one. <code>change</code> is a plain DOM event with no <code>.value</code>, the seek input is <code>input[matSliderThumb]</code>, and track clicks fire <code>input</code>, not <code>change</code>. <code>ngx-audio-player</code> still reads <code>event.value</code>.</dd>
+            <dt class="fix">Fix</dt>
+            <dd><code>AudioSliderPatchDirective</code> on the player host: capture <code>change</code> and <code>input</code>, resolve the value from the thumb input, define <code>.value</code> on the event, set <code>audio.currentTime</code> itself. Selectors rewritten in six global scss files and nine component files.</dd>
+          </dl>
+          <pre class="diff small"><span class="file">audio-slider-patch.directive.ts</span><span class="del">- this.el.nativeElement.addEventListener('change', this.changeListener, true);</span><span class="add">+ this.el.nativeElement.addEventListener('change', this.sliderListener, true);</span><span class="add">+ this.el.nativeElement.addEventListener('input', this.sliderListener, true);</span><span class="ctx"> </span><span class="add">+ private resolveSliderValue(e: Event): number {</span><span class="add">+   const target = e.target as HTMLElement | null;</span><span class="add">+   if (!target?.closest?.('mat-slider, .mat-mdc-slider')) return NaN;</span><span class="add">+   if (target instanceof HTMLInputElement &amp;&amp; Number.isFinite(target.valueAsNumber)) {</span><span class="add">+     return target.valueAsNumber;</span><span class="add">+   }</span><span class="add">+   const thumbInput = this.el.nativeElement.querySelector(</span><span class="add">+     'input[matSliderThumb], input.mdc-slider__input, input[type="range"]'</span><span class="add">+   ) as HTMLInputElement | null;</span><span class="add">+   return thumbInput?.valueAsNumber ?? NaN;</span><span class="add">+ }</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke: custom multiselect</h2>
+        <div class="cols">
+          <dl class="case">
+            <dt class="sym">Symptom</dt>
+            <dd>Placeholder gone, selected label empty, duplicate options cannot be selected, parent control never marked touched or disabled.</dd>
+            <dt class="cause">Cause</dt>
+            <dd>
+              PrimeNG 17 MultiSelect:
+              <ul class="tight">
+                <li><code>[defaultLabel]</code> is <code>[placeholder]</code></li>
+                <li><code>valuesAsString</code> is <code>label()</code></li>
+                <li>Selection compares by reference</li>
+              </ul>
+            </dd>
+            <dt class="fix">Fix</dt>
+            <dd>Own the state. Internal <code>FormControl&lt;string[]&gt;</code>; every option gets an id of <code>identity:occurrence</code>, so duplicates are distinct. Sync back to the parent and <code>markAsDirty</code>; <code>onBlur</code> and <code>onPanelHide</code> mark touched; <code>statusChanges</code> mirrors disabled. Three passes to get all of it.</dd>
+          </dl>
+          <pre class="diff small"><span class="file">custom-multiselect.component.html</span><span class="del">- [defaultLabel]="field?.customMultiselectConfig?.defaultLabel"</span><span class="add">+ [placeholder]="field?.customMultiselectConfig?.defaultLabel"</span><span class="del">- {{ multiSelect.valuesAsString }}</span><span class="add">+ {{ multiSelect.label() }}</span><span class="add">+ (onBlur)="markParentControlAsTouched()"</span><span class="add">+ (onPanelHide)="markParentControlAsTouched()"</span><span class="hunk">custom-multiselect.component.ts</span><span class="add">+ selectionControl = new FormControl&lt;string[]&gt;([], { nonNullable: true });</span><span class="add">+ private optionByInternalId = new Map&lt;string, unknown&gt;();</span><span class="add">+ private internalIdsByOption = new Map&lt;unknown, string[]&gt;();</span><span class="ctx"> </span><span class="add">+ const identity = this.getOptionIdentity(option) || `index:${index}`;</span><span class="add">+ const occurrence = identityOccurrences.get(identity) || 0;</span><span class="add">+ const internalId = `${identity}:${occurrence}`;</span></pre>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 4: webpack to browser-esbuild -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="17: webpack to browser-esbuild">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp text" data-from="browser" data-to="browser-esbuild" aria-label="browser builder to browser-esbuild builder"></div>
+          <p class="lede">Angular's drop-in bundler swap: identical <code>angular.json</code> shape, identical <code>dist/</code> layout, esbuild underneath. Still on Angular 17. Faster compiles, at the cost of two runtime crash fixes and one live stream fix.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What the config gave up</h2>
+        <div class="cols">
+          <div class="moves compact">
+            <div class="move">
+              <span class="a">"vendorChunk": true</span><i class="arr"></i><span class="b dim">removed</span>
+              <span class="why">esbuild does not split vendor code that way. Ignored with a warning.</span>
+            </div>
+            <div class="move">
+              <span class="a">"includePaths": ["sass"]</span><i class="arr"></i><span class="b">["sass", "."]</span>
+              <span class="why">Webpack resolved bare scss imports from the project root implicitly. esbuild's sass loader does not.</span>
+            </div>
+            <div class="move">
+              <span class="a">bundleName: "lazy-flag-icons", inject: false</span><i class="arr"></i><span class="b">assets: css to /, svgs to /flags</span>
+              <span class="why">The stylesheet references <code>/flags</code> relatively and the new bundler did not copy the folder.</span>
+            </div>
+            <div class="move">
+              <span class="a">link.href = `/${bundle}.css`</span><i class="arr"></i><span class="b">LAZY_CSS_LOADER_CONSTANTS.hrefs[bundle]</span>
+              <span class="why">Explicit href map. <code>LazyCssBundle</code> is now <code>keyof typeof</code> that map.</span>
+            </div>
+            <div class="move">
+              <span class="a">window.global.util = require('util')</span><i class="arr"></i><span class="b dim">removed</span>
+              <span class="why"><code>polyfills.ts</code>. Dead shim.</span>
+            </div>
+          </div>
+          <pre class="diff"><span class="file">angular.json</span><span class="del">- "builder": "@angular-devkit/build-angular:browser",</span><span class="add">+ "builder": "@angular-devkit/build-angular:browser-esbuild",</span><span class="del">- "vendorChunk": true,</span><span class="ctx">  "stylePreprocessorOptions": { "includePaths": [</span><span class="del">-   "sass"</span><span class="add">+   "sass",</span><span class="add">+   "."</span><span class="ctx">  ] }</span><span class="del">- { "input": "node_modules/flag-icon-css/css/flag-icons.min.css",</span><span class="del">-   "bundleName": "lazy-flag-icons", "inject": false }</span><span class="add">+ { "glob": "flag-icons.min.css", "input": "node_modules/flag-icon-css/css", "output": "/" },</span><span class="add">+ { "glob": "**/*", "input": "node_modules/flag-icon-css/flags", "output": "/flags" }</span><span class="hunk">lazy-css-loader.service.ts</span><span class="del">- link.href = `/${bundle}.css`;</span><span class="add">+ link.href = LAZY_CSS_LOADER_CONSTANTS.hrefs[bundle];</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke: require() at runtime</h2>
+        <div class="cols">
+          <dl class="case">
+            <dt class="sym">Symptom</dt>
+            <dd>Build green. App crashes on load: <code>require is not defined</code>.</dd>
+            <dt class="cause">Cause</dt>
+            <dd>
+              Webpack rewrote <code>require()</code> to <code>__webpack_require__</code>. esbuild emits ESM and leaves it alone.
+              <ul class="tight">
+                <li><code>TextEditorComponent</code>: <code>require('quill')</code> in <code>ngOnInit</code> to keep Quill off the server</li>
+                <li><code>CommonService</code>: <code>require('../../../core/auth.service')</code> to dodge a cycle, <code>AuthService</code> to <code>CommonService</code> and back</li>
+              </ul>
+            </dd>
+            <dt class="fix">Fix</dt>
+            <dd>Static imports. Quill unwrapped with <code>?.default ?? QuillDefault</code>. <code>CommonService</code> imports <code>AuthService</code> normally, and the cycle itself is gone: <code>CircleBackgroundIconComponent</code> and <code>InfoIconComponent</code> only wanted <code>isBrowser</code>, so they inject <code>PLATFORM_ID</code> instead of the service.</dd>
+          </dl>
+          <pre class="diff small"><span class="file">text-editor.component.ts</span><span class="del">- let Quill: any;</span><span class="del">- Quill = require('quill');</span><span class="del">- require('quill-emoji');</span><span class="add">+ import QuillDefault from 'quill';</span><span class="add">+ import 'quill-emoji';</span><span class="add">+ const Quill: any = (QuillDefault as any)?.default ?? QuillDefault;</span><span class="hunk">common.service.ts</span><span class="del">- const { AuthService } = require('../../../core/auth.service');</span><span class="add">+ import { AuthService } from '@core/auth.service';</span><span class="hunk">info-icon.component.ts</span><span class="del">- import { CommonService } from 'src/app/modules/shared/services/common.service';</span><span class="del">- constructor(private cs: CommonService) {}</span><span class="del">- if (this.cs.isBrowser) {</span><span class="add">+ constructor(@Inject(PLATFORM_ID) private readonly platformId: object) {}</span><span class="add">+ if (isPlatformBrowser(this.platformId)) {</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke: live streaming</h2>
+        <div class="cols">
+          <dl class="case">
+            <dt class="sym">Symptom</dt>
+            <dd>Broadcasts fail to start. Found last, because nobody tested going live.</dd>
+            <dt class="cause">Cause</dt>
+            <dd>
+              <code>await import('amazon-ivs-web-broadcast')</code> returns a different shape per bundler.
+              <div class="moves compact" style="margin-top:10px">
+                <div class="move">
+                  <span class="a">module.default = IVSBroadcastClient</span><i class="arr"></i><span class="b">module.default = exports</span>
+                  <span class="why">Under esbuild's CJS interop the class sits at <code>module.default.default</code> and the presets at <code>module.default.*</code>.</span>
+                </div>
+              </div>
+            </dd>
+            <dt class="fix">Fix</dt>
+            <dd>Detect the shape by a known preset, then unwrap <code>.default ?? exports</code>. Works under both bundlers.</dd>
+          </dl>
+          <pre class="diff"><span class="file">active-livestream.component.ts</span><span class="del">- const IVSBroadcastClient = ivsModule?.default;</span><span class="add">+ const ivsExports = ivsModule?.default?.BASIC_FULL_HD_LANDSCAPE</span><span class="add">+   ? ivsModule.default</span><span class="add">+   : ivsModule;</span><span class="add">+ const IVSBroadcastClient = ivsExports?.default ?? ivsExports;</span><span class="ctx"> </span><span class="del">- channelType === 'STANDARD' &amp;&amp; ivsModule?.STANDARD_LANDSCAPE</span><span class="del">-   ? ivsModule.STANDARD_LANDSCAPE</span><span class="del">-   : ivsModule?.BASIC_FULL_HD_LANDSCAPE;</span><span class="add">+ channelType === 'STANDARD' &amp;&amp; ivsExports?.STANDARD_LANDSCAPE</span><span class="add">+   ? ivsExports.STANDARD_LANDSCAPE</span><span class="add">+   : ivsExports?.BASIC_FULL_HD_LANDSCAPE;</span><span class="del">- this.bindIvsBroadcastNetworkListeners(ivsModule);</span><span class="add">+ this.bindIvsBroadcastNetworkListeners(ivsExports);</span></pre>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 5: browser-esbuild to application -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="17: browser-esbuild to application">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp text" data-from="browser-esbuild" data-to="application" aria-label="browser-esbuild builder to application builder"></div>
+          <p class="lede">Browser, server and prerender used to be three architect targets with five environment configurations each. Now it is one <code>build</code> target, an ESM server, a new <code>src/server-dom.ts</code>, and a rewritten white-label generator.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>angular.json: three targets become one</h2>
+        <div class="cols">
+          <div class="moves compact">
+            <div class="move">
+              <span class="a">architect.server, serve-ssr, prerender</span><i class="arr"></i><span class="b dim">deleted</span>
+              <span class="why">Five environment blocks each, near copies of the browser ones. About 130 lines.</span>
+            </div>
+            <div class="move">
+              <span class="a">"main": "src/main.ts"</span><i class="arr"></i><span class="b">"browser": "src/main.ts", "server": "src/main.server.ts", "ssr": { "entry": "server.ts" }</span>
+              <span class="why">One target knows all three entries.</span>
+            </div>
+            <div class="move">
+              <span class="a">"outputPath": "dist/TopFans/browser"</span><i class="arr"></i><span class="b">"dist/TopFans"</span>
+              <span class="why">The builder adds <code>browser/</code> and <code>server/</code> itself.</span>
+            </div>
+            <div class="move">
+              <span class="a">"serviceWorker": true, "ngswConfigPath": "..."</span><i class="arr"></i><span class="b">"serviceWorker": "ngsw-config.json"</span>
+            </div>
+            <div class="move">
+              <span class="a">"polyfills": "src/polyfills.ts"</span><i class="arr"></i><span class="b">["src/polyfills.ts"]</span>
+            </div>
+            <div class="move">
+              <span class="a">commonChunk, buildOptimizer</span><i class="arr"></i><span class="b dim">removed</span>
+              <span class="why">The application builder has neither.</span>
+            </div>
+            <div class="move">
+              <span class="a dim">nothing</span><i class="arr"></i><span class="b">"externalDependencies": ["domino", "express", "compression", "helmet"]</span>
+              <span class="why">Kept out of the server bundle. Per configuration: <code>prerender.routesFile</code> and <code>discoverRoutes: false</code>.</span>
+            </div>
+          </div>
+          <pre class="diff small"><span class="file">angular.json</span><span class="del">- "builder": "@angular-devkit/build-angular:browser-esbuild",</span><span class="add">+ "builder": "@angular-devkit/build-angular:application",</span><span class="del">- "outputPath": "dist/TopFans/browser",</span><span class="del">- "main": "src/main.ts",</span><span class="del">- "polyfills": "src/polyfills.ts",</span><span class="del">- "ngswConfigPath": "ngsw-config.json"</span><span class="add">+ "outputPath": "dist/TopFans",</span><span class="add">+ "browser": "src/main.ts",</span><span class="add">+ "server": "src/main.server.ts",</span><span class="add">+ "ssr": { "entry": "server.ts" },</span><span class="add">+ "polyfills": ["src/polyfills.ts"],</span><span class="add">+ "prerender": false,</span><span class="add">+ "externalDependencies": ["domino", "express", "compression", "helmet"]</span><span class="hunk">configurations.production</span><span class="del">- "serviceWorker": true,</span><span class="del">- "commonChunk": true,</span><span class="del">- "buildOptimizer": true,</span><span class="add">+ "serviceWorker": "ngsw-config.json",</span><span class="add">+ "prerender": { "routesFile": "prerender.routes.txt", "discoverRoutes": false }</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>server.ts becomes an ES module</h2>
+        <div class="cols">
+          <div class="moves compact">
+            <div class="move">
+              <span class="a">__non_webpack_require__.main.filename === __filename</span><i class="arr"></i><span class="b">isMainModule(import.meta.url)</span>
+              <span class="why">The bundle is <code>server.mjs</code>. Compares against <code>process.argv[1]</code>; the webpack-only global is gone.</span>
+            </div>
+            <div class="move">
+              <span class="a">require('url').URL, 'path'</span><i class="arr"></i><span class="b">'node:url', 'node:path'</span>
+            </div>
+            <div class="move">
+              <span class="a">(global as any).window = domino.createWindow(...) and friends</span><i class="arr"></i><span class="b">installServerDom(template)</span>
+              <span class="why">New <code>src/server-dom.ts</code>: <code>window</code>, <code>document</code>, <code>navigator</code>, <code>localStorage</code>, <code>location</code>, <code>IntersectionObserver</code>. Set with <code>defineProperty</code> and tolerant of read-only globals on Node 21+. <code>localStorage</code> is a Map-backed <code>Storage</code>.</span>
+            </div>
+            <div class="move">
+              <span class="a">main.server.ts exports AppServerModule</span><i class="arr"></i><span class="b">+ zone.js/node, ./server-dom, @angular/localize/init; default export</span>
+            </div>
+            <div class="move">
+              <span class="a">tsconfig.app.json: src/polyfills.ts</span><i class="arr"></i><span class="b">+ main.server.ts, server-dom.ts, server.ts</span>
+              <span class="why">One compilation for browser and server.</span>
+            </div>
+          </div>
+          <pre class="diff small"><span class="file">server.ts</span><span class="del">- import domino from 'domino';</span><span class="del">- import { join } from 'path';</span><span class="add">+ import { installServerDom } from './src/server-dom';</span><span class="add">+ import { join } from 'node:path';</span><span class="add">+ import { fileURLToPath, pathToFileURL, URL as NodeURL } from 'node:url';</span><span class="ctx"> </span><span class="del">- const window = domino.createWindow(template);</span><span class="del">- (global as any).window = window;</span><span class="del">- (global as any).document = window.document;</span><span class="del">- (global as any).localStorage = window.localStorage;</span><span class="del">- (global as any).IntersectionObserver = class { observe() {} ... };</span><span class="add">+ installServerDom(template);</span><span class="ctx"> </span><span class="del">- declare const __non_webpack_require__: NodeRequire;</span><span class="del">- if (moduleFilename === __filename || moduleFilename.includes('iisnode')) {</span><span class="add">+ if (isMainModule(import.meta.url) || process.argv[1]?.includes('iisnode')) {</span><span class="hunk">src/main.server.ts</span><span class="add">+ import 'zone.js/node';</span><span class="add">+ import './server-dom';</span><span class="add">+ import '@angular/localize/init';</span><span class="add">+ export { AppServerModule as default } from './app/app.server.module';</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>npm scripts and the white-label generator</h2>
+        <div class="cols">
+          <div>
+            <h3>Scripts</h3>
+            <div class="moves compact">
+              <div class="move">
+                <span class="a">ng run TopFans:server, ng run TopFans:prerender:&lt;env&gt;</span><i class="arr"></i><span class="b">ng build</span>
+                <span class="why">Prerender is a flag. Plain builds pass <code>--prerender=false</code>; prerender scripts set <code>PRERENDER=true</code> and let the configuration's block run.</span>
+              </div>
+              <div class="move">
+                <span class="a">node dist/TopFans/server/main.js</span><i class="arr"></i><span class="b">node dist/TopFans/server/server.mjs</span>
+                <span class="why"><code>serve:ssr</code></span>
+              </div>
+              <div class="move">
+                <span class="a">ng run TopFans:serve-ssr</span><i class="arr"></i><span class="b">ng serve</span>
+                <span class="why"><code>dev:ssr</code>. <code>--max_old_space_size=10048</code> unchanged everywhere.</span>
+              </div>
+            </div>
+          </div>
+          <div>
+            <h3>scripts/generate-whitelabel.js, per tenant</h3>
+            <div class="moves compact">
+              <div class="move">
+                <span class="a">clone architect as is</span><i class="arr"></i><span class="b">delete architect.server, architect['serve-ssr']</span>
+              </div>
+              <div class="move">
+                <span class="a">TopFans:build:&lt;env&gt;</span><i class="arr"></i><span class="b">&lt;user&gt;:build:&lt;env&gt;</span>
+                <span class="why">Rewrites <code>buildTarget</code>, <code>browserTarget</code>, <code>serverTarget</code> wherever they appear.</span>
+              </div>
+              <div class="move">
+                <span class="a">prerender.routes.txt</span><i class="arr"></i><span class="b">prerender-&lt;user&gt;-&lt;env&gt;.routes.txt</span>
+                <span class="why">Per project <code>prerender.routesFile</code>.</span>
+              </div>
+              <div class="move">
+                <span class="a">skip if script exists</span><i class="arr"></i><span class="b">replace if it still contains :prerender:</span>
+                <span class="why">Existing tenant scripts upgrade in place.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke: prerender found SSR bugs</h2>
+        <div class="cols">
+          <div>
+            <dl class="case two">
+              <dt class="sym">Symptom</dt>
+              <dd>Public pages fail to prerender with an unhandled <code>Unauthorized</code>.</dd>
+              <dt class="cause">Cause</dt>
+              <dd>Prerender runs every route on Node with no session and no network. <code>ErrorInterceptor</code> threw on 401 and let status 0 propagate.</dd>
+              <dt class="fix">Fix</dt>
+              <dd>Return <code>EMPTY</code> for 401, and for status 0 on the server. The request completes quietly.</dd>
+            </dl>
+            <dl class="case two">
+              <dt class="sym">Symptom</dt>
+              <dd><code>getBoundingClientRect is not a function</code> during prerender.</dd>
+              <dt class="cause">Cause</dt>
+              <dd><code>PinnedHorizontalScrollLayoutComponent</code> guarded with <code>typeof window === 'undefined'</code>. domino provides a <code>window</code>, so the guard passed.</dd>
+              <dt class="fix">Fix</dt>
+              <dd><code>isPlatformBrowser(PLATFORM_ID)</code>, plus a check that <code>getBoundingClientRect</code> is a function.</dd>
+            </dl>
+          </div>
+          <pre class="diff"><span class="file">error.interceptor.ts</span><span class="del">- import { BehaviorSubject, Observable, of, throwError } from 'rxjs';</span><span class="add">+ import { BehaviorSubject, EMPTY, Observable, of, throwError } from 'rxjs';</span><span class="add">+ if (!this.cs.isBrowser &amp;&amp; err.status === Application.ZERO) {</span><span class="add">+   return EMPTY;</span><span class="add">+ }</span><span class="del">- return throwError(() =&gt; new Error('Unauthorized'));</span><span class="add">+ return EMPTY;</span><span class="hunk">pinned-horizontal-scroll-layout.component.ts</span><span class="del">- if (typeof window === 'undefined' || this.railMotionRafId !== null) {</span><span class="add">+ if (!this.isBrowser || this.railMotionRafId !== null) {</span><span class="del">- if (!wrapper) {</span><span class="add">+ if (!this.isBrowser || !wrapper || typeof wrapper.getBoundingClientRect !== 'function') {</span></pre>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 6: 17 to 18 -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="17 to 18">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp" data-from="17" data-to="18" aria-label="Angular 17 to 18"></div>
+          <p class="lede">A quiet step. Seven files, no code migrations, TypeScript unchanged. The builder work in 17 paid for this one. NgModules and PrimeNG 17.18 kept on purpose.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What changed</h2>
+        <div class="cols wide-left">
+          <div class="moves">
+            <div class="move">
+              <span class="a">"polyfills": ["src/polyfills.ts"]</span><i class="arr"></i><span class="b">+ "@angular/localize/init"</span>
+              <span class="why">18 no longer pulls the <code>$localize</code> runtime in implicitly.</span>
+            </div>
+            <div class="move">
+              <span class="a">join(distFolder, 'index.html')</span><i class="arr"></i><span class="b">index.csr.html when present</span>
+              <span class="why">The 18 builder writes the client shell there and reserves <code>index.html</code> for prerendered output. Rendering from the wrong one double-bootstraps.</span>
+            </div>
+            <div class="move">
+              <span class="a">import { IConfig } from 'ngx-mask'</span><i class="arr"></i><span class="b dim">removed</span>
+              <span class="why">No longer exported. The <code>options</code> constant that used it in <code>WalletModule</code> was unused.</span>
+            </div>
+            <div class="move">
+              <span class="a">[(ngModel)] + [ngModelOptions]="{ standalone: true }"</span><i class="arr"></i><span class="b dim">removed</span>
+              <span class="why"><code>create-plan.component.html</code>. It sat on top of a reactive control that already owned the value.</span>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Library</th><th>From</th><th>To</th></tr></thead>
+            <tbody>
+              <tr><td>@angular/ssr</td><td class="del">17.3</td><td class="add">18.2</td></tr>
+              <tr><td>@angular/material</td><td class="del">17.3</td><td class="add">18.2</td></tr>
+              <tr><td>@angular/fire</td><td class="del">17</td><td class="add">18</td></tr>
+              <tr><td>ngrx/store</td><td class="del">17</td><td class="add">18</td></tr>
+              <tr><td>ng-select</td><td class="del">12</td><td class="add">13</td></tr>
+              <tr><td>ng-bootstrap</td><td class="del">16</td><td class="add">17</td></tr>
+              <tr><td>ngx-bootstrap</td><td class="del">12</td><td class="add">18</td></tr>
+              <tr><td>ngx-toastr</td><td class="del">14</td><td class="add">19</td></tr>
+              <tr><td>ngx-mask</td><td class="del">16</td><td class="add">18</td></tr>
+              <tr><td>ngx-stripe</td><td class="del">17</td><td class="add">18</td></tr>
+              <tr><td>@zxing/ngx-scanner</td><td class="del">17</td><td class="add">18</td></tr>
+              <tr><td>angular-eslint</td><td class="del">17.5</td><td class="add">18.4</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What broke</h2>
+        <div class="cols">
+          <dl class="case">
+            <dt class="sym">Symptom</dt>
+            <dd><code>DOMPurify.sanitize is not a function</code> on the server path.</dd>
+            <dt class="cause">Cause</dt>
+            <dd><code>AppComponent</code> does <code>import DOMPurify from 'dompurify'</code>. The package is CJS with <code>module.exports = DOMPurify</code>; in the 18 server bundle the default import resolved to the namespace object. Same class of bug as Quill and IVS, one version later.</dd>
+            <dt class="fix">Fix</dt>
+            <dd>Namespace import, take <code>.default ?? ns</code>, give it a narrow local type. Third time a CJS default import bit us; it became a rule.</dd>
+          </dl>
+          <pre class="diff"><span class="file">src/app/app.component.ts</span><span class="del">- import DOMPurify from 'dompurify';</span><span class="add">+ import * as DOMPurifyNs from 'dompurify';</span><span class="ctx"> </span><span class="add">+ type DomPurifySanitize = {</span><span class="add">+   sanitize: (dirty: string, cfg: { ALLOWED_TAGS: string[]; ALLOWED_ATTR: string[] }) =&gt; string;</span><span class="add">+ };</span><span class="ctx"> </span><span class="add">+ const DOMPurify: DomPurifySanitize =</span><span class="add">+   (DOMPurifyNs as { default?: DomPurifySanitize }).default ??</span><span class="add">+   (DOMPurifyNs as DomPurifySanitize);</span></pre>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 7: 18 to 19 -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="18 to 19">
+
+      <article class="slide">
+        <div class="hero">
+          <div class="comp" data-from="18" data-to="19" aria-label="Angular 18 to 19"></div>
+          <p class="lede">The standalone default flips. 704 files touched, nearly all of them one line: <code>standalone: false</code>. Still NgModules, still PrimeNG 17, still the application builder.</p>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What changed</h2>
+        <div class="cols wide-left">
+          <div class="moves compact">
+            <div class="move">
+              <span class="a">@Component({ selector, templateUrl })</span><i class="arr"></i><span class="b">@Component({ ..., standalone: false })</span>
+              <span class="why">19 defaults <code>standalone</code> to <code>true</code>. The migration writes the flag on every NgModule-declared class: 490 components, directives and pipes. The 166 that already said <code>standalone: true</code> lost the line.</span>
+            </div>
+            <div class="move">
+              <span class="a">import { CommonEngine } from '@angular/ssr'</span><i class="arr"></i><span class="b">from '@angular/ssr/node'</span>
+              <span class="why">Node-specific entry point split out of the main package.</span>
+            </div>
+            <div class="move">
+              <span class="a">new CommonEngine()</span><i class="arr"></i><span class="b">new CommonEngine({ allowedHosts })</span>
+              <span class="why">19.2 validates the <code>Host</code> header on SSR and on <code>ng serve</code> (<code>security.allowedHosts</code> in <code>angular.json</code>). The list is built from <code>environment.websiteURL</code>, <code>webURL</code>, <code>original_web_url</code>, plus <code>*.topfan.dev</code>, <code>*.topfan.com</code> and localhost.</span>
+            </div>
+            <div class="move">
+              <span class="a">start:hmr, node:start:hmr, dev:hmr, dev:ssr</span><i class="arr"></i><span class="b">start:no-hmr</span>
+              <span class="why"><code>ng serve</code> has HMR on by default in 19 and already serves SSR. The opt-out script is the only one left.</span>
+            </div>
+            <div class="move">
+              <span class="a">TypeScript 5.4.5, zone.js 0.14, typescript-eslint 7</span><i class="arr"></i><span class="b">5.8.3, 0.15, 8</span>
+            </div>
+          </div>
+          <table>
+            <thead><tr><th>Library</th><th>From</th><th>To</th></tr></thead>
+            <tbody>
+              <tr><td>@angular/material, cdk</td><td class="del">18.2</td><td class="add">19.2</td></tr>
+              <tr><td>@angular/fire</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>angular-fontawesome</td><td class="del">0.15</td><td class="add">1.0</td></tr>
+              <tr><td>ng-bootstrap</td><td class="del">17</td><td class="add">18</td></tr>
+              <tr><td>ng-select</td><td class="del">13</td><td class="add">14</td></tr>
+              <tr><td>ngrx/store</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>ngx-bootstrap</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>ngx-device-detector</td><td class="del">8</td><td class="add">9</td></tr>
+              <tr><td>ngx-infinite-scroll</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>ngx-mask</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>ngx-owl-carousel-o</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>@zxing/ngx-scanner</td><td class="del">18</td><td class="add">19</td></tr>
+              <tr><td>angular-eslint</td><td class="del">18.4</td><td class="add">19.8</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>What to watch</h2>
+        <div class="cols">
+          <div>
+            <dl class="case two">
+              <dt class="sym">Risk</dt>
+              <dd>A request whose <code>Host</code> header is not in <code>allowedHosts</code> is rejected by <code>CommonEngine</code>.</dd>
+              <dt class="cause">Why</dt>
+              <dd>The list is derived from the tenant's environment file. New white-label sites get their hosts from the generator; a hostname added by hand anywhere else does not.</dd>
+              <dt class="fix">Rule</dt>
+              <dd>Every hostname a tenant serves must be in its <code>environment.*</code> URLs. Nothing else feeds the allow list.</dd>
+            </dl>
+            <dl class="case two">
+              <dt class="sym">Risk</dt>
+              <dd>A new component written the old way, no <code>standalone</code> flag, declared in an NgModule, fails to compile.</dd>
+              <dt class="cause">Why</dt>
+              <dd>It is standalone by default now, and standalone classes cannot be declared in a module.</dd>
+              <dt class="fix">Rule</dt>
+              <dd>Either write <code>standalone: false</code> and declare it, or leave the flag off and import it where it is used. Not both.</dd>
+            </dl>
+            <p class="fine">Nothing broke on this step. The bundler and SSR work in 17 carried the risk.</p>
+          </div>
+          <pre class="diff small"><span class="file">server.ts</span><span class="del">- import { CommonEngine } from '@angular/ssr';</span><span class="add">+ import { CommonEngine } from '@angular/ssr/node';</span><span class="add">+ import { environment } from './src/environments/environment';</span><span class="ctx"> </span><span class="add">+ function getSsrAllowedHosts(): string[] {</span><span class="add">+   const hosts = new Set(['localhost', '127.0.0.1', '::1', '*.topfan.dev', '*.topfan.com']);</span><span class="add">+   for (const value of [environment.websiteURL, environment.webURL, environment.original_web_url]) {</span><span class="add">+     const host = hostnameFromUrl(value);</span><span class="add">+     if (host) hosts.add(host);</span><span class="add">+   }</span><span class="add">+   return [...hosts];</span><span class="add">+ }</span><span class="ctx"> </span><span class="del">- const commonEngine = new CommonEngine();</span><span class="add">+ const commonEngine = new CommonEngine({ allowedHosts: getSsrAllowedHosts() });</span><span class="hunk">any declared component, directive or pipe</span><span class="ctx">  @Component({</span><span class="ctx">    selector: 'app-root',</span><span class="ctx">    templateUrl: './app.component.html',</span><span class="add">+   standalone: false</span><span class="ctx">  })</span></pre>
+        </div>
+      </article>
+
+    </section>
+
+    <!-- ============================================================ -->
+    <!-- Page 8: Practices -->
+    <!-- ============================================================ -->
+    <section class="page" data-title="Practices">
+
+      <article class="slide">
+        <h1>What we do differently now</h1>
+        <div>
+          <p class="lede" style="margin-bottom:28px">The previous pages say what changed. This page says what we write from here on. Every rule traces back to a specific breakage.</p>
+          <div class="flow titles" style="--n:6">
+            <div class="step"><div class="node">Module shape</div></div>
+            <div class="step"><div class="node">Server code</div></div>
+            <div class="step"><div class="node">Build config</div></div>
+            <div class="step"><div class="node">Framework APIs</div></div>
+            <div class="step"><div class="node">Next upgrade</div></div>
+            <div class="step"><div class="node">Left alone</div></div>
+          </div>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Module shape and imports</h2>
+        <div class="cols">
+          <table class="rules">
+            <thead><tr><th>Rule</th><th>Traced to</th></tr></thead>
+            <tbody>
+              <tr><td>No <code>require()</code> in application code. The bundle is ESM; <code>require</code> is undefined at runtime and the build will not tell you.</td><td>Quill, CommonService</td></tr>
+              <tr><td>CJS packages get one interop line at the import site: <code>(mod as any).default ?? mod</code>. Never dot into <code>.default</code> anywhere else.</td><td>Quill, IVS, DOMPurify</td></tr>
+              <tr><td>Dynamic <code>import()</code> of a CJS package: detect the shape by a known export before unwrapping.</td><td>IVS</td></tr>
+              <tr><td>Import cycles get removed, not hidden behind <code>Injector.get</code> and a lazy path. A leaf component that wants one boolean gets the primitive, not the fat service.</td><td>CommonService, InfoIcon, CircleBackgroundIcon</td></tr>
+              <tr><td>Lazy stylesheets go through the <code>assets</code> array and <code>LAZY_CSS_LOADER_CONSTANTS.hrefs</code>.</td><td>flag-icons</td></tr>
+            </tbody>
+          </table>
+          <pre class="diff"><span class="file">the one interop pattern</span><span class="add">+ import * as ModNs from 'some-cjs-package';</span><span class="add">+ const Mod = (ModNs as { default?: typeof ModNs }).default ?? ModNs;</span><span class="ctx"> </span><span class="file">dynamic import of CJS</span><span class="add">+ const m = await import('some-cjs-package');</span><span class="add">+ const exportsObj = m?.default?.KNOWN_EXPORT ? m.default : m;</span><span class="add">+ const Client = exportsObj?.default ?? exportsObj;</span><span class="ctx"> </span><span class="file">never</span><span class="del">- const { Thing } = require('../../path/to/thing');</span><span class="del">- const svc = this.injector.get(require('./svc').Svc);</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Code that runs on the server</h2>
+        <div class="cols">
+          <table class="rules">
+            <thead><tr><th>Rule</th><th>Traced to</th></tr></thead>
+            <tbody>
+              <tr><td><code>isPlatformBrowser(PLATFORM_ID)</code>, never <code>typeof window</code>. domino gives the server a <code>window</code>, so the typeof check lies.</td><td>pinned scroll layout</td></tr>
+              <tr><td>Layout and measurement APIs are browser-only even when <code>window</code> exists. Guard by platform, then by feature.</td><td><code>getBoundingClientRect</code></td></tr>
+              <tr><td>Interceptors return <code>EMPTY</code> for a missing session or network on the server. Prerender has neither.</td><td>ErrorInterceptor</td></tr>
+              <tr><td>New browser globals go in <code>src/server-dom.ts</code> via <code>setGlobal</code>. Nothing gets assigned onto <code>global</code> in <code>server.ts</code>.</td><td>server-dom.ts</td></tr>
+              <tr><td>Run <code>npm run prerender-qa</code> before merging anything that touches a public route. The dev server never exercises this path.</td><td>both prerender bugs</td></tr>
+            </tbody>
+          </table>
+          <pre class="diff"><span class="file">platform guard</span><span class="del">- if (typeof window === 'undefined') return;</span><span class="add">+ constructor(@Inject(PLATFORM_ID) private readonly platformId: object) {}</span><span class="add">+ private get isBrowser() { return isPlatformBrowser(this.platformId); }</span><span class="add">+ if (!this.isBrowser) return;</span><span class="ctx"> </span><span class="file">feature guard on top</span><span class="add">+ if (!this.isBrowser || typeof el.getBoundingClientRect !== 'function') return;</span><span class="ctx"> </span><span class="file">server-side http failure</span><span class="del">- return throwError(() =&gt; new Error('Unauthorized'));</span><span class="add">+ return EMPTY;</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Build configuration</h2>
+        <div class="cols">
+          <table class="rules">
+            <thead><tr><th>Rule</th><th>Note</th></tr></thead>
+            <tbody>
+              <tr><td>One <code>build</code> target per project. No <code>server</code>, <code>serve-ssr</code> or <code>prerender</code> targets.</td><td>The generator deletes them anyway.</td></tr>
+              <tr><td>These do not exist on the application builder and are silently ignored: <code>vendorChunk</code>, <code>commonChunk</code>, <code>buildOptimizer</code>, <code>ngswConfigPath</code>, <code>main</code>.</td><td>Use <code>browser</code>, <code>polyfills: []</code>, <code>serviceWorker: "&lt;path&gt;"</code>.</td></tr>
+              <tr><td>Prerender is a build flag. <code>--prerender=false</code> for plain builds, <code>PRERENDER=true</code> for prerender scripts.</td><td>No prerender target to run.</td></tr>
+              <tr><td>Server-only packages go in <code>externalDependencies</code>.</td><td>domino, express, compression, helmet</td></tr>
+              <tr><td>White-label projects are generated, never hand-edited. Change <code>scripts/generate-whitelabel.js</code> and regenerate.</td><td>Edits get overwritten.</td></tr>
+              <tr><td>Node is pinned in <code>.nvmrc</code> and Dockerfile. They move together.</td><td>Both changed twice on this path.</td></tr>
+              <tr><td>Every hostname a tenant serves lives in its <code>environment.*</code> URLs. That is the only source for SSR <code>allowedHosts</code>.</td><td>Unknown <code>Host</code> is rejected.</td></tr>
+            </tbody>
+          </table>
+          <pre class="diff"><span class="file">angular.json, a new project's build target</span><span class="add">+ "builder": "@angular-devkit/build-angular:application",</span><span class="add">+ "options": {</span><span class="add">+   "outputPath": "dist/&lt;project&gt;",</span><span class="add">+   "browser": "src/main.ts",</span><span class="add">+   "server": "src/main.server.ts",</span><span class="add">+   "ssr": { "entry": "server.ts" },</span><span class="add">+   "polyfills": ["src/polyfills.ts", "@angular/localize/init"],</span><span class="add">+   "prerender": false,</span><span class="add">+   "externalDependencies": ["domino", "express", "compression", "helmet"]</span><span class="add">+ }</span><span class="ctx"> </span><span class="del">- "vendorChunk": true,</span><span class="del">- "commonChunk": true,</span><span class="del">- "buildOptimizer": true,</span><span class="del">- "ngswConfigPath": "ngsw-config.json"</span></pre>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Framework and library APIs</h2>
+        <div class="cols">
+          <div class="moves compact">
+            <div class="move">
+              <span class="a">@Component({ ... }) declared in an NgModule</span><i class="arr"></i><span class="b">@Component({ ..., standalone: false })</span>
+              <span class="why">Standalone is the default since 19. Declared classes say so explicitly.</span>
+            </div>
+            <div class="move">
+              <span class="a">class FooGuard implements CanActivate</span><i class="arr"></i><span class="b">class FooGuard, or a CanActivateFn</span>
+              <span class="why">Existing class guards stay as they are.</span>
+            </div>
+            <div class="move">
+              <span class="a">TransferState from '@angular/platform-browser'</span><i class="arr"></i><span class="b">from '@angular/core'</span>
+            </div>
+            <div class="move">
+              <span class="a">@{{ handle }}</span><i class="arr"></i><span class="b">&amp;#64;{{ handle }}</span>
+              <span class="why">In templates, <code>@</code> means control flow.</span>
+            </div>
+            <div class="move">
+              <span class="a">[(ngModel)] on a reactive control</span><i class="arr"></i><span class="b">formControlName</span>
+            </div>
+            <div class="move">
+              <span class="a">NgxMaskModule.forRoot()</span><i class="arr"></i><span class="b">NgxMaskDirective, NgxMaskPipe, provideNgxMask()</span>
+            </div>
+          </div>
+          <div class="moves compact">
+            <div class="move">
+              <span class="a">p-multiSelect [defaultLabel]</span><i class="arr"></i><span class="b">[placeholder]</span>
+            </div>
+            <div class="move">
+              <span class="a">multiSelect.valuesAsString</span><i class="arr"></i><span class="b">multiSelect.label()</span>
+            </div>
+            <div class="move">
+              <span class="a">multiSelect.removeChip()</span><i class="arr"></i><span class="b">multiSelect.removeOption()</span>
+              <span class="why">Selection is by reference. Duplicates or reconstructed values need the wrapper the custom multiselect uses.</span>
+            </div>
+            <div class="move">
+              <span class="a">(change)="seek($event.value)" on mat-slider</span><i class="arr"></i><span class="b">read input[matSliderThumb].valueAsNumber; listen to input too</span>
+              <span class="why"><code>MatSliderChange</code> is gone in Material 17+.</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>How we run the next upgrade</h2>
+        <div>
+          <div class="flow" style="--n:5">
+            <div class="step fw">
+              <div class="num">1</div>
+              <div class="node">Bump one major</div>
+              <ul><li>Versions and schematics only</li><li>Nothing else in the change</li></ul>
+            </div>
+            <div class="step fw">
+              <div class="num">2</div>
+              <div class="node">Grep the deprecations</div>
+              <ul><li>Every symbol <code>ng update</code> named</li><li>Schematics missed five files in 16</li></ul>
+            </div>
+            <div class="step fw">
+              <div class="num">3</div>
+              <div class="node">Fix separately</div>
+              <ul><li>One change per breakage</li><li>Keeps the cause obvious</li></ul>
+            </div>
+            <div class="step bd">
+              <div class="num">4</div>
+              <div class="node">Move the bundler alone</div>
+              <ul><li>Same framework version</li><li>Never "new Angular" and "new builder" together</li></ul>
+            </div>
+            <div class="step fw">
+              <div class="num">5</div>
+              <div class="node">Prove it before merging</div>
+              <ul><li>Prerender</li><li>The checks below, by hand</li></ul>
+            </div>
+          </div>
+          <div class="cols wide-left" style="margin-top:32px">
+            <table>
+              <thead><tr><th>Manual check</th><th>What it caught this time</th></tr></thead>
+              <tbody>
+                <tr><td>Start a live stream</td><td class="mute">IVS CJS interop under esbuild</td></tr>
+                <tr><td>Open the text editor</td><td class="mute"><code>require('quill')</code> at runtime</td></tr>
+                <tr><td>Seek in the audio player</td><td class="mute">Material 17 slider events</td></tr>
+                <tr><td>Multiselect with duplicate options</td><td class="mute">PrimeNG 17 reference equality</td></tr>
+                <tr><td><code>npm run prerender-qa</code></td><td class="mute">401 and status 0 on the server, domino layout calls</td></tr>
+                <tr><td>Server-render a page with sanitized HTML</td><td class="mute">DOMPurify default import</td></tr>
+                <tr><td>Open the flag picker</td><td class="mute">lazy flag-icons css path</td></tr>
+              </tbody>
+            </table>
+            <p class="fine">Dynamic imports and Material or PrimeNG components fail at runtime, behind a user action. Nothing in the build catches them. Screenshot the affected components before and after.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="slide">
+        <h2>Deliberately left alone</h2>
+        <div class="cols wide-left">
+          <table>
+            <thead><tr><th>Thing</th><th>Status</th><th>Why</th></tr></thead>
+            <tbody>
+              <tr><td>NgModules</td><td class="add">kept</td><td class="mute">Hundreds of declared components and a working lazy-route tree. Standalone buys nothing until we want to drop modules for real. Its own project.</td></tr>
+              <tr><td>PrimeNG</td><td class="add">17.18</td><td class="mute">18 replaces theming with design tokens and drops the CSS theme files we lazy-load. A styling migration, not an Angular one.</td></tr>
+              <tr><td>zone.js</td><td class="add">kept</td><td class="mute">Zoneless is still experimental in 19. Nothing here depends on it.</td></tr>
+              <tr><td>Signals, control flow, <code>inject()</code></td><td class="add">new code only</td><td class="mute">Use them where they read better. Do not convert existing files as a side quest.</td></tr>
+              <tr><td><code>architect.serverless</code></td><td class="del">legacy builder</td><td class="mute">Still <code>build-angular:server</code> with <code>tsconfig.server.json</code>. Builds, not on the main path. Next to fold into the application builder.</td></tr>
+            </tbody>
+          </table>
+          <div>
+            <h3>Where that leaves the repo</h3>
+            <table>
+              <tbody>
+                <tr><td>Angular</td><td>19.2</td></tr>
+                <tr><td>Builder</td><td><code>application</code></td></tr>
+                <tr><td>SSR</td><td><code>@angular/ssr</code> CommonEngine, ESM server</td></tr>
+                <tr><td>Component model</td><td>NgModules, <code>standalone: false</code> explicit</td></tr>
+                <tr><td>PrimeNG</td><td>17.18</td></tr>
+                <tr><td>Node</td><td>20.19.6</td></tr>
+                <tr><td>TypeScript</td><td>5.8</td></tr>
+                <tr><td>Leftover</td><td><code>tsconfig.server.json</code>, serverless target</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+  </main>
+
+  <footer class="foot">
+    <div class="nav">
+      <button type="button" id="prev">Back</button>
+      <button type="button" id="next">Next</button>
+    </div>
+    <div class="progress" id="progress" aria-hidden="true"></div>
+    <div id="counter" aria-live="polite"></div>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var deck = document.getElementById('deck');
+  var rail = document.getElementById('rail');
+  var progress = document.getElementById('progress');
+  var counter = document.getElementById('counter');
+  var pages = Array.prototype.slice.call(deck.querySelectorAll('.page'));
+  var slides = [];
+
+  pages.forEach(function (page, pi) {
+    var ps = Array.prototype.slice.call(page.querySelectorAll('.slide'));
+    ps.forEach(function (s, si) {
+      slides.push({ el: s, page: pi, index: si, count: ps.length });
+    });
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = page.getAttribute('data-title');
+    b.addEventListener('click', function () { go(firstOfPage(pi)); });
+    rail.appendChild(b);
+  });
+
+  slides.forEach(function () {
+    var i = document.createElement('i');
+    progress.appendChild(i);
+  });
+
+  var current = 0;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* "from -> to" comps: the arrow draws itself on entry */
+  var ARROW_SVG =
+    '<svg class="arrow" viewBox="0 0 100 60" aria-hidden="true" focusable="false">' +
+      '<path class="shaft" pathLength="1" d="M6 30 H84"/>' +
+      '<path class="head" pathLength="1" d="M60 8 L88 30 L60 52"/>' +
+    '</svg>';
+
+  function buildComp(comp) {
+    var from = comp.getAttribute('data-from');
+    var to = comp.getAttribute('data-to');
+    comp.innerHTML = '';
+    var fromEl = document.createElement('span');
+    fromEl.className = 'from';
+    fromEl.textContent = from;
+    var toEl = document.createElement('span');
+    toEl.className = 'to';
+    toEl.textContent = to;
+    comp.appendChild(fromEl);
+    comp.insertAdjacentHTML('beforeend', ARROW_SVG);
+    comp.appendChild(toEl);
+  }
+
+  /* Restart the CSS animation when a slide is re-entered */
+  function playComp(comp) {
+    if (reduceMotion) return;
+    var parent = comp.parentNode;
+    var next = comp.nextSibling;
+    parent.removeChild(comp);
+    parent.insertBefore(comp, next);
+  }
+
+  Array.prototype.forEach.call(deck.querySelectorAll('.comp'), buildComp);
+
+  function firstOfPage(pi) {
+    for (var i = 0; i < slides.length; i++) if (slides[i].page === pi) return i;
+    return 0;
+  }
+
+  function go(n) {
+    if (n < 0 || n >= slides.length) return;
+    slides[current].el.classList.remove('current');
+    current = n;
+    var s = slides[current];
+    s.el.classList.add('current');
+    s.el.scrollTop = 0;
+    s.el.setAttribute('tabindex', '-1');
+    if (document.activeElement === document.body || (document.activeElement && document.activeElement.classList.contains('slide'))) {
+      s.el.focus({ preventScroll: true });
+    }
+    Array.prototype.forEach.call(s.el.querySelectorAll('.comp'), playComp);
+    Array.prototype.forEach.call(rail.children, function (b, i) {
+      b.classList.toggle('current', i === s.page);
+    });
+    Array.prototype.forEach.call(progress.children, function (dot, i) {
+      dot.classList.toggle('done', i < current);
+      dot.classList.toggle('now', i === current);
+    });
+    counter.textContent = 'Page ' + (s.page + 1) + ' of ' + pages.length +
+      ', slide ' + (s.index + 1) + ' of ' + s.count;
+    history.replaceState(null, '', '#p' + (s.page + 1) + 's' + (s.index + 1));
+  }
+
+  function fromHash() {
+    var m = /#p(\d+)s(\d+)/.exec(location.hash);
+    if (!m) return 0;
+    var pi = parseInt(m[1], 10) - 1, si = parseInt(m[2], 10) - 1;
+    for (var i = 0; i < slides.length; i++) {
+      if (slides[i].page === pi && slides[i].index === si) return i;
+    }
+    return 0;
+  }
+
+  function fit() {
+    var w = document.documentElement.clientWidth || window.innerWidth;
+    var h = document.documentElement.clientHeight || window.innerHeight;
+    var scale = Math.min(w / 1280, h / 720);
+    stage.style.transform = 'scale(' + scale + ')';
+  }
+
+  document.getElementById('next').addEventListener('click', function () { go(current + 1); });
+  document.getElementById('prev').addEventListener('click', function () { go(current - 1); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    switch (e.key) {
+      case 'ArrowRight': case 'PageDown': case ' ': e.preventDefault(); go(current + 1); break;
+      case 'ArrowLeft': case 'PageUp': e.preventDefault(); go(current - 1); break;
+      case 'Home': e.preventDefault(); go(0); break;
+      case 'End': e.preventDefault(); go(slides.length - 1); break;
+      default:
+        if (/^[1-9]$/.test(e.key)) {
+          var pi = parseInt(e.key, 10) - 1;
+          if (pi < pages.length) go(firstOfPage(pi));
+        }
+    }
+  });
+
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function () { go(fromHash()); });
+
+  fit();
+  window.addEventListener('load', fit);
+  requestAnimationFrame(fit);
+  go(fromHash());
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PR 10872 re-review. All five reported query regressions are resolved. Merge recommendation is yes after reviewing the final iframe fix.">
+  <title>PR 10872 review-sol-6-1</title>
+  <link rel="canonical" href="https://notes.prateekkumar.site/pr-10872-review-sol-6-1">
+  <link rel="stylesheet" href="/code-blocks.css">
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,figure { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 1rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    h3 { padding-bottom: .5rem; }
+    p,li,td,figcaption,.meta { color: var(--muted); }
+    a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--text); }
+    .ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); } .bad { color: var(--pink); }
+    .meta,nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .stack { display: grid; gap: 1rem; }
+    .items { display: grid; gap: 1.75rem; }
+    .item p + p { padding-top: 1rem; }
+    ul,ol { padding-left: 1.25rem; } li + li { padding-top: .6rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    table { border-collapse: collapse; width: 100%; min-width: 560px; }
+    th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); } tbody th { font-weight: 500; }
+    tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+
+    pre { margin: 0; padding: 1.25rem; background: var(--surface); overflow-x: auto; line-height: 1.5; }
+    pre code { font-size: .9rem; white-space: pre; overflow-wrap: normal; }
+    .severity { font-size: 1rem; font-weight: 500; }
+    details { border-radius: .4rem; }
+    summary { cursor: pointer; color: var(--blue); border-radius: .3rem; }
+    details > div { padding-top: 1rem; }
+</style>
+  <script src="/copy-code.js" defer></script>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a href="/">All notes</a>
+    <div><h1>PR 10872 review-sol-6-1</h1><p>All five reported query regressions are resolved. The final iframe fix removes the remaining merge blocker.</p></div>
+    <div class="meta"><span>Re-reviewed 30 September 2026</span><span>Latest update changes 1 file</span><span>7 additions, 2 deletions</span></div>
+    <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10872">PR 10872</a> · Base <code>d885efb055</code> · Previous reviewed head <code>04910e1584</code> · Current head <code>8c60e73e3d</code></p>
+    <nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#latest-fix">Latest fix</a><a href="#resolved">Resolved findings</a><a href="#evidence">Checks and limits</a></nav>
+  </header>
+  <main>
+    <section id="verdict" class="stack">
+      <h2>Should I merge it now? Yes.</h2>
+      <p class="ok">No unresolved findings from this review.</p>
+      <p>I would merge <code>8c60e73e3d</code>. It fixes the required iframe query that failed during appearance initialization. The four earlier fixes remain in place, and I found no new issue in the final change.</p>
+      <p>This pass reviews the complete delta from <code>04910e1584</code> and the surrounding initialization, template, and preview-message code. I skipped builds, lint, and type checks as requested, since those have already been run during the fix.</p>
+      <p>GitHub reports the PR open and mergeable. It lists no status checks or review decision. The description's product test checklist is still unchecked, so it does not provide recorded results for those flows.</p>
+    </section>
+
+    <section id="latest-fix" class="stack">
+      <h2>The appearance fix closes the last finding</h2>
+      <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8c60e73e3dbe8d8fb3f621d1904f410addc7330f/src/app/modules/edit-preference/components/whitelabel-site/components/wls-appearance/wls-appearance.component.ts#L167">The iframe query is now optional</a>. During <code>ngOnInit</code>, applying the default palette can call the preview sender before Angular has finished rendering the view. An optional query returns an absent value at that point, allowing the sender to return safely.</p>
+      <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8c60e73e3dbe8d8fb3f621d1904f410addc7330f/src/app/modules/edit-preference/components/whitelabel-site/components/wls-appearance/wls-appearance.component.ts#L312">The sender now checks cs.isBrowser first</a>. It then reads the query and returns when the iframe or its content window is missing. This handles server rendering, an unavailable user ID, and the first initialization pass.</p>
+      <pre><code>readonly previewIframe =
+  viewChild&lt;ElementRef&lt;HTMLIFrameElement&gt;&gt;('previewIframe');
+
+sendPreviewMessage(): void {
+  if (!this.cs.isBrowser) {
+    return;
+  }
+
+  const previewIframe = this.previewIframe();
+  if (!previewIframe?.nativeElement?.contentWindow) {
+    return;
+  }
+
+  // The existing configuration and postMessage follow.
+}</code></pre>
+      <p>The <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8c60e73e3dbe8d8fb3f621d1904f410addc7330f/src/app/modules/edit-preference/components/whitelabel-site/components/wls-appearance/wls-appearance.component.html#L426">iframe remains conditional on userId</a>, and its load handler still calls <a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/8c60e73e3dbe8d8fb3f621d1904f410addc7330f/src/app/modules/edit-preference/components/whitelabel-site/components/wls-appearance/wls-appearance.component.ts#L303">onIframeLoad</a>. That callback sends the current configuration after the preview is ready. Skipping the early send therefore preserves the existing delivery path.</p>
+      <p>I checked every <code>previewIframe</code> reference in the updated component. The only query read is inside this guarded sender. The final commit changes no templates, dependencies, or routing.</p>
+    </section>
+
+    <section id="resolved" class="stack">
+      <h2>All reported findings are resolved</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Reported regression</th><th scope="col">Repair</th><th scope="col">Evidence</th></tr></thead>
+        <tbody>
+          <tr><td>Empty livestream sidebar throws during sizing</td><td>Optional sidebar query reaches the existing absence guard.</td><td class="ok">Focused runtime check passed on 04910e1584.</td></tr>
+          <tr><td>Sponsored ad reads a missing thumbnail</td><td>Optional queries and delayed callbacks check the current element.</td><td class="ok">Focused runtime check passed on 04910e1584.</td></tr>
+          <tr><td>Document clicks read hidden chat emoji wrappers</td><td>Optional wrapper queries are read only for open pickers.</td><td class="ok">Focused runtime check passed on 04910e1584.</td></tr>
+          <tr><td>Shared audio frames reach composers without a canvas</td><td>Both composer waveform queries are optional.</td><td class="ok">Focused runtime check passed on 04910e1584.</td></tr>
+          <tr><td>Appearance initialization reads its iframe before the view exists</td><td>Optional iframe query, browser guard first, absent-element guard retained.</td><td class="ok">Repair confirmed by source review on 8c60e73e3d.</td></tr>
+        </tbody>
+      </table></div>
+      <p>The first four repairs are unchanged by the latest commit. The remaining finding had been reproduced against <code>04910e1584</code> with both an empty and a nonempty user ID. The base passed, while that head threw <code>NG0951</code> during initialization.</p>
+      <p>The latest repair directly removes the throwing required-query read. I did not rerun or recompile the Angular fixtures for this pass.</p>
+    </section>
+
+    <section id="evidence" class="stack">
+      <h2>Checks and limits</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Evidence</th><th scope="col">Commit</th><th scope="col">Result</th></tr></thead>
+        <tbody>
+          <tr><td>Complete latest diff and surrounding preview flow</td><td>8c60e73e3d</td><td class="ok">No new findings. Last blocker resolved.</td></tr>
+          <tr><td>Builds, lint, and type checks for this pass</td><td>8c60e73e3d</td><td>Not rerun, per request.</td></tr>
+          <tr><td>New runtime or signed-in product tests</td><td>8c60e73e3d</td><td>Not run in this pass.</td></tr>
+          <tr><td>Main QA browser and server build</td><td>04910e1584</td><td class="ok">Passed in the previous review. Initial browser total 8.94 MB.</td></tr>
+          <tr><td>Generated perfectcrew QA build</td><td>04910e1584</td><td class="ok">Passed in the previous review. Initial browser total 8.98 MB.</td></tr>
+          <tr><td>Main and generated-tenant SSR</td><td>04910e1584</td><td class="ok">Both returned HTTP 200 in the previous review.</td></tr>
+          <tr><td>Main browser smoke</td><td>04910e1584</td><td class="ok">Creators page and shared header rendered.</td></tr>
+        </tbody>
+      </table></div>
+      <p>The build, SSR, and browser results above are historical evidence from the previous head. They are not checks of the latest commit. The user's completed checks during the fix are not presented here as independently verified results.</p>
+      <p>The earlier runtime fixtures used real Angular view queries with small templates that preserve the relevant conditions. Unrelated services and drawing work used stubs. Those fixtures establish the reported query failures and the first four repairs; they are not complete product tests.</p>
+      <p>Payments, portfolio editing, modal <code>initialState</code> behavior, and hardware recording have not been exercised in this review. The earlier main and tenant builds used the required 10 GB Node heap and retained existing SCSS, CommonJS, and selector warnings.</p>
+      <p>The full migration spans 703 files. This final pass focuses on the one-file repair and whether it closes the remaining reported defect. My yes recommendation means this review has no outstanding blocker; it does not claim exhaustive coverage of every migrated interaction.</p>
+    </section>
+  </main>
+  <footer>Review of <code>8c60e73e3d</code>. Existing colours, homepage link, and <code>-sol-6-1</code> route retained.</footer>
+</div>
+</body>
+</html>

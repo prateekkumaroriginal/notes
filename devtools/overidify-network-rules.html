@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="How Overidify captures Fetch/XHR requests in DevTools, builds a Network Rule, saves it, and delivers a mock response.">
+  <title>How Overidify builds a Network Rule in DevTools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; scroll-padding-top: 1.5rem; }
+    body { margin: 0; background: var(--bg); color: var(--muted); font-family: Inter, system-ui, sans-serif; line-height: 1.65; }
+    h1, h2, h3, p, ul, ol, dl, dd, pre, figure { margin: 0; }
+    h1, h2, h3, dt, th, strong, summary { color: var(--text); }
+    h1 { padding-bottom: 0.75rem; line-height: 1.2; }
+    h2 { padding-bottom: 0.75rem; }
+    h3 { font-size: 1em; }
+    a { color: var(--blue); text-underline-offset: 0.2em; border-radius: 0.25rem; overflow-wrap: anywhere; }
+    a:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 0.75rem; }
+    .back { width: fit-content; }
+    .meta { font-size: 0.875em; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .stack { display: grid; gap: 1rem; }
+    .examples { display: grid; gap: 1.75rem; }
+    ul, ol { padding-left: 1.3rem; }
+    li + li { padding-top: 0.5rem; }
+    li::marker { color: currentColor; }
+    nav { padding-top: 1rem; }
+    nav ul { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; list-style: none; padding: 0; }
+    nav li + li { padding-top: 0; }
+    .capture { color: var(--blue); }
+    .rule { color: var(--violet); }
+    .apply { color: var(--green); }
+    .caution { color: var(--amber); }
+    .error { color: var(--pink); }
+    .terms { display: grid; gap: 1.25rem; }
+    .terms > div { display: grid; gap: 0.3rem; }
+    .flow { display: grid; gap: 1rem; padding-left: 1.5rem; }
+    .flow li + li { padding-top: 0; }
+    .flow li::marker { color: var(--blue); font-weight: 700; }
+    .flow h3 { padding-bottom: 0.2rem; }
+    code { font-family: var(--mono); font-size: 0.9em; color: var(--text); overflow-wrap: anywhere; }
+    pre { position: relative; max-width: 100%; overflow-x: auto; border: 1px solid var(--line); border-radius: 0.5rem; padding: 1.25rem; background: var(--surface); line-height: 1.5; }
+    pre code { display: block; color: var(--muted); overflow-wrap: normal; }
+    .kw { color: var(--pink); }
+    .fn { color: var(--blue); }
+    .str { color: var(--green); }
+    .num { color: var(--amber); }
+    .comment { color: var(--muted); }
+    .copy-code { position: absolute; top: 0.65rem; right: 0.65rem; padding: 0.35rem 0.65rem; border: 1px solid var(--line); border-radius: 0.4rem; background: var(--surface); color: var(--text); font: inherit; cursor: pointer; opacity: 0; pointer-events: none; }
+    pre:hover .copy-code, pre:focus-within .copy-code { opacity: 1; pointer-events: auto; }
+    .copy-code[data-state="copied"] { color: var(--green); }
+    .copy-code[data-state="failed"] { color: var(--pink); }
+    .files { width: 100%; border-collapse: collapse; }
+    .files th, .files td { padding: 0.75rem 0.5rem; text-align: left; vertical-align: top; }
+    .files th:first-child, .files td:first-child { padding-left: 0; width: 42%; }
+    .files tr + tr td { border-top: 1px solid var(--line); }
+    .files th { font-weight: 600; }
+    .files a { text-decoration-thickness: 1px; }
+    .source-note { font-size: 0.875em; }
+    footer { padding-top: 2.5rem; }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+    @media (max-width: 520px) { .files, .files tbody, .files tr, .files td { display: block; } .files thead { display: none; } .files th:first-child, .files td:first-child { width: auto; } .files td { padding: 0.3rem 0; } .files tr { padding-block: 0.75rem; } .files tr + tr td { border: 0; } .files tr + tr { border-top: 1px solid var(--line); } }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+    @media print { body { background: white; color: black; } h1,h2,h3,dt,strong,summary,code { color: black; } .copy-code, nav, .back { display: none; } .page { width: auto; padding: 0; } pre { white-space: pre-wrap; background: transparent; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a class="back" href="/#devtools">Back to DevTools notes</a>
+      <h1>How Overidify builds a Network Rule in DevTools</h1>
+      <p>Start with a Fetch/XHR request that Chrome has already recorded. Select it, edit the response, and save. Overidify fills in the request details and creates a <span class="rule">Network Rule</span>.</p>
+      <p class="meta">Implementation at <a href="https://github.com/prateekkumaroriginal/overidify/commit/5a0ef7f3b5eaafad061320064a03639ffab1039d">commit 5a0ef7f</a>. Written on 28 October 2026.</p>
+      <nav aria-label="Document contents"><ul>
+        <li><a href="#flow">The full flow</a></li>
+        <li><a href="#capture">Capture</a></li>
+        <li><a href="#draft">Build the rule</a></li>
+        <li><a href="#save">Save and activate</a></li>
+        <li><a href="#delivery">Deliver the mock</a></li>
+        <li><a href="#source">Source map</a></li>
+      </ul></nav>
+    </header>
+
+    <main>
+      <section id="purpose" aria-labelledby="purpose-title">
+        <h2 id="purpose-title">The change removes the setup form</h2>
+        <div class="stack">
+          <p>The original Network Rule editor asks for a name, website domain, request URL, method, response body, status, and headers. Most of these values already exist in DevTools. Entering them again makes a small response change feel like a separate task.</p>
+          <p>The new panel asks you to change the response. It reads the other values from the captured request and the inspected browser tab. The saved rule uses the existing storage, matching, and interception code.</p>
+          <dl class="terms">
+            <div><dt>Network Rule</dt><dd>A saved rule that returns a mock response for a request target within a website scope.</dd></div>
+            <div><dt>Request target</dt><dd>The API URL and HTTP method that the rule matches.</dd></div>
+            <div><dt>Website scope</dt><dd>The website in the address bar. This decides which website tabs can use the rule.</dd></div>
+            <div><dt>Mock response</dt><dd>The response body, status code, and complete set of response headers that the page receives.</dd></div>
+            <div><dt>Activation</dt><dd>The background worker sends the saved rules to matching website tabs. A saved rule can still need a page reload before it takes effect.</dd></div>
+          </dl>
+        </div>
+      </section>
+
+      <section id="flow" aria-labelledby="flow-title">
+        <h2 id="flow-title">The full flow</h2>
+        <ol class="flow">
+          <li><h3 class="capture">Chrome records the request</h3><p>The DevTools network API supplies a request handle. Overidify keeps only supported HTTP or HTTPS Fetch/XHR calls.</p></li>
+          <li><h3 class="capture">You select the request</h3><p>The panel reads its response body. It also gets the inspected tab's URL from Chrome.</p></li>
+          <li><h3 class="rule">Overidify builds a draft</h3><p>The request supplies the URL, method, status, headers, and rule name. The tab supplies the website scope.</p></li>
+          <li><h3 class="rule">You edit and save</h3><p>The form validates the draft and saves it as a Network Rule. The background worker then starts activation.</p></li>
+          <li><h3 class="apply">The next matching call receives the mock</h3><p>The page interceptor checks the saved rule. In bypass-server mode, it returns the mock without calling the API.</p></li>
+        </ol>
+      </section>
+
+      <section id="registration" aria-labelledby="registration-title">
+        <h2 id="registration-title">Chrome loads the panel</h2>
+        <div class="stack">
+          <p><code>manifest.config.ts</code> declares <code>devtools.html</code> as the extension's <code>devtools_page</code>. Chrome loads this page when DevTools opens. Its script, <code>src/devtools/register.ts</code>, creates a panel named Overidify.</p>
+          <pre><code>chrome.devtools.panels.<span class="fn">create</span>(
+  <span class="str">'Overidify'</span>,
+  <span class="str">'icons/icon-32.png'</span>,
+  <span class="str">'devtools-panel.html'</span>,
+  panel =&gt; {
+    panel.onShown.<span class="fn">addListener</span>(panelWindow =&gt; {
+      panelWindow.<span class="fn">dispatchEvent</span>(
+        <span class="kw">new</span> Event(<span class="str">'overidify-devtools-shown'</span>)
+      )
+    })
+  }
+)</code></pre>
+          <p><code>devtools-panel.html</code> loads the React entry point. Vite has a separate build entry for this HTML file. The panel listens for the shown event and refreshes its request history when you return from another DevTools tab.</p>
+        </div>
+      </section>
+
+      <section id="capture" aria-labelledby="capture-title">
+        <h2 id="capture-title">Capture handles first, read bodies later</h2>
+        <div class="stack">
+          <p><code>observeDevtoolsRequests()</code> has two inputs. <code>getHAR()</code> reads requests already known to DevTools. <code>onRequestFinished</code> supplies new completed requests. HAR is Chrome's HTTP Archive representation of a request and response.</p>
+          <p>The picker checks Chrome's <code>_resourceType</code> field. It accepts <code>fetch</code> and <code>xhr</code>. A script or image that returns JSON still stays out of the picker. The request must also have a valid HTTP or HTTPS URL and a supported method.</p>
+          <p>The observer keeps the latest <span class="caution">200 requests</span> in memory. It stores the request handles, not all response bodies. Only selecting a request calls <code>getContent()</code>.</p>
+          <div class="examples">
+            <div class="stack"><h3>Merge history with live events</h3><p>A request can arrive through a live event and also appear in a history refresh. The observer compares its start time, method, and URL, then counts matching occurrences. It skips entries already represented in the live list.</p><p>Each capture still gets a separate sequence ID. Two calls to the same URL in the same millisecond remain separate rows. A timestamp alone would incorrectly merge them.</p></div>
+            <div class="stack"><h3>Reject stale history callbacks</h3><p>A navigation or Clear action changes the capture generation. Each refresh also gets a version number. A callback from an old generation or an older refresh cannot restore stale entries. Navigation clears the selected request and starts a fresh history read.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="draft" aria-labelledby="draft-title">
+        <h2 id="draft-title">Build the Network Rule from the capture</h2>
+        <div class="stack">
+          <p><code>CapturedResponseEditor</code> asks Chrome for the inspected tab. It passes that tab's URL and the selected request to <code>draftFromDevtoolsRequest()</code>. If you select another request before the read finishes, the old editor cannot apply its late result.</p>
+          <p>For example, the address bar is <code>http://localhost:4200/messages</code>. The captured call is <code>GET https://api.example.test/v1/chats?tab=featured</code>. The draft has these values:</p>
+          <pre><code>{
+  name: <span class="str">'GET /v1/chats'</span>,
+  url: <span class="str">'localhost:4200'</span>,
+  requestUrl: <span class="str">'https://api.example.test/v1/chats?tab=featured'</span>,
+  method: <span class="str">'GET'</span>,
+  enabled: <span class="kw">true</span>,
+  mode: <span class="str">'bypass'</span>,
+  status: <span class="num">200</span>,
+  headers: [{ key: <span class="str">'Content-Type'</span>, value: <span class="str">'application/json'</span> }],
+  body: <span class="str">'{"chats":[]}'</span>
+}</code></pre>
+          <p><code>url</code> holds the <span class="rule">website scope</span>. <code>requestUrl</code> holds the <span class="capture">request target</span>. The API host does not become the website scope. A captured status from 200 to 599 is retained. Otherwise the draft starts at 200.</p>
+          <div class="examples">
+            <div class="stack"><h3>Read text without changing it</h3><p>The converter preserves plain response text. It decodes base64 as UTF-8 and rejects content that cannot be decoded as text. It accepts text response types, including JSON and XML. It rejects binary response types. Empty text is valid.</p><p>Invalid JSON produces a warning when the Content-Type is JSON. It does not block saving. A mock can intentionally return invalid JSON to exercise the application's failure handling.</p></div>
+            <div class="stack"><h3>Copy application headers</h3><p>The converter removes Set-Cookie, Set-Cookie2, Content-Length, Content-Encoding, Transfer-Encoding, Connection, Keep-Alive, Proxy-Connection, Trailer, Upgrade, and pseudo-headers that start with a colon.</p><p>Chrome has already decoded the body. The original transport headers can describe different bytes. Mock response headers also cannot set browser cookies. If Content-Type is missing, the converter uses the captured MIME type.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="save" aria-labelledby="save-title">
+        <h2 id="save-title">Save first, then confirm activation</h2>
+        <div class="stack">
+          <p>The response form exposes the body and status code. It validates the draft with <code>NetworkRuleDraftSchema</code>. The full Network Rule editor remains available through <span class="capture">Edit all settings</span> after saving.</p>
+          <p>The form creates one UUID for its Network Rule. <code>saveDevtoolsOverride()</code> reuses that UUID on later saves and retries. If the rule exists, the function updates it. Otherwise it appends a new rule.</p>
+          <pre><code><span class="comment">// These are two separate operations.</span>
+<span class="rule">saveDevtoolsOverride</span>(id, draft)
+  → <span class="rule">updateNetworkRules</span>(update)
+  → <span class="rule">chrome.storage.local</span>
+  → <span class="apply">sync-network-rules</span>
+  → <span class="apply">background worker</span>
+  → <span class="apply">matching website tabs</span></code></pre>
+          <p><code>updateNetworkRules()</code> uses a browser lock while it reads and writes the rule collection. A settings-page edit and a panel save can run at the same time without overwriting each other's collection changes.</p>
+          <p>After the storage write, the extension asks the background worker to activate the rules. The worker finds website tabs with the shared domain matcher. It sends their rules through the isolated content-script bridge to the interceptor in the page's main JavaScript world.</p>
+          <p>The activation result includes tab IDs that need a reload. The panel checks the inspected tab's ID and shows a Reload page button when needed.</p>
+          <p class="caution">An activation error can occur after the rule has been saved. Retrying the save uses the same UUID, so it does not create a second rule. Capture, save, and retry do not replay the original API request.</p>
+        </div>
+      </section>
+
+      <section id="delivery" aria-labelledby="delivery-title">
+        <h2 id="delivery-title">The existing interceptor delivers the mock</h2>
+        <div class="stack">
+          <p>The DevTools panel prepares the Network Rule. The existing page interceptor applies it. <code>network-page.js</code> installs at <code>document_start</code> and wraps page and iframe Fetch/XHR calls.</p>
+          <p>Website eligibility uses <code>matchesPageDomain()</code>, the same matcher used by Header Rules, Switch Rules, and the popup. Request matching then compares the method and normalized API URL. It ignores URL fragments and query-parameter order. It preserves parameter values, repeated parameters, and the path. The later enabled matching Network Rule wins.</p>
+          <dl class="terms">
+            <div><dt class="apply">Bypass-server mode</dt><dd>This is the panel's default. The interceptor returns a synthetic response to the page. It does not make the target server call. Trigger the request again in your app to receive the mock.</dd></div>
+            <div><dt class="rule">Call-server mode</dt><dd>Choose this in the full Network Rule editor. The interceptor makes the native request first, then replaces its response. A transport failure still fails. Header Rules can still affect the real outgoing call.</dd></div>
+          </dl>
+          <p>Each in-progress call keeps its rule settings. A later save affects subsequent calls. HEAD requests and statuses 204, 205, and 304 return no body. The rule still retains the body text that you entered.</p>
+          <p class="caution">Chrome's native Network panel shows actual network traffic. In call-server mode it can show the real server response while the page receives the mock. A bypassed call does not make a target network request. Workers, page navigation, and asset requests are outside this interception scope.</p>
+        </div>
+      </section>
+
+      <section id="source" aria-labelledby="source-title">
+        <h2 id="source-title">Where the implementation lives</h2>
+        <div class="stack">
+          <p>These links point to the feature commit. They keep this explanation tied to the code that was implemented.</p>
+          <table class="files">
+            <thead><tr><th scope="col">Source</th><th scope="col">Responsibility</th></tr></thead>
+            <tbody>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/manifest.config.ts"><code>manifest.config.ts</code></a> and <a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/vite.config.ts"><code>vite.config.ts</code></a></td><td>Register the DevTools page and include the panel in the production build.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/devtools/register.ts"><code>src/devtools/register.ts</code></a></td><td>Create the Overidify panel and notify it when it becomes visible.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/devtools/DevtoolsApp.tsx"><code>src/devtools/DevtoolsApp.tsx</code></a></td><td>Render the request picker and response form. Load the inspected tab's scope. Report saving and activation results.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/lib/devtools-requests.ts"><code>src/lib/devtools-requests.ts</code></a></td><td>Filter and merge captures, convert a response into a draft, and save or update the rule.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/lib/network-schemas.ts"><code>network-schemas.ts</code></a> and <a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/lib/network-storage.ts"><code>network-storage.ts</code></a></td><td>Validate Network Rules, serialize storage changes, and request activation.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/background/network.ts"><code>src/background/network.ts</code></a></td><td>Choose rules for each website tab and report tabs that need a reload.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/network/bridge.ts"><code>bridge.ts</code></a>, <a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/network/page.ts"><code>page.ts</code></a>, and <a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/src/network/interceptor.ts"><code>interceptor.ts</code></a></td><td>Deliver settings to the page, install Fetch/XHR wrappers, and return the matching mock response.</td></tr>
+              <tr><td><a href="https://github.com/prateekkumaroriginal/overidify/blob/5a0ef7f/tests/devtools-requests.test.ts"><code>tests/devtools-requests.test.ts</code></a></td><td>Test capture decisions, conversion, stale callbacks, duplicate handling, and save retries below the UI.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+    <footer><a href="/#devtools">Back to DevTools notes</a></footer>
+  </div>
+  <script>
+    document.querySelectorAll('pre').forEach(block => {
+      const code = block.querySelector('code');
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'copy-code';
+      button.textContent = 'Copy';
+      button.setAttribute('aria-label', 'Copy code');
+      button.setAttribute('aria-live', 'polite');
+      button.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(code.textContent);
+          button.textContent = 'Copied';
+          button.dataset.state = 'copied';
+        } catch {
+          button.textContent = 'Copy failed';
+          button.dataset.state = 'failed';
+        }
+        window.setTimeout(() => { button.textContent = 'Copy'; delete button.dataset.state; }, 1500);
+      });
+      block.append(button);
+    });
+  </script>
+</body>
+</html>

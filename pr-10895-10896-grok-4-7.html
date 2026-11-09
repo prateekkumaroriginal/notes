@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10895 and 10896-grok-4-7</title>
+<meta name="description" content="Merge PR 10895. Close PR 10896. Both page the messages inbox and history with server cursors. 10896 reloads the inbox every time a thread opens.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10895-10896-grok-4-7">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .bad { color: var(--pink); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p, section > ol + p, section > p + ol { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a><div><h1>PR 10895 and 10896-grok-4-7</h1><p>Merge <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10895">10895</a>. Close <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10896">10896</a>. They do the same job, and 10896 reloads the left list every time you open a thread.</p></div>
+<div class="meta"><span>Reviewed 6 October 2026</span><span>Both open</span><span>Same base, <code>hotfix/release-0.0.23/messages-revamp</code></span></div>
+<nav aria-label="Review sections"><a href="#same">What both change</a><a href="#merge">Why 10895</a><a href="#closed">Why 10896 stays closed</a><a href="#follow">Lift two fixes onto 10895</a><a href="#limits">What I did not run</a></nav></header>
+<main>
+<section id="same"><h2>What both change</h2>
+<p>The inbox used to download every conversation and sort it on the client into Priority, General, and Message Lists. Rows with an empty <code>last_message</code> were dropped. Both pull requests stop that. A creator asks for one tab, <code>featured</code>, <code>general</code>, or <code>broadcast</code>, always with <code>counts=true</code>. A fan sends <code>tab=all</code>. The next page adds the <code>cursor</code> from the last reply. A new search or a tab change starts again with no cursor.</p>
+<p>History used to page with <code>timeStamp</code>, and scroll-up was commented out. Both send <code>{ groupId, include_validation: true }</code> on the first page of a direct message and <code>{ groupId, cursor }</code> after that. <code>ChatUserValidation</code> is deleted. Older messages are prepended.</p>
+<div class="table-wrap"><table>
+<thead><tr><th></th><th>10895</th><th>10896</th></tr></thead>
+<tbody>
+<tr><th>Head</th><td><code>802f734e5a4c</code></td><td><code>af7fcdb53bc3</code></td></tr>
+<tr><th>Diff</th><td>3 files, 426 additions, 169 deletions</td><td>8 files, 559 additions, 282 deletions</td></tr>
+<tr><th>Live check</th><td class="ok">Jon Snow on staging. First pages, search, and a DM history POST.</td><td class="warn">Empty creator inbox live. The rest is controlled responses.</td></tr>
+</tbody>
+</table></div>
+</section>
+<section id="merge"><h2>Why 10895</h2>
+<p class="ok">Merge this one.</p>
+<p>The earlier Jon Snow pass, at <code>localhost:4202/messages</code>, is written up in <a href="/messages-chat-pagination-verification">the verification note</a>. Priority, General, and Message Lists each requested their own first page. Search sent <code>search_key=Noel</code> on featured and <code>search_key=Prateek</code> on general, and clearing the box dropped the key. Noel Huber's history POST was <code>groupId</code> plus <code>include_validation: true</code>. No <code>chat-user-validation</code>. Every cursor on that account was null, so the append page never left the browser. Scrolling the 30-row General list sent no second GET. That scroll used <code>infiniteScroll</code> inside <code>ng-scrollbar</code>, the same directive the thread pane already uses.</p>
+<p>Next pages append and skip a <code>groupId</code> already on the list. History prepends and moves <code>.ng-scroll-viewport</code> by the height that was added, so you stay on the same bubble. Broadcast and followers do not send <code>include_validation</code>. Broadcast still sends <code>from</code>.</p>
+<p>Opening a thread does not refetch the inbox. If you scrolled down the left list, that row stays put. Unread still zeros on the row, and the stored <code>counts</code> drop by that row's unread so the Priority and General pills do not bounce back until the next inbox GET. Message Lists still has no pill. The sidebar total is <code>general + featured + broadcast</code>.</p>
+<p>The change stays in the messages component, its template, and <code>messages.constant.ts</code>. <code>buildChatInboxUrl</code> runs the query through <code>URLSearchParams</code>, so a cursor with <code>+</code> or <code>/</code> survives.</p>
+</section>
+<section id="closed"><h2>Why 10896 stays closed</h2>
+<p class="bad">Close it.</p>
+<p>After the first history page lands, <code>getUserChatMessage</code> calls <code>getUserChatLogs</code>. That method clears the open tab and requests page 1. Every thread you open throws away the inbox page you scrolled to. The badge refresh is real. The list jump is the cost, and it happens on the screen you are looking at.</p>
+<p>The inbox next page is a <code>scroll</code> listener on the inner <code>scrollViewport</code> div, firing inside 100 pixels of the bottom. <code>ng-scrollbar</code> 9 does use that content child as the viewport, so the listener is on the element that scrolls. It still only runs when the user actually scrolls. A first page shorter than the pane never overflows, so a leftover cursor is never requested. <code>infiniteScroll</code> is what this screen already uses for that case. The PR's passing scroll check handed <code>onInboxScroll</code> a viewport object. It did not show a thumb drag inside the scrollbar.</p>
+<p>The first history POST always sets <code>include_validation</code>, including a message list. Jon Snow's contract for a message list is <code>from</code>, and no validation flag. 10896 attaches <code>from</code> for broadcast, then asks for validation anyway, and treats a missing validation object as fine for that lock.</p>
+<p>Appended inbox rows and prepended messages are not deduped. The same cursor twice paints the same rows twice.</p>
+<p><code>docs/messages-chat-pagination-changes-sol-6-1.html</code> and a 133-line JSON log are in the frontend diff. They do not belong on the hotfix.</p>
+<p>The sidebar imports <code>INBOX_TABS</code> from the messages module and GETs the inbox whenever the profile block loads, so the badge can move while you are on another page. That GET swallows errors. The messages page also refetches on every open. Two refreshes, and one of them resets the list.</p>
+<p>The writeup says 26 checks passed on the dev server and 12 method checks passed. Live staging on the supplied creator was an empty inbox. Populated history, a non-zero unread change, and a fan login are still on that PR's own checklist.</p>
+</section>
+<section id="follow"><h2>Lift two fixes onto 10895</h2>
+<p><code>getUserChatLogs</code> stores its second argument as the search key. Callers that still pass <code>''</code> wipe an active search. A socket message, a block, and a delete all do that today. 10896 passes <code>this.inboxSearchKey</code> at those sites. Take that.</p>
+<p>Search is still <code>keyup</code>. 10896 uses <code>input</code>, so a paste is included. Take that too.</p>
+<p>Leave the rest. The sidebar GET, the inbox reload on open, the broadcast validation flag, and the docs files are the reasons 10896 loses.</p>
+</section>
+<section id="limits"><h2>What I did not run</h2>
+<ul>
+<li>I read <code>802f734e5a4c</code> and <code>af7fcdb53bc3</code> against the hotfix on 6 October 2026. GitHub reports both as mergeable. Neither has a check run.</li>
+<li>I did not boot either branch for this pass. The Jon Snow notes are from the earlier session on 10895. Cursors on that account were all null.</li>
+<li>Still unseen on a real account for 10895: an inbox next page, a history next page, a non-zero pill, a fan <code>tab=all</code>, broadcast history, and an unread row dropping the pill.</li>
+</ul>
+<p>After 10895 merges, use an account with a non-null cursor. Scroll the left list, scroll a long thread, open an unread row, and open a message list. The message list POST should have <code>from</code> and no <code>include_validation</code>.</p></section>
+</main>
+<footer>Recommendation applies to <code>802f734e5a4c</code> over <code>af7fcdb53bc3</code>.</footer>
+</div></body></html>

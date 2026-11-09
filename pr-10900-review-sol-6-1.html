@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="PR 10900 review at 61843a4e3b4. Merge recommendation is yes. Focused Angular tab and component-method checks pass. Existing follow-up work stays deferred.">
+  <title>PR 10900 review-sol-6-1</title>
+  <link rel="canonical" href="https://notes.prateekkumar.site/pr-10900-review-sol-6-1">
+  <style>
+    :root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1,h2,h3,p,ul,ol,figure { margin: 0; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header,.stack { display: grid; gap: 1rem; }
+    h1,h2 { padding-bottom: .75rem; }
+    h3 { padding-bottom: .5rem; }
+    p,li,td,figcaption,.meta { color: var(--muted); }
+    a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    strong { color: var(--text); }
+    .ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); } .bad { color: var(--pink); }
+    .meta,nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .items { display: grid; gap: 1.75rem; }
+    .item { display: grid; gap: 1rem; }
+    ul,ol { padding-left: 1.25rem; } li + li { padding-top: .6rem; }
+    code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+    table { border-collapse: collapse; width: 100%; min-width: 540px; }
+    th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+    thead { background: var(--surface); } tbody th { font-weight: 500; }
+    tr + tr td,tr + tr th { border-top: 1px solid var(--line); }
+    footer { padding-top: 3rem; color: var(--muted); }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a href="/">All notes</a>
+    <div><h1>PR 10900 review-sol-6-1</h1><p>The reviewed pagination work now includes stable message tracking and a fix for the fan tab recreation loop. I found no new merge blocker.</p></div>
+    <div class="meta"><span>Reviewed 6 October 2026</span><span>11 commits, including merges</span><span>8 changed files</span><span>1036 additions, 384 deletions</span></div>
+    <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10900">Messages revamp: cursor inbox, live updates, and fan NG0956 fix</a></p>
+    <p>Head <code>61843a4e3b4ca9cf087c1d2fcc9bac57002a8691</code><br>Target <code>hotfix/release-0.0.23/wls-21-priority</code> at <code>c7ea08dfbd18ffc31ec8261a249e27d46bbd0df1</code><br>Merge base <code>91dd0ed2c5487d0740707e676f79f90e3d432eb7</code></p>
+    <nav aria-label="Review sections"><a href="#decision">Merge decision</a><a href="#scope">What changed</a><a href="#fixes">New fixes</a><a href="#checks">Checks and limits</a><a href="#follow-up">Follow-up work</a></nav>
+  </header>
+  <main>
+    <section id="decision" class="stack">
+      <h2>Should I merge it now? Yes.</h2>
+      <p class="ok">I would merge <code>61843a4e3b4</code> within the agreed scope.</p>
+      <p>The search and live-history repairs still pass. The new tab changes preserve creator badge updates and tab selection, while removing the tabset entirely for fans. Stable keys also keep the shared delegation tabs intact when their options are cloned.</p>
+      <p>Socket tab movement remains deferred as agreed in the <a href="/pr-10896-review-sol-6-1">PR 10896 review</a>. The fan count example depends on an unverified backend response shape and is not a confirmed merge blocker. Neither concern becomes a new blocker just because this PR carries the same code to another branch.</p>
+      <p>GitHub reports the PR open, ready for review, and mergeable with a clean merge state. It lists no status checks or submitted reviews. The yes recommendation comes from the source review and focused checks below.</p>
+    </section>
+
+    <section id="scope" class="stack">
+      <h2>What this PR carries</h2>
+      <p>The PR changes eight files relative to its merge base. The target branch has separate changes, so a direct comparison between the two branch tips also lists unrelated work. I used the merge-base comparison and GitHub's changed-file list for the review scope.</p>
+      <p>The inbox requests the server's tab, counts, and cursor. History requests validation with the first direct-message page and prepends older pages. Live entries survive the first history response. Presence polling and paged New Message recipients are also included.</p>
+      <p>Compared with the approved <code>425977eec067</code> head from PR 10896, the new implementation changes only three files, with 23 additions and 16 deletions. Those files are the shared tab template and the message container's template and TypeScript file. The five other files match the previously reviewed implementation.</p>
+    </section>
+
+    <section id="fixes" class="stack">
+      <h2>The new fixes pass focused checks</h2>
+      <div class="items">
+        <article class="item">
+          <div><h3>Fans no longer create a hidden tabset</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/61843a4e3b4ca9cf087c1d2fcc9bac57002a8691/src/app/modules/messages/components/message-container/message-container.component.html#L62">message-container.component.html, creator condition</a></p></div>
+          <p>The template now creates <code>app-tab-view</code> only when <code>isCreator</code> is true. Hiding the element previously left its tabset alive, with selection callbacks still attached. Fans now have no tabset to recreate.</p>
+          <p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/61843a4e3b4ca9cf087c1d2fcc9bac57002a8691/src/app/modules/messages/components/message-container/message-container.component.ts#L4372">The selection handler</a> also ignores fan callbacks and repeated selections. The fan profile setup retains General by key, rather than leaving the first Priority option behind.</p>
+          <p>The Angular fixture rendered zero fan tabs through 25 repeated field updates. It emitted no extra selection events and no NG0955 or NG0956 warnings. The component-method fixture also confirmed that a fan callback leaves the active tab at General without starting an inbox refresh.</p>
+        </article>
+        <article class="item">
+          <div><h3>Stable tab keys keep existing tab instances</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/61843a4e3b4ca9cf087c1d2fcc9bac57002a8691/src/app/components/tab-view/tab-view.component.html#L3">tab-view.component.html, track tab.key</a></p></div>
+          <p>The shared loop tracks each option's key instead of its object identity. A deep clone of the field therefore keeps the existing ngx-bootstrap tabs. I checked both callers, Messages and Delegation. Both provide distinct keys.</p>
+          <p>Messages also stops cloning its field for badge and active-tab updates. The component uses normal Angular change detection, and the real-template fixture confirmed that changing counts in place paints Priority 7 and General 2. Selecting General emitted once and retained the same tab instances.</p>
+          <p>The delegation fixture used its two existing keys. Cloning the options retained both tab instances. Removing Delegated Access left the original My Delegates instance in place.</p>
+        </article>
+        <article class="item">
+          <div><h3>History rows can use message_id for tracking</h3><p><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/61843a4e3b4ca9cf087c1d2fcc9bac57002a8691/src/app/modules/messages/components/message-container/message-container.component.ts#L3228">trackThreadMessage</a></p></div>
+          <p>The message loop calls <code>trackThreadMessage</code>. It keeps the existing <code>sk</code> and optimistic <code>uinqueId</code> choices, then uses <code>message_id</code> when those identifiers are absent. Timestamp and object identity are the remaining fallbacks.</p>
+          <p>The extracted-method check returned distinct keys for two rows with only <code>message_id</code>. It also confirmed the legacy identifier precedence and object fallback. This fixes the case where the old expression returned an absent key for both rows.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="checks" class="stack">
+      <h2>Checks and limits</h2>
+      <div class="table-wrap"><table>
+        <thead><tr><th scope="col">Check on 61843a4e3b4</th><th scope="col">Result</th></tr></thead>
+        <tbody>
+          <tr><td>Creator tabs, badge updates, and General selection</td><td class="ok">Passed. Three tabs, updated counts, one selection event.</td></tr>
+          <tr><td>Cloned keyed options and delegation option removal</td><td class="ok">Passed. Existing tab instances retained.</td></tr>
+          <tr><td>Fan tab rendering through 25 updates</td><td class="ok">Passed. No tabset and no NG0955 or NG0956 warnings in the fixture.</td></tr>
+          <tr><td>Actual badge, tab-selection, and message-tracking methods</td><td class="ok">Passed. Stable field references, guarded fan callbacks, correct key fallbacks.</td></tr>
+          <tr><td>Return to the previous search within the debounce window</td><td class="ok">Passed. Loader stays false and the next-page cursor remains.</td></tr>
+          <tr><td>Live entry arrives before the first history response</td><td class="ok">Passed. The entry remains visible after the response.</td></tr>
+          <tr><td>History duplicate ID, request error, and conversation switch</td><td class="ok">Passed under the fixture inputs. Live entries survive and unrelated entries are excluded.</td></tr>
+          <tr><td>Ordinary same-tab live preview and unread increment</td><td class="ok">Passed.</td></tr>
+          <tr><td>Cursor containing plus, slash, and equals</td><td class="ok">Encoded without changing the value.</td></tr>
+          <tr><td>Whitespace check for the full PR diff</td><td class="ok">git diff --check passed.</td></tr>
+          <tr><td>Local merge calculation against the recorded target</td><td class="ok">git merge-tree completed without conflicts.</td></tr>
+          <tr><td>Full application builds and main or generated-tenant SSR</td><td>Not run for this review.</td></tr>
+          <tr><td>Signed-in staging creator and fan flows</td><td>Not run for this review. The PR checklist remains unchecked.</td></tr>
+        </tbody>
+      </table></div>
+      <p>The tab checks use Angular TestBed, the real shared template, and real ngx-bootstrap tab directives with a domino DOM. A small decorated component shell supplies the inputs and output, and a minimal host reproduces the source template's creator condition. The fixture uses zone-based change detection, matching the application configuration. It is not a browser session running the complete Messages page.</p>
+      <p>The method checks extract the current methods verbatim with the TypeScript parser. They use the repository's TypeScript and RxJS packages, with network and unrelated Angular effects stubbed. Search uses real RxJS operators with virtual time.</p>
+      <p>The history duplicate check uses matching stable IDs in the socket entry and response. These tests do not establish every backend identifier format, presence response, or recipient pagination path. The successful merge calculation establishes conflict resolution only. It does not replace a build.</p>
+    </section>
+
+    <section id="follow-up" class="stack">
+      <h2>Follow-up work stays outside this merge decision</h2>
+      <ul>
+        <li>Socket tab movement still leaves a loaded row in its old tab under the recorded test event. The user deferred that investigation during the PR 10896 review.</li>
+        <li>The synthetic split-count fan example still produces the earlier discrepancy. A live fan response has not established that count shape. Verify the backend contract before treating it as a product defect.</li>
+      </ul>
+      <p>I have kept both points visible without turning them into merge blockers. This review found no new blocker in the changes since the approved PR 10896 head.</p>
+    </section>
+  </main>
+  <footer>Recommendation applies to <code>61843a4e3b4</code>. Colours copied from the existing PR 10896 review. Written with the unslop skill.</footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dashboard is standalone and SharedModule is gone</title>
+  <meta name="description" content="Steps 8 and 9 of the SharedModule plan: dashboard becomes standalone, and SharedModule and MarketingPageSharedModule are deleted. What changed, how it was checked, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    .focus { color: var(--blue); }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .bad { color: var(--pink); }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    pre {
+      background: var(--surface);
+      padding: 1.25rem;
+      overflow-x: auto;
+      line-height: 1.5;
+    }
+
+    pre code {
+      display: block;
+      background: none;
+      padding: 0;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > pre + p,
+    section > .table-wrap + p,
+    section > .table-wrap + h3,
+    section > p + pre,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap,
+    section > * + pre { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Dashboard is standalone and SharedModule is gone</h1>
+      <p><code>/dashboard</code> fetched <span class="bad">5.65 MB</span> of lazy JavaScript on a first visit. It now fetches <span class="ok">5.10 MB</span>. <code>DashboardModule</code>, <code>SharedModule</code> and <code>MarketingPageSharedModule</code> are deleted. None of the 45 lazy entry points loads SharedModule anymore. The marketing and comparison pages drop from 2.16 MB to 1.23 MB.</p>
+      <div class="meta">
+        <span>branch t3code/shared-module-dashboard</span>
+        <span>on top of e92a285200, step 7</span>
+        <span>Steps 8 and 9 of <a href="standalone-routes-whats-left.html">the plan</a></span>
+        <span>4 commits, <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10840">PR 10840</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>Lazy JavaScript per route</h2>
+        <p>What a first visit fetches on top of the initial bundle, from the QA build. Before means after step 7. MB means a million bytes.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Route</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td><code>/dashboard</code> and its pages</td><td class="num">5.65 MB</td><td class="num">5.10 MB</td></tr>
+              <tr><td>Marketing and comparison pages</td><td class="num">2.16 MB</td><td class="num">1.23 MB</td></tr>
+              <tr><td>Marketing pro pages</td><td class="num">2.19 MB</td><td class="num">2.07 MB</td></tr>
+              <tr><td>The whitelabel cover page</td><td class="num">3.18 MB</td><td class="num">3.17 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>The initial bundle is 14.5 KB smaller. No other entry moved by more than 10 KB. The build has 267 JavaScript files where step 7 had 272.</p>
+      </section>
+
+      <section>
+        <h2>Why four commits in this order</h2>
+        <p>Once dashboard stops importing SharedModule, nothing imports <code>shared.module.ts</code>, and the compiler leaves the file out. Every component it still declared then compiles with no template scope. My first try at the dashboard commit failed on two dialogs for this reason, and the other declarations would have broken at runtime without an error. So all of SharedModule's declarations become standalone first, while dashboard still imports it. Then dashboard can drop it, and the file can go.</p>
+      </section>
+
+      <section>
+        <h2>Commit 26235a170b: make the SharedModule pieces the dashboard uses standalone</h2>
+        <p class="meta">19 files, +248 &minus;55</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>18 SharedModule declarations are standalone. Most are checkout pieces, such as order payment, the Stripe form, shipping options and the discount code modal. The rest are <code>VideoPlayerV3Component</code>, <code>ChatCommentsComponent</code>, <code>LinkifyPipe</code> and the two schedule pipes.</li>
+          <li><code>OrderConfirmationComponent</code> is one of them. Dashboard routes to it directly, so it can't depend on SharedModule's compile scope.</li>
+          <li><code>WatermarkControlsComponent</code> is one too. It lives in the dashboard folder but SharedModule declared it. The image and video trim steps of a new post render it.</li>
+          <li><code>VipOfferListComponent</code> imports the 11 pieces it renders instead of SharedModule.</li>
+          <li>They moved from SharedModule's declarations to its imports, so SharedModule still exports them.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against step 7</td><td>645 of 650 components match. The other five lose only the phone directive. Their templates have no phone input.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass. QA has the same 42 warnings as base. Development has none.</td></tr>
+              <tr><td>Server rendering, 138 URLs</td><td>All match step 7. This ran before the watermark controls joined the commit. They only render on the logged-in new post page, which the dashboard commit's browser runs cover.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>2 errors, down from 20. The 18 gone are <code>prefer-standalone</code>. The two left are empty lifecycle methods that exist on base.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit d1184365be: make the rest of SharedModule's declarations standalone</h2>
+        <p class="meta">28 files, +211 &minus;65</p>
+        <h3>What changed</h3>
+        <ul>
+          <li>The last 27 SharedModule declarations are standalone. Most are dialogs that <code>BsModalService</code> opens by class, such as follow, unfollow, share, report, block and cancel confirm, post likes and the login dialogs.</li>
+          <li>The others are the search bar typeahead, the old video player, the schedule dialog, the taxonomy detail and <code>NoSpaceDirective</code>.</li>
+          <li>SharedModule has no declarations left. It only imports and re-exports standalone pieces.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the first commit</td><td>645 of 650 components match. The other five lose only the phone directive.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass with the same warnings as before. The initial bundle is 48 bytes smaller.</td></tr>
+              <tr><td>Server rendering, 138 URLs</td><td>All match step 7.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>No <code>prefer-standalone</code> errors left. Eight errors from older rules remain, such as <code>use-lifecycle-interface</code>. The conversion doesn't touch the code they flag.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>These dialogs open on user actions, so server rendering doesn't reach most of them. The browser runs in the next commit open several.</p>
+      </section>
+
+      <section>
+        <h2>Commit 7d1763c28f: make the dashboard standalone</h2>
+        <p class="meta">40 files, +888 &minus;281</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>dashboard.module.ts</code> is deleted. <code>dashboard-routing.module.ts</code> became <code>dashboard.routes.ts</code>, which exports <code>DASHBOARD_ROUTES</code>. The routes, guards and data are the same.</li>
+          <li>The 36 components the module declared are standalone. That includes the two newsletter pages that live in the monetize folder.</li>
+          <li>The module provided five services. <code>DashboardModuleService</code> is <code>providedIn: 'root'</code> and holds state, but the module gave dashboard its own instance. To keep that, all five are now <code>providers</code> on the top-level dashboard route. That route gets its own injector, like the lazy module did.</li>
+          <li><code>isPostCollaboratorPipe</code> is on that route too. It injects <code>MyProfile</code>, which injects <code>DashboardModuleService</code>. Dashboard used to get it from SharedModule's providers. The search results page injects it through the searched post list.</li>
+          <li>The module's <code>forRoot()</code> calls for the multiselect dropdown and circle progress modules are gone. The root injector already registers both with the same options.</li>
+          <li>The module's <code>CUSTOM_ELEMENTS_SCHEMA</code> hid a <code>[coverImage]</code> binding on the video player in the video trim step. The player has no such input and video trim sets the cover through <code>setCoverImage()</code>, so I removed the binding.</li>
+          <li>17 components lose the phone directive. Their templates have no phone input.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the second commit</td><td>628 of 650 match and 17 lose only the phone directive. The forum post detail resolves the same <code>NgbCarousel</code> class through another <code>@ng-bootstrap</code> entry point. Four components leave the build because only <code>shared.module.ts</code> referenced them.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass with the same warnings as before.</td></tr>
+              <tr><td>Server rendering, 138 URLs</td><td>All match step 7.</td></tr>
+              <tr><td>Logged-in browser run, white-label site</td><td>30 dashboard URLs land on the same page with the same components. Four differed while feeds and search results were still loading, then matched with a 25 second wait. The one page error, on an order confirmation link with a made-up ID, happens on step 7 too.</td></tr>
+              <tr><td>New post page</td><td>All ten post type tabs render the same. On the text tab, typing a draft and then opening schedule, switching tabs, or opening the interests, topic tags and groups pickers matches too.</td></tr>
+              <tr><td>Dialogs on the creator feed</td><td>Share, likes, the post menu, profile share and contributions open with the same content.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>No <code>prefer-standalone</code> errors left. 17 errors from older rules remain, such as <code>no-output-on-prefix</code>.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>Commit 7c0b9351ac: delete SharedModule and MarketingPageSharedModule</h2>
+        <p class="meta">8 files, +121 &minus;828</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>shared.module.ts</code> is deleted. Nothing imported it after the dashboard commit.</li>
+          <li><code>marketing-page-shared.module.ts</code> is deleted. The marketing, comparison and pro pages and the cover page's add section page import the pieces they render. The marketing and comparison pages only need the full preview component.</li>
+          <li>A commented-out SharedModule import in <code>DynamicFormBuilderModule</code> and a comment in <code>shared-root.providers.ts</code> no longer point at the deleted module.</li>
+        </ul>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Compiled template dependencies against the dashboard commit</td><td>All 646 components match.</td></tr>
+              <tr><td>QA and development builds</td><td>Both pass with the same warnings as before.</td></tr>
+              <tr><td>Server rendering, 145 URLs</td><td>All match step 7. The list adds 14 marketing and pro pages.</td></tr>
+              <tr><td>Every layout in the add section modal</td><td>All 47 open the section editor with the same components on both builds, and no page errors. The header and footer editors, the preview and add sub-page match too.</td></tr>
+              <tr><td>Every component on 6 entries resolves in the browser</td><td>Dashboard, marketing, comparison, pro, the cover page and edit preference. No problems and no page errors.</td></tr>
+              <tr><td>ESLint on the changed files</td><td>No errors.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Nothing was bought, posted or saved. The checkout pages, order confirmation and the delete dialog weren't completed in a browser, so they're at the top of the checklist.</p>
+      </section>
+
+      <section>
+        <h2>What's left</h2>
+        <ul>
+          <li><code>DynamicFormBuilderModule</code> still declares 18 components.</li>
+          <li><code>BioLinkPipe</code> is still <code>standalone: false</code>.</li>
+          <li>Four components are unused now: <code>ProfileDetailComponent</code>, the two subscription modals and the typeahead search bar. Only <code>shared.module.ts</code> used them. The one template with the typeahead has it inside an HTML comment.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Use a creator account on its white-label site, plus a fan account for checkout. Keep the console open. Checks that end in buy, post or save change real data, so use test accounts and test cards. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> Checkout</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="d-merch"><span>As a fan, buy a merchandise item with a variant. Go through customer information, shipping options and payment. The order confirmation page shows the order.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-discount"><span>Apply a discount code at payment. The price updates.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-experience"><span>Buy an experience. Customize and schedule it, then pay.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-ticket"><span>Buy an event ticket from the event listing. The attendee form and payment work.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-paid-post"><span>Unlock a paid post. The payment page opens and the post unlocks.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-vip"><span>Open a creator's VIP offers and buy one. Links in offer descriptions are clickable.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-course"><span>Open a purchased course and a lesson. The sidebar and video player work.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag high">High</span> New posts</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="d-image"><span>Post an image with a watermark. The watermark controls work.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-video"><span>Post a video. Trim it and pick a cover image. The preview shows the cover.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-types"><span>Post a text, poll, link, article and audio post.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-schedule"><span>Schedule a post. It shows as scheduled with the right time.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-cancel"><span>Start a post, then leave the tab. The cancel confirm dialog opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-tag"><span>Tag a collaborator on a post. The tag dialog searches and adds them.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag high">High</span> Dialogs</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="d-follow"><span>Follow and unfollow a creator. Both dialogs open and work.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-tip"><span>Send a tip from a post.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-report"><span>Report a post, then block a user from a comment. Both dialogs work.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-delete"><span>Delete one of your posts. The confirm dialog opens and the post goes away.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-login"><span>Logged out, try to like a post. The login or guest dialog opens.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-locked"><span>As a fan, open a locked post and a post that needs points. The locked and unlock with points dialogs open.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Dashboard pages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="d-pages"><span>Open activity, leaderboard, store, event listing, newsletters and live stream. Each one loads with no console errors.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-search"><span>Search for a hashtag and a user. Results show.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-live"><span>Open an active live stream. Chat comments work.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-portfolio"><span>Open a portfolio item and a music album from the dashboard.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Marketing pages</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="d-marketing"><span>Open a marketing page, a comparison page and the pro page. Every section renders.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-contact"><span>On the pro page, the contact form works.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-cover"><span>In the cover page editor, add a section and preview it.</span></label></li>
+            </ul>
+          </div>
+
+          <div class="group">
+            <h4><span class="tag low">Low</span> Routing</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="d-deeplink"><span>Reload on a deep dashboard link, such as a merchandise detail page. It opens that page.</span></label></li>
+              <li><label><input type="checkbox" data-id="d-guards"><span>Logged out, open <code>/dashboard/activity</code>. It sends you to log in.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "shared-module-dashboard-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

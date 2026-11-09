@@ -1,0 +1,240 @@
+{
+  "rewrites": [
+    {
+      "source": "/post-prefetching",
+      "destination": "/post-prefetching.html"
+    },
+    {
+      "source": "/bondedwealth-vs-tf-site-2",
+      "destination": "/bondedwealth-vs-tf-site-2.html"
+    },
+    {
+      "source": "/profile-card-visible",
+      "destination": "/profile-card-visible.html"
+    },
+    {
+      "source": "/devtools/overidify-network-rules",
+      "destination": "/devtools/overidify-network-rules.html"
+    },
+    {
+      "source": "/user-by-username-backend",
+      "destination": "/user-by-username-backend.html"
+    },
+    {
+      "source": "/user-by-username-schema",
+      "destination": "/user-by-username-schema.html"
+    },
+    {
+      "source": "/profile-performance-after-service-cleanup",
+      "destination": "/profile-performance-after-service-cleanup.html"
+    },
+    {
+      "source": "/profile-performance-implementation",
+      "destination": "/profile-performance-implementation.html"
+    },
+    {
+      "source": "/pr-10977-performance",
+      "destination": "/pr-10977-performance.html"
+    },
+    {
+      "source": "/pr-10927-grok-4-7",
+      "destination": "/pr-10927-grok-4-7.html"
+    },
+    {
+      "source": "/pr-10918-review-sol-6-1",
+      "destination": "/pr-10918-review-sol-6-1.html"
+    },
+    {
+      "source": "/pr-10910-review-sol-6-1",
+      "destination": "/pr-10910-review-sol-6-1.html"
+    },
+    {
+      "source": "/messages-modular-components-opus-5-5",
+      "destination": "/messages-modular-components-opus-5-5.html"
+    },
+    {
+      "source": "/messages-modularization-plan-sol-6-1",
+      "destination": "/messages-modularization-plan-sol-6-1.html"
+    },
+    {
+      "source": "/messages-modular-components-grok-4-6",
+      "destination": "/messages-modular-components-grok-4-6.html"
+    },
+    {
+      "source": "/pr-10900-review-sol-6-1",
+      "destination": "/pr-10900-review-sol-6-1.html"
+    },
+    {
+      "source": "/pr-10896-review-sol-6-1",
+      "destination": "/pr-10896-review-sol-6-1.html"
+    },
+    {
+      "source": "/pr-10895-10896-grok-4-7",
+      "destination": "/pr-10895-10896-grok-4-7.html"
+    },
+    {
+      "source": "/pr-10885-grok-4-7",
+      "destination": "/pr-10885-grok-4-7.html"
+    },
+    {
+      "source": "/messages-phase-1-stop-waiting",
+      "destination": "/messages-phase-1-stop-waiting.html"
+    },
+    {
+      "source": "/messages-chat-api-pagination",
+      "destination": "/messages-chat-api-pagination.html"
+    },
+    {
+      "source": "/messages-chat-pagination-verification",
+      "destination": "/messages-chat-pagination-verification.html"
+    },
+    {
+      "source": "/drop-provide-animations",
+      "destination": "/drop-provide-animations.html"
+    },
+    {
+      "source": "/messages-modularization-and-performance-sol-6-1",
+      "destination": "/messages-modularization-and-performance-sol-6-1.html"
+    },
+    {
+      "source": "/messages-breakdown-vs-speed-grok-4-6",
+      "destination": "/messages-breakdown-vs-speed-grok-4-6.html"
+    },
+    {
+      "source": "/messages-container-split-grok-4-7",
+      "destination": "/messages-container-split-grok-4-7.html"
+    },
+    {
+      "source": "/messages-page-load-fast-opus-5-5",
+      "destination": "/messages-page-load-fast-opus-5-5.html"
+    },
+    {
+      "source": "/messages-page-load-fast-astra",
+      "destination": "/messages-page-load-fast-astra.html"
+    },
+    {
+      "source": "/messages-module-features-sol-6-1",
+      "destination": "/messages-module-features-sol-6-1.html"
+    },
+    {
+      "source": "/pr-10872-review-sol-6-1",
+      "destination": "/pr-10872-review-sol-6-1.html"
+    },
+    {
+      "source": "/pr-10871-review-sol-6-1",
+      "destination": "/pr-10871-review-sol-6-1.html"
+    },
+    {
+      "source": "/pr-10829-review-astra",
+      "destination": "/pr-10829-review-astra.html"
+    },
+    {
+      "source": "/pr-10830-review-astra",
+      "destination": "/pr-10830-review-astra.html"
+    },
+    {
+      "source": "/pr-10830-standalone-routes-review-fable",
+      "destination": "/pr-10830-standalone-routes-review-fable.html"
+    },
+    {
+      "source": "/pr-10831-review-astra",
+      "destination": "/pr-10831-review-astra.html"
+    },
+    {
+      "source": "/pr-10832-review-astra",
+      "destination": "/pr-10832-review-astra.html"
+    },
+    {
+      "source": "/pr-10832-shared-module-app-shell-review-fable",
+      "destination": "/pr-10832-shared-module-app-shell-review-fable.html"
+    },
+    {
+      "source": "/pr-10833-review-astra",
+      "destination": "/pr-10833-review-astra.html"
+    },
+    {
+      "source": "/pr-10837-review-astra",
+      "destination": "/pr-10837-review-astra.html"
+    },
+    {
+      "source": "/pr-10838-review-astra",
+      "destination": "/pr-10838-review-astra.html"
+    },
+    {
+      "source": "/pr-10839-review-astra",
+      "destination": "/pr-10839-review-astra.html"
+    },
+    {
+      "source": "/pr-10840-review-astra",
+      "destination": "/pr-10840-review-astra.html"
+    },
+    {
+      "source": "/pr-10841-review-astra",
+      "destination": "/pr-10841-review-astra.html"
+    },
+    {
+      "source": "/pr-10842-review-astra",
+      "destination": "/pr-10842-review-astra.html"
+    },
+    {
+      "source": "/pr-10845-review-astra",
+      "destination": "/pr-10845-review-astra.html"
+    },
+    {
+      "source": "/pr-10847-review-grok-4-7",
+      "destination": "/pr-10847-review-grok-4-7.html"
+    },
+    {
+      "source": "/pr-10849-review-grok-4-7",
+      "destination": "/pr-10849-review-grok-4-7.html"
+    },
+    {
+      "source": "/pr-10849-review-astra",
+      "destination": "/pr-10849-review-astra.html"
+    },
+    {
+      "source": "/pr-10854-review-grok-4-7",
+      "destination": "/pr-10854-review-grok-4-7.html"
+    },
+    {
+      "source": "/pr-10854-review-astra",
+      "destination": "/pr-10854-review-astra.html"
+    },
+    {
+      "source": "/messages-module-features-grok-4-6",
+      "destination": "/messages-module-features-grok-4-6.html"
+    },
+    {
+      "source": "/messages-module-features-sonnet-5-5",
+      "destination": "/messages-module-features-sonnet-5-5.html"
+    },
+    {
+      "source": "/messages-page-load-fast-grok-4-7",
+      "destination": "/messages-page-load-fast-grok-4-7.html"
+    },
+    {
+      "source": "/messages-page-performance-diff-sonnet-5-5",
+      "destination": "/messages-page-performance-diff-sonnet-5-5.html"
+    },
+    {
+      "source": "/control-flow-update-verification",
+      "destination": "/control-flow-update-verification.html"
+    },
+    {
+      "source": "/pr-10865-review-sol-6-1",
+      "destination": "/pr-10865-review-sol-6-1.html"
+    },
+    {
+      "source": "/appmodule-standalone-conversion",
+      "destination": "/appmodule-standalone-conversion.html"
+    },
+    {
+      "source": "/signal-inputs-verification",
+      "destination": "/signal-inputs-verification.html"
+    },
+    {
+      "source": "/pr-10879-grok-4-7",
+      "destination": "/pr-10879-grok-4-7.html"
+    }
+  ]
+}

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10977: performance hotfix</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:ital,wdth,wght@0,62..125,100..900;1,62..125,100..900&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #131A24;
+    --panel: #1A2331;
+    --ink: #E8EDF4;
+    --muted: #8593A6;
+    --dim: #4E5B6E;
+    --rule: #2A3546;
+    --minus: #F0776F;
+    --minus-bg: rgba(240, 119, 111, 0.13);
+    --plus: #5FCF8F;
+    --plus-bg: rgba(95, 207, 143, 0.13);
+    --focus: #8FB4FF;
+    --sans: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+  }
+
+  /* Stage: fixed 1280x720 design space, scaled to fit */
+  .stage {
+    width: 1280px;
+    height: 720px;
+    transform-origin: center center;
+    display: grid;
+    grid-template-rows: 56px 1fr 48px;
+    background: var(--paper);
+  }
+
+  /* Chapter rail */
+  .rail {
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--rule);
+    padding: 0 48px;
+    gap: 4px;
+  }
+  .rail button {
+    appearance: none;
+    background: none;
+    border: 0;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -1px;
+    color: var(--muted);
+    font: inherit;
+    font-size: 14px;
+    padding: 0 12px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .rail button.current {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+  }
+  .rail button:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+
+  /* Slides */
+  .deck { position: relative; overflow: hidden; }
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 40px 48px 32px;
+    display: none;
+    grid-template-rows: auto 1fr;
+    gap: 22px;
+    align-content: start;
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--rule) transparent;
+  }
+  .slide::-webkit-scrollbar { width: 8px; }
+  .slide::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; }
+  .slide::-webkit-scrollbar-track { background: transparent; }
+  .slide.current { display: grid; }
+  .slide:focus { outline: none; }
+  .slide:has(> .hero) { grid-template-rows: 1fr; }
+
+  h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.01em; }
+  h1 { font-size: 64px; line-height: 1; font-variation-settings: 'wdth' 88; }
+  h2 { font-size: 36px; line-height: 1.1; font-variation-settings: 'wdth' 92; }
+  h3 { font-size: 18px; line-height: 1.25; margin-bottom: 10px; color: var(--muted); font-weight: 600; }
+  p { margin: 0 0 12px; max-width: 62ch; }
+  p.lede { font-size: 22px; line-height: 1.35; max-width: 48ch; }
+  p.story { font-size: 18px; line-height: 1.4; max-width: 54ch; margin-bottom: 16px; }
+  p.story.quiet { color: var(--muted); }
+  .fine { font-size: 13.5px; color: var(--muted); }
+
+  ul { margin: 0; padding-left: 18px; max-width: 60ch; }
+  li { margin-bottom: 7px; }
+  ul.tight li { margin-bottom: 4px; }
+
+  code {
+    font-family: var(--mono);
+    font-size: 0.88em;
+    background: rgba(255, 255, 255, 0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; min-height: 0; }
+  .cols.wide-right { grid-template-columns: 5fr 7fr; }
+  .cols.wide-left { grid-template-columns: 7fr 5fr; }
+
+  /* Small CSS arrow, reused in flows and move rows */
+  .arr { position: relative; display: inline-block; width: 18px; height: 1em; vertical-align: middle; }
+  .arr::before { content: ''; position: absolute; left: 1px; right: 4px; top: 50%; height: 2px; margin-top: -1px; background: var(--muted); }
+  .arr::after { content: ''; position: absolute; right: 4px; top: 50%; width: 7px; height: 7px; border-top: 2px solid var(--muted); border-right: 2px solid var(--muted); transform: translate(2px, -50%) rotate(45deg); }
+
+  /* Flow: a left-to-right chain of nodes joined by arrows */
+  .flow { display: grid; grid-template-columns: repeat(var(--n, 5), 1fr); gap: 0 44px; align-items: stretch; }
+  .flow .step {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 8px;
+    padding: 18px 18px 16px;
+    box-shadow: inset 0 3px 0 var(--rule);
+  }
+  .flow .step.fw { box-shadow: inset 0 3px 0 var(--ink); }
+  .flow .step.bd { box-shadow: inset 0 3px 0 var(--plus); }
+  .flow .step + .step::before,
+  .flow .step + .step::after { content: ''; position: absolute; top: 50%; }
+  .flow .step + .step::before { left: -44px; width: 36px; height: 2px; margin-top: -1px; background: var(--muted); }
+  .flow .step + .step::after {
+    left: -10px;
+    margin-top: -6px;
+    border-left: 10px solid var(--muted);
+    border-top: 6px solid transparent;
+    border-bottom: 6px solid transparent;
+  }
+  .flow .kind { font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .flow .num {
+    display: inline-grid;
+    place-items: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--muted);
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .flow .node { font-size: 18px; font-weight: 700; line-height: 1.2; }
+  .flow.titles .step { padding: 22px 18px; display: grid; place-items: center; text-align: center; }
+  .flow ul { font-size: 14px; color: var(--muted); padding-left: 16px; margin: 10px 0 0; }
+  .flow ul li { margin-bottom: 4px; }
+  .flow ul code { color: var(--ink); }
+  .flow.dense { gap: 0 30px; }
+  .flow.dense .step { min-width: 0; padding: 14px 12px 12px; }
+  .flow.dense .node { font-size: 16px; overflow-wrap: anywhere; }
+  .flow.dense ul { font-size: 13px; padding-left: 14px; }
+  .flow.dense ul code { overflow-wrap: anywhere; }
+  .flow.dense .step + .step::before { left: -30px; width: 22px; }
+
+  /* Moves: old -> new pairs with a one-line reason */
+  .moves { display: grid; gap: 16px; align-content: start; }
+  .move { display: grid; grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr); gap: 4px 12px; align-items: baseline; }
+  .move .a, .move .b { font-family: var(--mono); font-size: 13.5px; line-height: 1.45; overflow-wrap: break-word; }
+  .move .a { color: var(--minus); }
+  .move .b { color: var(--plus); }
+  .move .b.dim, .move .a.dim { color: var(--muted); font-family: var(--sans); font-size: 14px; }
+  .move .why { grid-column: 1 / -1; font-size: 14px; color: var(--muted); }
+  .move .why code { color: var(--ink); }
+  .moves.compact { gap: 12px; }
+  .moves.compact .why { font-size: 13.5px; }
+
+  /* Case: symptom / cause / fix */
+  dl.case { display: grid; grid-template-columns: 78px minmax(0, 1fr); gap: 12px 16px; margin: 0 0 24px; }
+  dl.case:last-child { margin-bottom: 0; }
+  dl.case dt { font-size: 13.5px; font-weight: 600; padding-top: 2px; }
+  dl.case dt.sym { color: var(--minus); }
+  dl.case dt.cause { color: var(--muted); }
+  dl.case dt.fix { color: var(--plus); }
+  dl.case dd { margin: 0; }
+  dl.case dd ul { margin-top: 4px; }
+  dl.case.two { margin-bottom: 18px; }
+  dl.case.two dd { font-size: 15px; }
+
+  /* Diff panels */
+  pre.diff {
+    margin: 0;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    font-family: var(--mono);
+    font-size: 13.5px;
+    line-height: 1.5;
+    padding: 12px 0;
+    overflow: hidden;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  pre.diff span { display: block; padding: 0 16px 0 32px; text-indent: -16px; }
+  pre.diff .del { background: var(--minus-bg); color: var(--minus); }
+  pre.diff .add { background: var(--plus-bg); color: var(--plus); }
+  pre.diff .ctx { color: var(--muted); }
+  pre.diff .hunk { color: var(--muted); font-style: italic; padding-top: 6px; }
+  pre.diff .file { color: var(--ink); font-weight: 500; padding-bottom: 6px; }
+  pre.diff.small { font-size: 12.5px; }
+
+  /* Version hero */
+  .hero { display: grid; align-content: center; gap: 36px; height: 100%; }
+  .comp {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0 0.22em;
+    font-variation-settings: 'wdth' 70, 'wght' 800;
+    font-weight: 800;
+    font-size: 220px;
+    line-height: 1;
+    letter-spacing: -0.03em;
+  }
+  .comp.text { font-size: 104px; }
+  .comp .from { color: var(--dim); }
+  .comp .to { color: var(--ink); }
+  .comp .arrow { width: .72em; height: .44em; align-self: center; margin: 0 .06em; overflow: visible; }
+  .comp .arrow path {
+    fill: none;
+    stroke: var(--plus);
+    stroke-width: 9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    stroke-dasharray: 1;
+    stroke-dashoffset: 1;
+  }
+  .slide.current .comp .shaft { animation: draw .5s cubic-bezier(.3,.6,.2,1) .3s both; }
+  .slide.current .comp .head { animation: draw .32s cubic-bezier(.3,.6,.2,1) .78s both; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  .hero p.lede { margin: 0; max-width: 60ch; color: var(--muted); }
+  .hero p.lede code { color: var(--ink); }
+
+  /* Tables */
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; padding: 7px 12px 7px 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-weight: 600; color: var(--muted); font-size: 13px; }
+  td.del { color: var(--minus); }
+  td.add { color: var(--plus); font-weight: 500; }
+  td code { background: none; padding: 0; font-size: .92em; }
+  td.mute { color: var(--muted); }
+  table.rules td:first-child { width: 64%; padding-right: 24px; }
+  table.rules td:last-child { color: var(--muted); font-size: 14px; }
+  table.rules td:last-child code { color: var(--ink); }
+  table.compact { font-size: 14px; }
+  table.compact th, table.compact td { padding: 4px 12px 4px 0; }
+
+  /* Footer */
+  .foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 48px;
+    border-top: 1px solid var(--rule);
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .foot .nav { display: flex; gap: 6px; }
+  .foot button {
+    appearance: none;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    font: inherit;
+    font-size: 13px;
+    padding: 4px 12px;
+    cursor: pointer;
+  }
+  .foot button:hover { border-color: var(--ink); }
+  .foot button:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+  .foot .progress { display: flex; gap: 3px; align-items: center; }
+  .foot .progress i { display: block; width: 6px; height: 6px; background: var(--rule); }
+  .foot .progress i.done { background: var(--ink); }
+  .foot .progress i.now { background: var(--plus); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.current .comp .shaft,
+    .slide.current .comp .head { animation: none; }
+    .comp .arrow path { stroke-dashoffset: 0; }
+  }
+
+  @media print {
+    body { display: block; overflow: visible; height: auto; position: static; }
+    .stage { transform: none !important; width: auto; height: auto; display: block; }
+    .rail, .foot { display: none; }
+    .deck { overflow: visible; }
+    .slide { display: grid; position: static; height: 720px; page-break-after: always; border-bottom: 1px solid var(--rule); overflow: visible; }
+  }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <nav class="rail" id="rail" aria-label="Pages"></nav>
+  <main class="deck" id="deck">
+<section class="page" data-title="Premise">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="paint" data-to="later"></div>
+  <p class="lede">PR 10977. Performance hotfix into <code>release-0.0.25</code>. English first paint drops Translate, a second Roboto sheet, CDN Bootstrap, Cropme, and a duplicate IVS player. The profile card paints before posts, merch, and welcome video.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>What moved</h2>
+<div class="cols wide-left">
+<table>
+            <thead><tr><th>Thing</th><th>Before</th><th>After</th></tr></thead>
+            <tbody>
+              <tr><td>Google Translate</td><td class="del">element.js on every load</td><td class="add"><code>LocaleService.ensureGoogleTranslateLoaded()</code></td></tr>
+              <tr><td>Roboto</td><td class="del">preload 400/700 plus the full sheet</td><td class="add">one print/onload stylesheet</td></tr>
+              <tr><td>CDN scripts</td><td class="del">Bootstrap, Cropme, IVS</td><td class="add">gone; IVS is npm, Veriff stays idle</td></tr>
+              <tr><td>Profile markup</td><td class="del"><code>cs.isBrowser && isBasicProfileLoaded</code></td><td class="add"><code>isBasicProfileLoaded</code>, including SSR</td></tr>
+              <tr><td>Posts, merch, welcome video</td><td class="del">same turn as the card</td><td class="add"><code>scheduleAfterFirstPaint()</code></td></tr>
+              <tr><td>Sidebar, welcome video JS</td><td class="del">eager imports</td><td class="add"><code>@defer (on viewport; prefetch on idle)</code></td></tr>
+              <tr><td>User GET cache</td><td class="del"><code>REFRESH_EVERY_N</code> everywhere</td><td class="add"><code>PRERENDERED</code> on server</td></tr>
+              <tr><td>Bootstrap CSS</td><td class="del"><code>bootstrap/scss/bootstrap</code></td><td class="add">curated <code>_bootstrap-partials.scss</code></td></tr>
+              <tr><td>S3 Cache-Control</td><td class="del">HTML immutable for a year</td><td class="add">HTML <code>must-revalidate</code></td></tr>
+            </tbody>
+          </table>
+<div>
+            <h3>Where the effort went</h3>
+            <div class="moves">
+              <div class="move">
+                <span class="a dim">index.html third parties</span><i class="arr"></i><span class="b dim">first paint only</span>
+                <span class="why">English visitors no longer download Translate or a second font file before Angular boots.</span>
+              </div>
+              <div class="move">
+                <span class="a dim">profile waterfall</span><i class="arr"></i><span class="b dim">card, then the rest</span>
+                <span class="why">LCP is the banner and bio. Posts, ads, tracking, and merch wait for <code>afterNextRender</code>.</span>
+              </div>
+              <div class="move">
+                <span class="a dim">one rclone header</span><i class="arr"></i><span class="b dim">split cache</span>
+                <span class="why">Hashed assets stay immutable. <code>index.html</code> and prerendered HTML must revalidate.</span>
+              </div>
+            </div>
+            <p class="fine" style="margin-top:18px">21 files, +452 / −344. Head <code>cb09e9d27b</code>. Diffs are grouped by concern, not GitHub file-alpha order.</p>
+          </div>
+</div>
+</article>
+
+<article class="slide">
+<h2>Order of work</h2>
+<div class="flow dense" style="--n:4">
+            <div class="step fw">
+              <div class="kind">Shell</div>
+              <div class="node">First paint</div>
+              <ul>
+                <li>Cut Translate, CDN scripts</li>
+                <li>One Roboto sheet</li>
+              </ul>
+            </div>
+            <div class="step fw">
+              <div class="kind">Profile</div>
+              <div class="node">Card, then rest</div>
+              <ul>
+                <li>SSR the card</li>
+                <li><code>@defer</code> sidebar and welcome video</li>
+              </ul>
+            </div>
+            <div class="step bd">
+              <div class="kind">CSS</div>
+              <div class="node">Bootstrap diet</div>
+              <ul>
+                <li>Curated partials</li>
+                <li>Icomoon <code>font-display: swap</code></li>
+              </ul>
+            </div>
+            <div class="step bd">
+              <div class="kind">Deploy</div>
+              <div class="node">Split S3 cache</div>
+              <ul>
+                <li>HTML must-revalidate</li>
+                <li>Critical CSS on WLS prod/qa</li>
+              </ul>
+            </div>
+          </div>
+          <p class="fine" style="margin-top:36px; max-width:80ch">Each page ahead is one concern: what changed, then the hunks. A hunk that does two jobs is shown in both pages.</p>
+</article>
+
+</section>
+
+<section class="page" data-title="Shell">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="CDN" data-to="none"></div>
+  <p class="lede">The document shell was downloading scripts and styles the first screen does not need. This is the change a visitor feels before Angular boots.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>What left index.html</h2>
+<div class="cols">
+<ul><li>English visitors no longer pay for Google Translate on every load. The script itself moves to the next page.</li><li>One Roboto stylesheet, loaded as print then swapped to all. The extra 400/700 preload is gone.</li><li>CDN Bootstrap, Cropme, and the Amazon IVS player script are removed. IVS already ships as npm <code>amazon-ivs-player</code>.</li><li>Veriff still idle-loads, and only on creator-signup routes.</li><li>Critical CSS now uses <code>--configBgColor</code> / <code>--configBgTextColor</code> so the splash matches the tenant.</li><li>Also deleted: the large Organization JSON-LD block, iPhone 17 splash links, <code>apple-mobile-web-app-capable</code>, a duplicate 192 favicon, and the IVS dns-prefetch. Treat the JSON-LD and splash removals as review items.</li></ul>
+<div>
+            <h3>Still on the first-paint path</h3>
+            <ul>
+              <li>One Roboto sheet, print then all</li>
+              <li>GTM dns-prefetch</li>
+              <li>Veriff, idle, signup routes only</li>
+              <li>The googtrans cookie, if locale is not <code>en</code></li>
+            </ul>
+          </div>
+</div>
+</article>
+
+<article class="slide">
+<h2>Splash, icons, JSON-LD, splash colors</h2>
+<pre class="diff small"><span class="file">src/index.html</span><span class="hunk">@@ -42,60 +42,49 @@</span><span class="ctx"></span><span class="ctx">    &lt;!-- Favicon and App Icons --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-icon" sizes="120x120" href="./assets/splashscreen/apple-icon-120.png"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-icon" sizes="152x152" href="./assets/splashscreen/apple-icon-152.png"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-icon" sizes="167x167" href="./assets/splashscreen/apple-icon-167.png"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-icon" sizes="180x180" href="./assets/splashscreen/apple-icon-180.png"&gt;</span><span class="ctx">    &lt;link rel="icon" type="image/x-icon" href="./assets/splashscreen/apple-icon-180.png"/&gt;</span><span class="ctx">    &lt;link rel="icon" sizes="192x192" href="./assets/splashscreen/apple-icon-192.png"&gt;</span><span class="del">-    &lt;link rel="icon" sizes="192x192" href="./assets/splashscreen/apple-icon-192.png"&gt;</span><span class="ctx">    &lt;link id="app-manifest" href="./assets/Json/manifest.json" rel="manifest"/&gt;</span><span class="del">-    &lt;!-- DNS prefetch for Amazon IVS player to speed up connection --&gt;</span><span class="del">-    &lt;link rel="dns-prefetch" href="//player.live-video.net"&gt;</span><span class="del">-    &lt;meta name="apple-mobile-web-app-capable" content="yes"&gt;</span><span class="ctx"></span><span class="ctx">   &lt;!-- Splash Image (for iOS) --&gt;</span><span class="ctx">    &lt;!-- iPad Pro --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2048-2732.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2732-2048.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1668-2388.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2388-1668.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1536-2048.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2048-1536.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1640-2360.png" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2360-1640.png" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1668-2224.png" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2224-1668.png" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1620-2160.png" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="del">-    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2160-1620.png" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1488-2266.png" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="add">+    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2160-1620.png" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="add">+    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1488-2266.png" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2266-1488.png" media="(device-width: 744px) and (device-height: 1133px) and (-webkit-device-pixel-ratio: 2) and (orientation: landscape)"&gt;</span><span class="ctx"></span><span class="ctx">    &lt;!-- iPhone 16 Series - 2024 --&gt;</span><span class="ctx">    &lt;!-- iPhone 16 Pro Max (6.9") --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1320-2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2868-1320.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;!-- iPhone 16 Pro (6.3") --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1206-2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2622-1206.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;!-- iPhone 16 Plus (6.7") --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1290-2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2796-1290.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;!-- iPhone 16 (6.1") --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1179-2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2556-1179.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx"></span><span class="del">-    &lt;!-- iPhone 17 Series - 2025 --&gt;</span><span class="del">-    &lt;!-- iPhone 17 Pro Max (6.9") --&gt;</span><span class="del">-    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1320-2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="del">-    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2868-1320.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="del">-    &lt;!-- iPhone 17 Pro (6.3") --&gt;</span><span class="del">-    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1206-2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="del">-    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2622-1206.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="del">-</span><span class="ctx">    &lt;!-- iPhone 15 Series and earlier --&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1170-2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2532-1170.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1284-2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2778-1284.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1125-2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-2436-1125.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: landscape)"&gt;</span><span class="ctx">    &lt;link rel="apple-touch-startup-image" href="./assets/splashscreen/apple-splash-1242-2688.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)"&gt;</span><span class="file">src/index.html</span><span class="hunk">@@ -135,119 +124,27 @@</span><span class="ctx">  &lt;script type="application/ld+json"&gt;</span><span class="ctx">    {</span><span class="ctx">      "@context": "https://schema.org",</span><span class="ctx">      "@type": "WebSite",</span><span class="ctx">      "name": "TopFan",</span><span class="ctx">      "alternateName": "TopFan Platform",</span><span class="ctx">      "url": "https://www.topfan.com"</span><span class="ctx">    }</span><span class="del">-    &lt;/script&gt;    </span><span class="del">-</span><span class="del">-    &lt;script type="application/ld+json"&gt;</span><span class="del">-      {</span><span class="del">-        "@context": "https://schema.org",</span><span class="del">-        "@type": "Organization",</span><span class="del">-        "name": "TopFan",</span><span class="del">-        "alternateName": "TopFan",</span><span class="del">-        "url": "https://www.topfan.com",   </span><span class="del">-        "logo": "https://cdn-www.topfans.com/TopFans/1768394518_topfan_logo.jpg",</span><span class="del">-        "description": "The leading creator monetization and fan engagement platform that provides creators with their own personal branded website and app, enabling direct-to-fan content, community and commerce.",</span><span class="del">-        "foundingDate": "2013",</span><span class="del">-        "founder": {</span><span class="del">-          "@type": "Organization",</span><span class="del">-          "name": "TopFan Inc."</span><span class="del">-        },</span><span class="del">-        "address": {</span><span class="del">-          "@type": "PostalAddress",</span><span class="del">-          "addressLocality": "Denver",</span><span class="del">-          "addressRegion": "Colorado",</span><span class="del">-          "addressCountry": "US"</span><span class="del">-        },</span><span class="del">-        "contactPoint": {</span><span class="del">-          "@type": "ContactPoint",</span><span class="del">-          "contactType": "customer service",</span><span class="del">-          "url": "https://www.topfan.com/help-faq"</span><span class="del">-        },</span><span class="del">-        "sameAs": [</span><span class="del">-          "https://www.topfan.com"</span><span class="del">-        ],</span><span class="del">-        "keywords": "creator monetization, fan engagement, subscription platform, direct-to-fan, content creators, influencers, musicians, athletes, fitness, wellness",</span><span class="del">-        "award": "Leading Creator Monetization Platform",</span><span class="del">-        "slogan": "The Best Platform for Creators",</span><span class="del">-        "hasOfferCatalog": {</span><span class="del">-          "@type": "OfferCatalog",</span><span class="del">-          "name": "Creator Services",</span><span class="del">-          "itemListElement": [</span><span class="del">-            {</span><span class="del">-              "@type": "Offer",</span><span class="del">-              "itemOffered": {</span><span class="del">-                "@type": "Service",</span><span class="del">-                "name": "Premium Content Subscriptions",</span><span class="del">-                "description": "Tiered membership subscriptions for exclusive content"</span><span class="del">-              }</span><span class="del">-            },</span><span class="del">-            {</span><span class="del">-              "@type": "Offer", </span><span class="del">-              "itemOffered": {</span><span class="del">-                "@type": "Service",</span><span class="del">-                "name": "Merchandise Sales", </span><span class="del">-                "description": "Integrated e-commerce for creator merchandise"</span><span class="del">-              }</span><span class="del">-            },</span><span class="del">-            {</span><span class="del">-              "@type": "Offer",</span><span class="del">-              "itemOffered": {</span><span class="del">-                "@type": "Service",</span><span class="del">-                "name": "Live Streaming",</span><span class="del">-                "description": "Live streaming capabilities with monetization"</span><span class="del">-              }</span><span class="del">-            },</span><span class="del">-            {</span><span class="del">-              "@type": "Offer",</span><span class="del">-              "itemOffered": {</span><span class="del">-                "@type": "Service",</span><span class="del">-                "name": "Direct Messaging",</span><span class="del">-                "description": "Paid direct messaging between creators and fans"</span><span class="del">-              }</span><span class="del">-            },</span><span class="del">-            {</span><span class="del">-              "@type": "Offer",</span><span class="del">-              "itemOffered": {</span><span class="del">-                "@type": "Service",</span><span class="del">-                "name": "Content Publishing",</span><span class="del">-                "description": "Multi-format content publishing tools"</span><span class="del">-              }</span><span class="del">-            }</span><span class="del">-          ]</span><span class="del">-        },</span><span class="del">-        "knowsAbout": [</span><span class="del">-          "Creator Economy",</span><span class="del">-          "Fan Engagement", </span><span class="del">-          "Content Monetization",</span><span class="del">-          "Direct-to-Fan Platforms",</span><span class="del">-          "Subscription Services",</span><span class="del">-          "Musicians",</span><span class="del">-          "Athletes", </span><span class="del">-          "Fitness Professionals",</span><span class="del">-          "Entertainers",</span><span class="del">-          "Content Creators"</span><span class="del">-        ]</span><span class="del">-      }</span><span class="ctx">    &lt;/script&gt;</span><span class="ctx"></span><span class="ctx">  &lt;!-- Critical CSS for above-the-fold content --&gt;</span><span class="ctx">    &lt;style&gt;</span><span class="ctx">      /* Critical CSS for initial paint */</span><span class="ctx">      app-root { display: block; min-height: 80vh; }</span><span class="ctx">      body {</span><span class="ctx">        margin: 0;</span><span class="ctx">        font-family: Roboto, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;</span><span class="del">-        background-color: #013956;</span><span class="del">-        color: #ffffff;</span><span class="add">+        background-color: var(--configBgColor, #013956);</span><span class="add">+        color: var(--configBgTextColor, #ffffff);</span><span class="ctx">      }</span><span class="ctx">      @keyframes loading { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }</span><span class="ctx">      /* Hide non-critical elements during initial load */</span><span class="ctx">      .non-critical { opacity: 0; transition: opacity 0.3s ease; }</span><span class="ctx">      .loaded .non-critical { opacity: 1; }</span><span class="ctx"></span><span class="ctx">      /* Prevent CLS by reserving space for hero section */</span><span class="ctx">      .promotional-banner {</span></pre>
+</article>
+
+<article class="slide">
+<h2>Fonts, IVS, Bootstrap, Cropme</h2>
+<pre class="diff small"><span class="file">src/index.html</span><span class="hunk">@@ -274,58 +171,38 @@</span><span class="ctx">      html.social-callback-boot body {</span><span class="ctx">        transition: none !important;</span><span class="ctx">        background-color: var(--configSecondaryBgColor, #000);</span><span class="ctx">      }</span><span class="ctx">    &lt;/style&gt;</span><span class="ctx"></span><span class="ctx">  &lt;!-- Remove non-critical preconnects; keep as dns-prefetch below --&gt;</span><span class="ctx">    </span><span class="del">-    &lt;!-- Fonts and Styles with optimized loading --&gt;</span><span class="del">-  &lt;!-- Preload critical font weights (400 and 700) to prevent CLS --&gt;</span><span class="del">-  &lt;link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&amp;display=swap"&gt;</span><span class="add">+    &lt;!-- Fonts: one Roboto stylesheet (print/onload). Do not add a second 400/700 preload. --&gt;</span><span class="ctx">  &lt;link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&amp;display=swap" rel="stylesheet" media="print" onload="this.media='all'"/&gt;</span><span class="ctx">  &lt;noscript&gt;&lt;link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100;300;400;500;700;900&amp;display=swap" rel="stylesheet"&gt;&lt;/noscript&gt;</span><span class="ctx">    </span><span class="ctx">    &lt;!-- DNS prefetch for external domains --&gt;</span><span class="ctx">    &lt;link rel="dns-prefetch" href="//www.googletagmanager.com"&gt;</span><span class="ctx">    &lt;link rel="dns-prefetch" href="//cdn.veriff.me"&gt;</span><span class="del">-    &lt;link rel="dns-prefetch" href="//cdn.jsdelivr.net"&gt;</span><span class="ctx"></span><span class="del">-    &lt;!-- 3rd-party SDKs - Idle-until-urgent --&gt;</span><span class="add">+    &lt;!-- Veriff only — IVS is npm amazon-ivs-player; Bootstrap/Cropme are bundled or unused --&gt;</span><span class="ctx">    &lt;script&gt;</span><span class="ctx">      function loadScript(src, attrs) {</span><span class="ctx">        var s = document.createElement('script');</span><span class="ctx">        s.src = src;</span><span class="ctx">        if (attrs) Object.keys(attrs).forEach(function(k){ s.setAttribute(k, attrs[k]); });</span><span class="ctx">        document.head.appendChild(s);</span><span class="ctx">      }</span><span class="ctx">      function onIdle(cb){</span><span class="ctx">        if ('requestIdleCallback' in window) requestIdleCallback(cb, {timeout: 3000});</span><span class="ctx">        else setTimeout(cb, 1500);</span><span class="ctx">      }</span><span class="del">-      // Lazy-load Amazon IVS player on first user interaction or navigation</span><span class="del">-      var ivsLoaded = false;</span><span class="del">-      function loadIVS() {</span><span class="del">-        if (ivsLoaded) return;</span><span class="del">-        ivsLoaded = true;</span><span class="del">-        loadScript('https://player.live-video.net/1.45.0/amazon-ivs-player.min.js', {defer: ''});</span><span class="del">-      }</span><span class="del">-      // Load IVS on first user interaction (click/scroll/touch)</span><span class="del">-      ['click','scroll','touchstart'].forEach(function(evt){</span><span class="del">-        document.addEventListener(evt, function onInteraction(){</span><span class="del">-          onIdle(loadIVS);</span><span class="del">-          ['click','scroll','touchstart'].forEach(function(e){</span><span class="del">-            document.removeEventListener(e, onInteraction);</span><span class="del">-          });</span><span class="del">-        }, {once: true, passive: true});</span><span class="del">-      });</span><span class="ctx">      window.addEventListener('load', function() {</span><span class="ctx">        onIdle(function(){</span><span class="del">-          // Load Veriff only on specific routes</span><span class="ctx">          var veriffLoaded = false;</span><span class="ctx">          function shouldLoadVeriff(path){</span><span class="ctx">            return /^\/auth\/creators-signup(\/|$)?/.test(path) ||</span><span class="ctx">                   /^\/wallet\/current-balance(\/|$)?/.test(path) ||</span><span class="ctx">                   /^\/edit-preference\/become-a-creator\/creator-profile-info(\/|$)?/.test(path) ||</span><span class="ctx">                   /^\/edit-preference\/become-a-creator\/confirm-creator(\/|$)?/.test(path) ||</span><span class="ctx">                   /^\/edit-preference\/become-a-creator\/verify-identity(\/|$)?/.test(path);</span><span class="ctx">          }</span><span class="file">src/index.html</span><span class="hunk">@@ -333,34 +210,24 @@</span><span class="ctx">            if (veriffLoaded) return;</span><span class="ctx">            var p = (window.location &amp;&amp; window.location.pathname) || '';</span><span class="ctx">            if (shouldLoadVeriff(p)) {</span><span class="ctx">              loadScript('https://cdn.veriff.me/sdk/js/1.5/veriff.min.js');</span><span class="ctx">              loadScript('https://cdn.veriff.me/incontext/js/v1/veriff.js');</span><span class="ctx">              veriffLoaded = true;</span><span class="ctx">            }</span><span class="ctx">          }</span><span class="del">-          // initial check</span><span class="ctx">          maybeLoadVeriff();</span><span class="del">-          // observe SPA navigations</span><span class="ctx">          (function(){</span><span class="ctx">            var origPush = history.pushState;</span><span class="ctx">            var origReplace = history.replaceState;</span><span class="ctx">            history.pushState = function(){ origPush.apply(this, arguments); setTimeout(maybeLoadVeriff, 0); };</span><span class="ctx">            history.replaceState = function(){ origReplace.apply(this, arguments); setTimeout(maybeLoadVeriff, 0); };</span><span class="ctx">            window.addEventListener('popstate', function(){ setTimeout(maybeLoadVeriff, 0); });</span><span class="ctx">          })();</span><span class="del">-          loadScript('https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js', {</span><span class="del">-            integrity: 'sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM',</span><span class="del">-            crossorigin: 'anonymous'</span><span class="del">-          });</span><span class="del">-          // Skip Cropme on home route</span><span class="del">-          if (window.location &amp;&amp; window.location.pathname !== '/') {</span><span class="del">-            loadScript('https://cdn.jsdelivr.net/npm/cropme@latest/dist/cropme.min.js');</span><span class="del">-          }</span><span class="ctx">        });</span><span class="ctx">      });</span><span class="ctx">    &lt;/script&gt;</span><span class="ctx">&lt;/head&gt;</span><span class="ctx"></span><span class="ctx">  &lt;body&gt;</span><span class="ctx">    &lt;script&gt;</span><span class="ctx">      (function() {</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="Translate">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="always" data-to="on demand"></div>
+  <p class="lede">Translate is a large third-party script. The PR keeps the off-screen host node and the googtrans cookie, but moves <code>element.js</code> behind <code>LocaleService</code>.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>Who loads the script now</h2>
+<div class="cols">
+<div class="moves">
+            <div class="move">
+              <span class="a">index.html injects element.js</span><i class="arr"></i><span class="b">LocaleService.ensureGoogleTranslateLoaded()</span>
+              <span class="why">No-op on the server. English users who never open the picker never download the script.</span>
+            </div>
+            <div class="move">
+              <span class="a dim">cookie only if locale ≠ en</span><i class="arr"></i><span class="b dim">same cookie, later script</span>
+              <span class="why">index.html still sets <code>googtrans</code> early so a restored locale can apply once the script arrives.</span>
+            </div>
+            <div class="move">
+              <span class="a dim">LanguageSwitcher open</span><i class="arr"></i><span class="b dim">ensureGoogleTranslateLoaded()</span>
+              <span class="why">The picker is the other trigger besides a saved non-English locale.</span>
+            </div>
+          </div>
+<pre class="diff small"><span class="file">src/index.html</span><span class="hunk">@@ -401,37 +268,25 @@</span><span class="ctx">    &lt;div id="google_translate_element"&gt;&lt;/div&gt;</span><span class="ctx"></span><span class="ctx">    &lt;main id="main-content" role="main"&gt;</span><span class="ctx">      &lt;app-root&gt;</span><span class="ctx">      &lt;/app-root&gt;</span><span class="ctx">    &lt;/main&gt;</span><span class="ctx">    &lt;noscript&gt;Please enable JavaScript to continue using this application.&lt;/noscript&gt;</span><span class="ctx"></span><span class="del">-    &lt;!-- Set Google Translate cookie early so translation applies on load --&gt;</span><span class="add">+    &lt;!-- Set googtrans early; element.js loads on demand via LocaleService --&gt;</span><span class="ctx">    &lt;script&gt;</span><span class="ctx">      (function() {</span><span class="ctx">        var lang = '';</span><span class="ctx">        try { lang = localStorage.getItem('tf_locale') || ''; } catch(e) {}</span><span class="ctx">        if (lang &amp;&amp; lang !== 'en') {</span><span class="ctx">          var val = '/en/' + lang;</span><span class="ctx">          var parts = location.hostname.split('.');</span><span class="ctx">          var root = parts.length &gt; 2 ? '.' + parts.slice(-2).join('.') : location.hostname;</span><span class="ctx">          document.cookie = 'googtrans=' + val + ';path=/';</span><span class="ctx">          document.cookie = 'googtrans=' + val + ';path=/;domain=' + location.hostname;</span><span class="ctx">          document.cookie = 'googtrans=' + val + ';path=/;domain=' + root;</span><span class="ctx">        }</span><span class="ctx">      })();</span><span class="ctx">    &lt;/script&gt;</span><span class="del">-</span><span class="del">-    &lt;!-- Google Website Translator --&gt;</span><span class="del">-    &lt;script&gt;</span><span class="del">-      function googleTranslateElementInit() {</span><span class="del">-        new google.translate.TranslateElement({</span><span class="del">-          pageLanguage: 'en',</span><span class="del">-          autoDisplay: false,</span><span class="del">-          layout: google.translate.TranslateElement.InlineLayout.SIMPLE</span><span class="del">-        }, 'google_translate_element');</span><span class="del">-      }</span><span class="del">-    &lt;/script&gt;</span><span class="del">-    &lt;script src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"&gt;&lt;/script&gt;</span><span class="ctx">&lt;/body&gt;</span><span class="del">-&lt;/html&gt;</span><span class="hunk">\ No newline at end of file</span><span class="add">+&lt;/html&gt;</span><span class="file">src/app/components/language-switcher/language-switcher.component.ts</span><span class="hunk">@@ -51,16 +51,17 @@ export class LanguageSwitcherComponent implements OnInit, OnDestroy {</span><span class="ctx">    return lang ? lang.name : LOCALE_CONSTANTS.SUPPORTED_LANGUAGES[0].name;</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  toggleDropdown(): void {</span><span class="ctx">    this.isDropdownOpen = !this.isDropdownOpen;</span><span class="ctx">    if (this.isDropdownOpen) {</span><span class="ctx">      this.searchTerm = '';</span><span class="ctx">      this.filteredLanguages = [...this.languages];</span><span class="add">+      void this.localeService.ensureGoogleTranslateLoaded();</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  selectLanguage(langCode: string): void {</span><span class="ctx">    this.localeService.setLocale(langCode);</span><span class="ctx">    this.isDropdownOpen = false;</span><span class="ctx">  }</span><span class="ctx"></span></pre>
+</div>
+</article>
+
+<article class="slide">
+<h2>LocaleService</h2>
+<pre class="diff small"><span class="file">src/app/core/i18n/locale.service.ts</span><span class="hunk">@@ -4,48 +4,127 @@ import { BehaviorSubject } from 'rxjs';</span><span class="ctx">import { LOCALE_CONSTANTS } from './locale.constants';</span><span class="ctx"></span><span class="ctx">declare const google: any;</span><span class="ctx"></span><span class="ctx">@Injectable({ providedIn: 'root' })</span><span class="ctx">export class LocaleService {</span><span class="ctx">  private readonly isBrowser: boolean;</span><span class="ctx">  private readonly localeSubject = new BehaviorSubject&lt;string&gt;(LOCALE_CONSTANTS.DEFAULT_LOCALE);</span><span class="add">+  private translateScriptLoading: Promise&lt;void&gt; | null = null;</span><span class="ctx"></span><span class="ctx">  readonly locale$ = this.localeSubject.asObservable();</span><span class="ctx"></span><span class="ctx">  constructor(@Inject(PLATFORM_ID) platformId: Object) {</span><span class="ctx">    this.isBrowser = isPlatformBrowser(platformId);</span><span class="ctx"></span><span class="ctx">    if (this.isBrowser) {</span><span class="ctx">      const savedLocale = this.getSavedLocale();</span><span class="ctx">      this.localeSubject.next(savedLocale);</span><span class="ctx"></span><span class="ctx">      if (savedLocale !== LOCALE_CONSTANTS.DEFAULT_LOCALE) {</span><span class="ctx">        this.applyOnLoad(savedLocale);</span><span class="ctx">      }</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="add">+  /**</span><span class="add">+   * Loads Google Translate element.js on demand (picker open or non-English restore).</span><span class="add">+   * Not injected from index.html so English first paint stays free of the third-party script.</span><span class="add">+   */</span><span class="add">+  ensureGoogleTranslateLoaded(): Promise&lt;void&gt; {</span><span class="add">+    if (!this.isBrowser) {</span><span class="add">+      return Promise.resolve();</span><span class="add">+    }</span><span class="add">+</span><span class="add">+    if (typeof google !== 'undefined' &amp;&amp; google?.translate?.TranslateElement) {</span><span class="add">+      this.initTranslateElement();</span><span class="add">+      return Promise.resolve();</span><span class="add">+    }</span><span class="add">+</span><span class="add">+    if (this.translateScriptLoading) {</span><span class="add">+      return this.translateScriptLoading;</span><span class="add">+    }</span><span class="add">+</span><span class="add">+    this.translateScriptLoading = new Promise&lt;void&gt;((resolve, reject) =&gt; {</span><span class="add">+      const existing = document.querySelector(</span><span class="add">+        'script[data-google-translate]'</span><span class="add">+      ) as HTMLScriptElement | null;</span><span class="add">+      if (existing) {</span><span class="add">+        existing.addEventListener('load', () =&gt; {</span><span class="add">+          this.initTranslateElement();</span><span class="add">+          resolve();</span><span class="add">+        });</span><span class="add">+        existing.addEventListener('error', () =&gt; reject());</span><span class="add">+        return;</span><span class="add">+      }</span><span class="add">+</span><span class="add">+      (window as any).googleTranslateElementInit = () =&gt; {</span><span class="add">+        this.initTranslateElement();</span><span class="add">+        resolve();</span><span class="add">+      };</span><span class="add">+</span><span class="add">+      const script = document.createElement('script');</span><span class="add">+      script.src =</span><span class="add">+        '//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';</span><span class="add">+      script.async = true;</span><span class="add">+      script.setAttribute('data-google-translate', 'true');</span><span class="add">+      script.onerror = () =&gt; {</span><span class="add">+        this.translateScriptLoading = null;</span><span class="add">+        reject();</span><span class="add">+      };</span><span class="add">+      document.body.appendChild(script);</span><span class="add">+    });</span><span class="add">+</span><span class="add">+    return this.translateScriptLoading;</span><span class="add">+  }</span><span class="add">+</span><span class="add">+  private initTranslateElement(): void {</span><span class="add">+    try {</span><span class="add">+      if (</span><span class="add">+        typeof google === 'undefined' ||</span><span class="add">+        !google?.translate?.TranslateElement ||</span><span class="add">+        !document.getElementById('google_translate_element')</span><span class="add">+      ) {</span><span class="add">+        return;</span><span class="add">+      }</span><span class="add">+      if (document.querySelector('#google_translate_element .goog-te-combo')) {</span><span class="add">+        return;</span><span class="add">+      }</span><span class="add">+      new google.translate.TranslateElement(</span><span class="add">+        {</span><span class="add">+          pageLanguage: 'en',</span><span class="add">+          autoDisplay: false,</span><span class="add">+          layout: google.translate.TranslateElement.InlineLayout.SIMPLE</span><span class="add">+        },</span><span class="add">+        'google_translate_element'</span><span class="add">+      );</span><span class="add">+    } catch (_) {</span><span class="add">+      // Element may already be initialized</span><span class="add">+    }</span><span class="add">+  }</span><span class="add">+</span><span class="ctx">  /**</span><span class="ctx">   * Waits for Google Translate to initialize, then applies the saved locale.</span><span class="ctx">   */</span><span class="ctx">  private applyOnLoad(langCode: string): void {</span><span class="ctx">    this.setGoogTransCookie(langCode);</span><span class="ctx"></span><span class="del">-    const poll = setInterval(() =&gt; {</span><span class="del">-      const combo = document.querySelector('.goog-te-combo') as HTMLSelectElement;</span><span class="del">-      if (combo) {</span><span class="del">-        clearInterval(poll);</span><span class="del">-        combo.value = langCode;</span><span class="del">-        combo.dispatchEvent(new Event('change'));</span><span class="del">-      }</span><span class="del">-    }, 500);</span><span class="add">+    void this.ensureGoogleTranslateLoaded().then(() =&gt; {</span><span class="add">+      const poll = setInterval(() =&gt; {</span><span class="add">+        const combo = document.querySelector('.goog-te-combo') as HTMLSelectElement;</span><span class="add">+        if (combo) {</span><span class="add">+          clearInterval(poll);</span><span class="add">+          combo.value = langCode;</span><span class="add">+          combo.dispatchEvent(new Event('change'));</span><span class="add">+        }</span><span class="add">+      }, 500);</span><span class="ctx"></span><span class="del">-    setTimeout(() =&gt; clearInterval(poll), 10000);</span><span class="add">+      setTimeout(() =&gt; clearInterval(poll), 10000);</span><span class="add">+    });</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  get currentLocale(): string {</span><span class="ctx">    return this.localeSubject.value;</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  /**</span><span class="ctx">   * Sets the active locale:</span><span class="file">src/app/core/i18n/locale.service.ts</span><span class="hunk">@@ -145,17 +224,19 @@ export class LocaleService {</span><span class="ctx">  /**</span><span class="ctx">   * Re-applies the current locale after Angular route changes.</span><span class="ctx">   * Call from app.component on NavigationEnd.</span><span class="ctx">   */</span><span class="ctx">  reapplyTranslation(): void {</span><span class="ctx">    if (!this.isBrowser) return;</span><span class="ctx">    const locale = this.currentLocale;</span><span class="ctx">    if (locale &amp;&amp; locale !== LOCALE_CONSTANTS.DEFAULT_LOCALE) {</span><span class="del">-      setTimeout(() =&gt; this.triggerGoogleTranslate(locale), 300);</span><span class="add">+      void this.ensureGoogleTranslateLoaded().then(() =&gt; {</span><span class="add">+        setTimeout(() =&gt; this.triggerGoogleTranslate(locale), 300);</span><span class="add">+      });</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  /**</span><span class="ctx">   * Clears saved locale on logout, re-detects browser language,</span><span class="ctx">   * and reloads if translation needs to change.</span><span class="ctx">   */</span><span class="ctx">  resetOnLogout(): void {</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="Profile">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="wait" data-to="card"></div>
+  <p class="lede">The profile used to wait for the browser, then fire posts, merch, welcome video, ads, and tracking in the same turn as the card. LCP is the banner and bio.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>Paint the card first</h2>
+<div class="cols">
+<ul><li>Real profile markup renders when <code>isBasicProfileLoaded</code> is true, including during SSR. It no longer requires <code>cs.isBrowser</code>.</li><li>The hidden prerender-only h1/bio stub is used only when the server still does not have basic profile data.</li><li>The user GET uses <code>CacheTypes.PRERENDERED</code> on server/prerender; the browser still uses <code>REFRESH_EVERY_N</code>.</li><li><code>scheduleAfterFirstPaint()</code> runs work after <code>afterNextRender</code> plus <code>setTimeout(0)</code>. It no-ops on the server and during the prerender build.</li><li>Posts, merch, auto-follow, white-label referral, topic tags, welcome video, and profile-view tracking are scheduled there.</li><li>The banner is <code>priority</code> and no longer <code>loading=lazy</code>.</li></ul>
+<pre class="diff small"><span class="file">src/app/modules/shared/components/profile/profile.component.html</span><span class="hunk">@@ -1,9 +1,9 @@</span><span class="del">-@if (cs.isBrowser &amp;&amp; isBasicProfileLoaded) {</span><span class="add">+@if (isBasicProfileLoaded) {</span><span class="ctx">  &lt;div class="main-content"&gt;</span><span class="ctx">    &lt;div class="inner-content"&gt;</span><span class="ctx">      @if (!isMyProfile &amp;&amp; !isWhiteLabelWebsiteOrEmbedWLSMode) {</span><span class="ctx">        &lt;div class="myprofile-head profile-head"&gt;</span><span class="ctx">          @if (</span><span class="ctx">            authService?.isLogin ||</span><span class="ctx">            (!authService?.isLogin &amp;&amp; !isWhiteLabelWebsiteOrEmbedWLSMode)</span><span class="ctx">          ) {</span><span class="file">src/app/modules/shared/components/profile/profile.component.html</span><span class="hunk">@@ -93,23 +93,23 @@</span><span class="ctx">          class="profile-card-banner"</span><span class="ctx">          [ngClass]="{ 'default-banner-img': !userProfile?.banner_image_url }"</span><span class="ctx">        &gt;</span><span class="ctx">          @if (userProfile?.banner_image_url) {</span><span class="ctx">            &lt;img</span><span class="ctx">              alt="banner-image"</span><span class="ctx">              appDisableRightClick</span><span class="ctx">              appMobileOptimization</span><span class="add">+              [priority]="true"</span><span class="ctx">              [originalUrl]="userProfile?.banner_image_url"</span><span class="ctx">              [src]="userProfile?.banner_image_url"</span><span class="ctx">              [width]="800"</span><span class="ctx">              [height]="400"</span><span class="ctx">              [format]="'webp'"</span><span class="ctx">              class="img-fluid"</span><span class="del">-              loading="lazy"</span><span class="ctx">              decoding="async"</span><span class="ctx">            /&gt;</span><span class="ctx">          }</span><span class="ctx">          &lt;div class="profile-card-action"&gt;</span><span class="ctx">            @if (</span><span class="ctx">              isMyProfile &amp;&amp;</span><span class="ctx">              (permissionKeys.EDIT_MY_PREFERENCES</span><span class="ctx">                | hasPermission: PERMISSION_TYPE.READ : true</span><span class="file">src/app/modules/shared/components/profile/profile.component.html</span><span class="hunk">@@ -5683,14 +5694,14 @@</span><span class="ctx">    #unlockUserModal</span><span class="ctx">    [headerLabel]="PROFILE_CONSTANT.UNLOCK_USER.HEADER"</span><span class="ctx">    [bodyContent]="PROFILE_CONSTANT.UNLOCK_USER.MESSAGE"</span><span class="ctx">    [confirmBtnLabel]="CommonEnums.OK"</span><span class="ctx">    [modalOptions]="{ backdrop: 'static' }"</span><span class="ctx">  &gt;&lt;/app-alert-modal&gt;</span><span class="ctx">}</span><span class="ctx"></span><span class="del">-@if (!cs.isBrowser) {</span><span class="add">+@if (!cs.isBrowser &amp;&amp; !isBasicProfileLoaded) {</span><span class="ctx">  &lt;div class="opacity-0 only-for-prerender"&gt;</span><span class="ctx">    &lt;h1&gt;{{ userProfile?.first_name }} {{ userProfile?.last_name }}&lt;/h1&gt;</span><span class="ctx">    &lt;p&gt;{{ userProfile?.bio }}&lt;/p&gt;</span><span class="ctx">  &lt;/div&gt;</span><span class="ctx">}</span></pre>
+</div>
+</article>
+
+<article class="slide">
+<h2>scheduleAfterFirstPaint and the user GET</h2>
+<p class="story quiet">This hunk also appears on Timeouts. Same block adds the deferred, timed-out profile-view POST.</p>
+<pre class="diff small"><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -16,17 +16,18 @@ import {</span><span class="ctx">  Inject,</span><span class="ctx">  Input,</span><span class="ctx">  OnDestroy,</span><span class="ctx">  OnInit,</span><span class="ctx">  TemplateRef,</span><span class="ctx">  ViewChild,</span><span class="ctx">  DOCUMENT,</span><span class="ctx">  input,</span><span class="del">-  viewChild</span><span class="add">+  viewChild,</span><span class="add">+  afterNextRender</span><span class="ctx">} from '@angular/core';</span><span class="ctx">import { Store } from '@ngrx/store';</span><span class="ctx">import { NgbModal } from '@ng-bootstrap/ng-bootstrap';</span><span class="ctx">import { APIENDPOINT, API_URLS, CREATE_POST_TYPE } from '@core/api-url.enum';</span><span class="ctx">import { CommonService } from '@shared/services/common.service';</span><span class="ctx">import { ApiCallService } from '@services/api-call.service';</span><span class="ctx">import { CacheService } from '@shared/services/cache.service';</span><span class="ctx">import * as fromUserProfile from '@shared/user-profile.reducer';</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1251,43 +1250,45 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">      ) {</span><span class="ctx">        this.isPrivate = !is_follower;</span><span class="ctx">      } else {</span><span class="ctx">        this.isPrivate = false;</span><span class="ctx">      }</span><span class="ctx">    }</span><span class="ctx"></span><span class="ctx">    if (this.cs.isBrowser) {</span><span class="del">-      if (this.authService.isLogin &amp;&amp; !this.userProfile?.is_private) {</span><span class="del">-        this.cs.automaticFollowUser();</span><span class="del">-        if (this.cs.isWhiteLabelWeb) {</span><span class="del">-          this.triggerWhiteLabelReferral();</span><span class="add">+      this.scheduleAfterFirstPaint(() =&gt; {</span><span class="add">+        if (this.authService.isLogin &amp;&amp; !this.userProfile?.is_private) {</span><span class="add">+          this.cs.automaticFollowUser();</span><span class="add">+          if (this.cs.isWhiteLabelWeb) {</span><span class="add">+            this.triggerWhiteLabelReferral();</span><span class="add">+          }</span><span class="ctx">        }</span><span class="del">-      }</span><span class="del">-      this.userPosts = [];</span><span class="del">-      this.loadedPostPageNo = Application.ZERO;</span><span class="del">-      if (!this.isPrivate) {</span><span class="del">-        this.getMerchandiseListOfUser();</span><span class="del">-        if (</span><span class="del">-          this.paramsTab &amp;&amp;</span><span class="del">-          this.paramsTab !== PROFILE_CONSTANT.WELCOME_VIDEO</span><span class="del">-        ) {</span><span class="del">-          this.filterPost(this.paramsTab);</span><span class="del">-          this.paramsTab = '';</span><span class="del">-        } else if (</span><span class="del">-          this.filterPostType &amp;&amp;</span><span class="del">-          this.filterPostType !== POST_TYPE_FILTER_LABELS.ALL_TYPES_VALUE</span><span class="del">-        ) {</span><span class="del">-          this.filterPost(this.filterPostType);</span><span class="add">+        this.userPosts = [];</span><span class="add">+        this.loadedPostPageNo = Application.ZERO;</span><span class="add">+        if (!this.isPrivate) {</span><span class="add">+          this.getMerchandiseListOfUser();</span><span class="add">+          if (</span><span class="add">+            this.paramsTab &amp;&amp;</span><span class="add">+            this.paramsTab !== PROFILE_CONSTANT.WELCOME_VIDEO</span><span class="add">+          ) {</span><span class="add">+            this.filterPost(this.paramsTab);</span><span class="add">+            this.paramsTab = '';</span><span class="add">+          } else if (</span><span class="add">+            this.filterPostType &amp;&amp;</span><span class="add">+            this.filterPostType !== POST_TYPE_FILTER_LABELS.ALL_TYPES_VALUE</span><span class="add">+          ) {</span><span class="add">+            this.filterPost(this.filterPostType);</span><span class="add">+          } else {</span><span class="add">+            this.getOtherPosts(this.userProfile?.gsi4pk);</span><span class="add">+          }</span><span class="ctx">        } else {</span><span class="del">-          this.getOtherPosts(this.userProfile?.gsi4pk);</span><span class="add">+          this.isLoader = false;</span><span class="ctx">        }</span><span class="del">-      } else {</span><span class="del">-        this.isLoader = false;</span><span class="del">-      }</span><span class="add">+      });</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private triggerWhiteLabelReferral() {</span><span class="ctx">    const [recruiterPart, creatorPart] =</span><span class="ctx">      this.cs</span><span class="ctx">        .getValueFromLocalStorage(Application.RECRUITER_STORAGE_KEY)</span><span class="ctx">        ?.split('&amp;') ?? [];</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1340,36 +1341,59 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">      name: `${user?.['data'].first_name} ${user?.['data'].last_name}`,</span><span class="ctx">      location: user?.['data'].general_location</span><span class="ctx">    };</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  getUserProfile(userId) {</span><span class="ctx">    this.isSuspendedOrPaused = false;</span><span class="ctx">    this.cs.setUserId(userId);</span><span class="add">+    const cacheType =</span><span class="add">+      this.platformService.isServer || this.platformService.isPrerendered</span><span class="add">+        ? CacheTypes.PRERENDERED</span><span class="add">+        : CacheTypes.REFRESH_EVERY_N;</span><span class="ctx">    this.apiCacheService</span><span class="del">-      .get(APIENDPOINT.user(userId), CacheTypes.REFRESH_EVERY_N)</span><span class="add">+      .get(APIENDPOINT.user(userId), cacheType)</span><span class="ctx">      .pipe(takeUntil(this.destroy$))</span><span class="ctx">      .subscribe({</span><span class="ctx">        next: (res) =&gt; {</span><span class="ctx">          this.handleUserProfileResponse(res);</span><span class="ctx">          if (!this.isMyProfile &amp;&amp; this.cs.isBrowser) {</span><span class="del">-            this.apiCallService</span><span class="del">-              .post(APIENDPOINT.PROFILE_VIEW(res.data?.gsi4pk), {}, true)</span><span class="del">-              .pipe(takeUntil(this.destroy$))</span><span class="del">-              .subscribe();</span><span class="add">+            this.scheduleAfterFirstPaint(() =&gt; {</span><span class="add">+              this.apiCallService</span><span class="add">+                .post(APIENDPOINT.PROFILE_VIEW(res.data?.gsi4pk), {}, true)</span><span class="add">+                .pipe(</span><span class="add">+                  timeout(8000),</span><span class="add">+                  catchError(() =&gt; of(null)),</span><span class="add">+                  takeUntil(this.destroy$)</span><span class="add">+                )</span><span class="add">+                .subscribe();</span><span class="add">+            });</span><span class="ctx">          }</span><span class="ctx">        },</span><span class="ctx">        error: (err) =&gt; {</span><span class="ctx">          this.isBasicProfileLoaded = true;</span><span class="ctx">          this.handleUserProfileError(err, userId);</span><span class="ctx">        }</span><span class="ctx">      });</span><span class="ctx">  }</span><span class="ctx"></span><span class="add">+  /** Run non-critical profile work after the card/bio can paint (LCP). */</span><span class="add">+  private scheduleAfterFirstPaint(work: () =&gt; void): void {</span><span class="add">+    if (!this.cs.isBrowser || this.platformService.isPrerendered) {</span><span class="add">+      return;</span><span class="add">+    }</span><span class="add">+    afterNextRender(</span><span class="add">+      () =&gt; {</span><span class="add">+        setTimeout(work, 0);</span><span class="add">+      },</span><span class="add">+      { injector: this._injector }</span><span class="add">+    );</span><span class="add">+  }</span><span class="add">+</span><span class="ctx">  private handleUserProfileResponse(res: any) {</span><span class="ctx">    if (!res.status &amp;&amp; (res?.data?.is_paused || res?.data?.is_suspended)) {</span><span class="ctx">      this.isUserFound = true;</span><span class="ctx">      this.isBasicProfileLoaded = true;</span><span class="ctx">      this.isLoader = false;</span><span class="ctx">      this.checkSuspendAndPauseStatus(res);</span><span class="ctx">    } else if (res.status) {</span><span class="ctx">      this.currentProfileUserData = res.data;</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1396,20 +1420,20 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx"></span><span class="ctx">        if (this.userProfile.gsi4pk !== this.whiteLabelConfig.user.gsi4pk) {</span><span class="ctx">          this.selectTab({ id: this.Home_String.AWARDS });</span><span class="ctx">        }</span><span class="ctx">      }</span><span class="ctx">      this.checkPrivacy();</span><span class="ctx">      this.isUserFound = true;</span><span class="ctx">      this.isSuspendedOrPaused = false;</span><span class="del">-      // Initialize topic tags filter</span><span class="add">+      // Topic tags are non-critical — load after first paint.</span><span class="ctx">      if (this.cs.isBrowser) {</span><span class="ctx">        this.initTopicTagsFilterForm();</span><span class="del">-        this.fetchTopicTags();</span><span class="add">+        this.scheduleAfterFirstPaint(() =&gt; this.fetchTopicTags());</span><span class="ctx">      }</span><span class="ctx">      if (this.userProfile.is_deleted) {</span><span class="ctx">        this.router.navigate(['/']);</span><span class="ctx">      }</span><span class="ctx">      this.cs.setValueInocalStorage('gsi4pk', JSON.stringify(res.data.gsi4pk));</span><span class="ctx">      if (!this.isCreator &amp;&amp; this.tabType === this.Home_String.POST_TYPE) {</span><span class="ctx">        this.tabType = 'following';</span><span class="ctx">      }</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1471,17 +1495,19 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">          (sub) =&gt; sub.sk === this.cs.currentSubscriptionPlan.sk</span><span class="ctx">        );</span><span class="ctx">        if (this.cs.status &amp;&amp; this.authService.isAuthenticated()) {</span><span class="ctx">          this.showSelctedSubscription(selectedSub);</span><span class="ctx">          this.cs.status = false;</span><span class="ctx">        }</span><span class="ctx">      }</span><span class="ctx">      if (this.userProfile?.gsi4pk &amp;&amp; !this.platformService.isPrerendered) {</span><span class="del">-        this.getWelcomeVideoMessage(this.userProfile.gsi4pk);</span><span class="add">+        this.scheduleAfterFirstPaint(() =&gt;</span><span class="add">+          this.getWelcomeVideoMessage(this.userProfile.gsi4pk)</span><span class="add">+        );</span><span class="ctx">      }</span><span class="ctx">    } else {</span><span class="ctx">      this.isBasicProfileLoaded = true;</span><span class="ctx">      this.router.navigate(['/not-found']);</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private handleUserProfileError(_err: any, userId: string) {</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="Defer">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="eager" data-to="defer"></div>
+  <p class="lede">Welcome video and the right sidebar are heavy standalone components. Leaving them in the profile imports array puts them on the first JS of every profile view.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>Welcome video and sidebar</h2>
+<div class="cols">
+<ul><li>Both are wrapped in <code>@defer (on viewport; prefetch on idle)</code>, so Angular emits separate chunks.</li><li>They are removed from the profile <code>imports</code> array. That is required for <code>@defer</code> to lazy-load them.</li><li>The sidebar keeps a right-sidebar-skeleton placeholder. Welcome video has no placeholder.</li></ul>
+<pre class="diff small"><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -220,21 +222,19 @@ import { FollowingsComponent } from '@shared/components/followings/followings.co</span><span class="ctx">import { FundContributeModalComponent } from '@shared/components/fund-contribute-modal/fund-contribute-modal.component';</span><span class="ctx">import { FundraiserProgressSectionComponent } from '@shared/components/fundraiser-progress-section/fundraiser-progress-section.component';</span><span class="ctx">import { GiveawayResponseModal } from '@shared/components/giveaway-response-modal/giveaway-response-modal.component';</span><span class="ctx">import { LoaderComponent } from '@shared/components/loader/loader.component';</span><span class="ctx">import { PollOptionsComponent } from '@shared/components/poll-options/poll-options.component';</span><span class="ctx">import { PostCardFooterComponent } from '@shared/components/post-card/components/post-card-footer/post-card-footer.component';</span><span class="ctx">import { PostCardStatsComponent } from '@shared/components/post-card/components/post-card-stats/post-card-stats.component';</span><span class="ctx">import { SensitiveOverlayComponent } from '@shared/components/post-card/components/sensitive-overlay/sensitive-overlay.component';</span><span class="del">-import { ProfileSidebarComponent } from '@shared/components/profile-sidebar/profile-sidebar.component';</span><span class="ctx">import { UserImageComponent } from '@shared/components/user-image/user-image.component';</span><span class="ctx">import { VideoPlayerV2Component } from '@shared/components/video-player-v2/video-player-v2.component';</span><span class="ctx">import { CustomWelcomeModalTemplate } from '@shared/components/welcome-video-modal/welcome-video-modal.component';</span><span class="del">-import { WelcomeVideoPostComponent } from '@shared/components/welcome-video-post/welcome-video-post.component';</span><span class="ctx">import { AudioSliderPatchDirective } from '@shared/directive/audio-slider-patch.directive';</span><span class="ctx">import { DisableRightClickDirective } from '@shared/directive/disable-right-click.directive';</span><span class="ctx">import { IntersectionObserverDirective } from '@shared/directive/intersection-observer.directive';</span><span class="ctx">import { MobileBridgeFileInputDirective } from '@shared/directive/mobile-bridge-file-input.directive';</span><span class="ctx">import { ToolTipDirective } from '@shared/directive/tool-tip.directive';</span><span class="ctx">import { TranslateDirective } from '@shared/directive/translate.directive';</span><span class="ctx">import { AudioPlayer } from '@pipes/audio-player.pipe';</span><span class="ctx">import { CapitalizeFirstPipe } from '@pipes/capitalizeFirst.pipe';</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -295,22 +295,20 @@ import { MobileOptimizationDirective } from '@app-shared/directives/mobile-optim</span><span class="ctx">    FundraiserProgressSectionComponent,</span><span class="ctx">    GiveawayResponseModal,</span><span class="ctx">    ImageOverlayComponent,</span><span class="ctx">    LoaderComponent,</span><span class="ctx">    PollOptionsComponent,</span><span class="ctx">    PostCardFooterComponent,</span><span class="ctx">    PostCardStatsComponent,</span><span class="ctx">    SensitiveOverlayComponent,</span><span class="del">-    ProfileSidebarComponent,</span><span class="ctx">    UserGroupsModalComponent,</span><span class="ctx">    UserImageComponent,</span><span class="ctx">    VideoPlayerV2Component,</span><span class="ctx">    CustomWelcomeModalTemplate,</span><span class="del">-    WelcomeVideoPostComponent,</span><span class="ctx">    AudioSliderPatchDirective,</span><span class="ctx">    DisableRightClickDirective,</span><span class="ctx">    IntersectionObserverDirective,</span><span class="ctx">    MobileBridgeFileInputDirective,</span><span class="ctx">    ToolTipDirective,</span><span class="ctx">    TranslateDirective,</span><span class="ctx">    AudioPlayer,</span><span class="ctx">    CapitalizeFirstPipe,</span></pre>
+</div>
+</article>
+
+<article class="slide">
+<h2>Template: @defer</h2>
+<pre class="diff small"><span class="file">src/app/modules/shared/components/profile/profile.component.html</span><span class="hunk">@@ -664,53 +664,55 @@</span><span class="ctx">                  &lt;div class="post-content"&gt;</span><span class="ctx">                    @if (</span><span class="ctx">                      welcomeVideoMessageData &amp;&amp;</span><span class="ctx">                      welcomeVideoMessageData?.media_url &amp;&amp;</span><span class="ctx">                      ((welcomeVideoMessageData?.is_active &amp;&amp;</span><span class="ctx">                        !welcomeVideoMessageData?.admin_marked_disabled) ||</span><span class="ctx">                        isMyProfile)</span><span class="ctx">                    ) {</span><span class="del">-                      &lt;app-welcome-video-post</span><span class="del">-                        [items]="welcomeVideoMessageData"</span><span class="del">-                        [userProfile]="userProfile"</span><span class="del">-                        [isMyProfile]="isMyProfile"</span><span class="del">-                        [isWhiteLabelWebsite]="</span><span class="del">-                          isWhiteLabelWebsiteOrEmbedWLSMode</span><span class="del">-                        "</span><span class="del">-                        [postTypeKey]="postTypeKey"</span><span class="del">-                        [scheduleTag]="scheduleTag"</span><span class="del">-                        [collabScheduleTag]="collabScheduleTag"</span><span class="del">-                        [isLikeDisabled]="isLikeDisabled"</span><span class="del">-                        [whiteLabelOwnerEamil]="whiteLabelOwnerEamil"</span><span class="del">-                        [ROUTE_PATHS]="ROUTE_PATHS.EDIT_WELCOME_MESSAGE"</span><span class="del">-                        (blockUser)="blockUser($event)"</span><span class="del">-                        (reportPost)="reportWelcomeVideo($event.item)"</span><span class="del">-                        (pinPost)="pinPost($event.item, $event.pinned)"</span><span class="del">-                        (onTranslationChanged)="</span><span class="del">-                          onTranslationChanged($event.item, $event.event)</span><span class="del">-                        "</span><span class="del">-                        (openCustomWelcomeModal)="openCustomWelcomeModal()"</span><span class="del">-                        (showDeleteWelcomeVideoDialog)="</span><span class="del">-                          showDeleteWelcomeVideoDialog()</span><span class="del">-                        "</span><span class="del">-                        (seeLessMore)="seeWelcomeMesLessMore($event)"</span><span class="del">-                        (onComments)="onComments($event.item, $event.isComment)"</span><span class="del">-                        (showLikes)="showLikes($event.item)"</span><span class="del">-                        (likePost)="likePost($event.event, $event.item)"</span><span class="del">-                        (sendTipModal)="sendTipModal($event.item)"</span><span class="del">-                        (callParentFn)="parentSubscribePlanFunction()"</span><span class="del">-                        (openReferralModal)="</span><span class="del">-                          openReferralModal(</span><span class="del">-                            $event.type,</span><span class="del">-                            $event.item,</span><span class="del">-                            $event.isShare</span><span class="del">-                          )</span><span class="del">-                        "</span><span class="del">-                      &gt;&lt;/app-welcome-video-post&gt;</span><span class="add">+                      @defer (on viewport; prefetch on idle) {</span><span class="add">+                        &lt;app-welcome-video-post</span><span class="add">+                          [items]="welcomeVideoMessageData"</span><span class="add">+                          [userProfile]="userProfile"</span><span class="add">+                          [isMyProfile]="isMyProfile"</span><span class="add">+                          [isWhiteLabelWebsite]="</span><span class="add">+                            isWhiteLabelWebsiteOrEmbedWLSMode</span><span class="add">+                          "</span><span class="add">+                          [postTypeKey]="postTypeKey"</span><span class="add">+                          [scheduleTag]="scheduleTag"</span><span class="add">+                          [collabScheduleTag]="collabScheduleTag"</span><span class="add">+                          [isLikeDisabled]="isLikeDisabled"</span><span class="add">+                          [whiteLabelOwnerEamil]="whiteLabelOwnerEamil"</span><span class="add">+                          [ROUTE_PATHS]="ROUTE_PATHS.EDIT_WELCOME_MESSAGE"</span><span class="add">+                          (blockUser)="blockUser($event)"</span><span class="add">+                          (reportPost)="reportWelcomeVideo($event.item)"</span><span class="add">+                          (pinPost)="pinPost($event.item, $event.pinned)"</span><span class="add">+                          (onTranslationChanged)="</span><span class="add">+                            onTranslationChanged($event.item, $event.event)</span><span class="add">+                          "</span><span class="add">+                          (openCustomWelcomeModal)="openCustomWelcomeModal()"</span><span class="add">+                          (showDeleteWelcomeVideoDialog)="</span><span class="add">+                            showDeleteWelcomeVideoDialog()</span><span class="add">+                          "</span><span class="add">+                          (seeLessMore)="seeWelcomeMesLessMore($event)"</span><span class="add">+                          (onComments)="onComments($event.item, $event.isComment)"</span><span class="add">+                          (showLikes)="showLikes($event.item)"</span><span class="add">+                          (likePost)="likePost($event.event, $event.item)"</span><span class="add">+                          (sendTipModal)="sendTipModal($event.item)"</span><span class="add">+                          (callParentFn)="parentSubscribePlanFunction()"</span><span class="add">+                          (openReferralModal)="</span><span class="add">+                            openReferralModal(</span><span class="add">+                              $event.type,</span><span class="add">+                              $event.item,</span><span class="add">+                              $event.isShare</span><span class="add">+                            )</span><span class="add">+                          "</span><span class="add">+                        &gt;&lt;/app-welcome-video-post&gt;</span><span class="add">+                      }</span><span class="ctx">                    }</span><span class="ctx">                  &lt;/div&gt;</span><span class="ctx">                }</span><span class="ctx">                @if (!isPrivate) {</span><span class="ctx">                  &lt;div</span><span class="ctx">                    class="profile-tabsHead filter-post-container"</span><span class="ctx">                    [ngClass]="{</span><span class="ctx">                      'single-row': !(</span><span class="file">src/app/modules/shared/components/profile/profile.component.html</span><span class="hunk">@@ -5369,26 +5371,35 @@</span><span class="ctx">        &lt;div class="sidebar-creator sidebar-profile scr-lg"&gt;</span><span class="ctx">          &lt;app-right-sidebar-skeleton</span><span class="ctx">            [showAdSkeleton]="true"</span><span class="ctx">            [showViewAllButtonSkeleton]="true"</span><span class="ctx">          &gt;&lt;/app-right-sidebar-skeleton&gt;</span><span class="ctx">        &lt;/div&gt;</span><span class="ctx">      }</span><span class="ctx">      @if (!isSidebarLoading) {</span><span class="del">-        &lt;app-profile-sidebar</span><span class="del">-          [dataList]="merchandiseList"</span><span class="del">-          [userProfile]="userProfile"</span><span class="del">-          [selfProfile]="isMyProfile"</span><span class="del">-          [isStoreConnected]="(isStoreConnected || hasStoreItems) &amp;&amp; !isPrivate"</span><span class="del">-          [showUpcomingEventCountdown]="showUpcomingEventCountdown"</span><span class="del">-          [upcomingEventDetails]="upcomingEventDetails"</span><span class="del">-          [creatorEventName]="creatorEventDetails?.[0]?.event_calendar_name"</span><span class="del">-          (goToDownloadableStore)="viewStore(Fields.downloadablesType)"</span><span class="del">-        &gt;&lt;/app-profile-sidebar&gt;</span><span class="add">+        @defer (on viewport; prefetch on idle) {</span><span class="add">+          &lt;app-profile-sidebar</span><span class="add">+            [dataList]="merchandiseList"</span><span class="add">+            [userProfile]="userProfile"</span><span class="add">+            [selfProfile]="isMyProfile"</span><span class="add">+            [isStoreConnected]="(isStoreConnected || hasStoreItems) &amp;&amp; !isPrivate"</span><span class="add">+            [showUpcomingEventCountdown]="showUpcomingEventCountdown"</span><span class="add">+            [upcomingEventDetails]="upcomingEventDetails"</span><span class="add">+            [creatorEventName]="creatorEventDetails?.[0]?.event_calendar_name"</span><span class="add">+            (goToDownloadableStore)="viewStore(Fields.downloadablesType)"</span><span class="add">+          &gt;&lt;/app-profile-sidebar&gt;</span><span class="add">+        } @placeholder {</span><span class="add">+          &lt;div class="sidebar-creator sidebar-profile scr-lg"&gt;</span><span class="add">+            &lt;app-right-sidebar-skeleton</span><span class="add">+              [showAdSkeleton]="true"</span><span class="add">+              [showViewAllButtonSkeleton]="true"</span><span class="add">+            &gt;&lt;/app-right-sidebar-skeleton&gt;</span><span class="add">+          &lt;/div&gt;</span><span class="add">+        }</span><span class="ctx">      }</span><span class="ctx">    }</span><span class="ctx">  &lt;/div&gt;</span><span class="ctx">} @else {</span><span class="ctx">  &lt;app-profile-skeleton&gt;&lt;/app-profile-skeleton&gt;</span><span class="ctx">}</span><span class="ctx">&lt;div</span><span class="ctx">  #ViewSubscriptionModal="bs-modal"</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="Timeouts">
+<article class="slide">
+<h2>Side requests fail closed</h2>
+<p class="story">A hung merch, welcome-video, posts, ads, or topic-tags call used to keep the profile in a bad state or surface a raw error. Those calls now fail closed after 8 seconds.</p>
+<ul><li><code>timeout(8000)</code> plus <code>catchError</code> on topic tags, profile-view POST, other posts, skyscraper ads, welcome video, and merchandise.</li><li>Error toasts only show when the response actually has a message.</li><li>The <code>getUserProfile</code> hunk below also contains the <code>PRERENDERED</code> cache-type change from Profile.</li></ul>
+</article>
+
+<article class="slide">
+<h2>timeout(8000) on the side path</h2>
+<pre class="diff small"><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -54,17 +55,18 @@ import {</span><span class="ctx">  forkJoin,</span><span class="ctx">  of</span><span class="ctx">} from 'rxjs';</span><span class="ctx">import {</span><span class="ctx">  map,</span><span class="ctx">  catchError,</span><span class="ctx">  distinctUntilChanged,</span><span class="ctx">  debounceTime,</span><span class="del">-  finalize</span><span class="add">+  finalize,</span><span class="add">+  timeout</span><span class="ctx">} from 'rxjs/operators';</span><span class="ctx">import { DialogBoxComponent } from '@shared/components/dialog-box/dialog-box.component';</span><span class="ctx">import { DashboardModuleService } from '@modules/dashboard/services/dashboard-module.service';</span><span class="ctx">import { Messages } from '@enums/messages.enums';</span><span class="ctx">import { UploadService } from '@services/upload.service';</span><span class="ctx">import { ActivatedRoute, Router, RouterLink } from '@angular/router';</span><span class="ctx">import { CommonModule } from '@angular/common';</span><span class="ctx">import { UnfollowDialogComponent } from '@shared/components/unfollow-dialog/unfollow-dialog.component';</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1197,30 +1195,31 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">      return;</span><span class="ctx">    }</span><span class="ctx"></span><span class="ctx">    this.apiCallService</span><span class="ctx">      .get(</span><span class="ctx">        `${API_URLS.postTopics}?creator_id=${this.userProfile.gsi4pk}`,</span><span class="ctx">        false</span><span class="ctx">      )</span><span class="del">-      .pipe(takeUntil(this.destroy$))</span><span class="add">+      .pipe(</span><span class="add">+        timeout(8000),</span><span class="add">+        catchError(() =&gt; of(null)),</span><span class="add">+        takeUntil(this.destroy$)</span><span class="add">+      )</span><span class="ctx">      .subscribe({</span><span class="ctx">        next: (res) =&gt; {</span><span class="del">-          if (res.status &amp;&amp; res.data?.length) {</span><span class="add">+          if (res?.status &amp;&amp; res.data?.length) {</span><span class="ctx">            this.topicTags = res.data.map((tag: any) =&gt; ({</span><span class="ctx">              sk: tag.sk,</span><span class="ctx">              title: tag.title,</span><span class="ctx">              pk: tag.pk,</span><span class="ctx">              id: tag.id</span><span class="ctx">            }));</span><span class="ctx">          }</span><span class="del">-        },</span><span class="del">-        error: (err) =&gt; {</span><span class="del">-          this.cs.showErrorMessage(err.message);</span><span class="ctx">        }</span><span class="ctx">      });</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  navigateToForum(url) {</span><span class="ctx">    if (this.authService.isAuthenticated()) {</span><span class="ctx">      const redirectUrl = this.isMyProfile</span><span class="ctx">        ? [url]</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1340,36 +1341,59 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">      name: `${user?.['data'].first_name} ${user?.['data'].last_name}`,</span><span class="ctx">      location: user?.['data'].general_location</span><span class="ctx">    };</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  getUserProfile(userId) {</span><span class="ctx">    this.isSuspendedOrPaused = false;</span><span class="ctx">    this.cs.setUserId(userId);</span><span class="add">+    const cacheType =</span><span class="add">+      this.platformService.isServer || this.platformService.isPrerendered</span><span class="add">+        ? CacheTypes.PRERENDERED</span><span class="add">+        : CacheTypes.REFRESH_EVERY_N;</span><span class="ctx">    this.apiCacheService</span><span class="del">-      .get(APIENDPOINT.user(userId), CacheTypes.REFRESH_EVERY_N)</span><span class="add">+      .get(APIENDPOINT.user(userId), cacheType)</span><span class="ctx">      .pipe(takeUntil(this.destroy$))</span><span class="ctx">      .subscribe({</span><span class="ctx">        next: (res) =&gt; {</span><span class="ctx">          this.handleUserProfileResponse(res);</span><span class="ctx">          if (!this.isMyProfile &amp;&amp; this.cs.isBrowser) {</span><span class="del">-            this.apiCallService</span><span class="del">-              .post(APIENDPOINT.PROFILE_VIEW(res.data?.gsi4pk), {}, true)</span><span class="del">-              .pipe(takeUntil(this.destroy$))</span><span class="del">-              .subscribe();</span><span class="add">+            this.scheduleAfterFirstPaint(() =&gt; {</span><span class="add">+              this.apiCallService</span><span class="add">+                .post(APIENDPOINT.PROFILE_VIEW(res.data?.gsi4pk), {}, true)</span><span class="add">+                .pipe(</span><span class="add">+                  timeout(8000),</span><span class="add">+                  catchError(() =&gt; of(null)),</span><span class="add">+                  takeUntil(this.destroy$)</span><span class="add">+                )</span><span class="add">+                .subscribe();</span><span class="add">+            });</span><span class="ctx">          }</span><span class="ctx">        },</span><span class="ctx">        error: (err) =&gt; {</span><span class="ctx">          this.isBasicProfileLoaded = true;</span><span class="ctx">          this.handleUserProfileError(err, userId);</span><span class="ctx">        }</span><span class="ctx">      });</span><span class="ctx">  }</span><span class="ctx"></span><span class="add">+  /** Run non-critical profile work after the card/bio can paint (LCP). */</span><span class="add">+  private scheduleAfterFirstPaint(work: () =&gt; void): void {</span><span class="add">+    if (!this.cs.isBrowser || this.platformService.isPrerendered) {</span><span class="add">+      return;</span><span class="add">+    }</span><span class="add">+    afterNextRender(</span><span class="add">+      () =&gt; {</span><span class="add">+        setTimeout(work, 0);</span><span class="add">+      },</span><span class="add">+      { injector: this._injector }</span><span class="add">+    );</span><span class="add">+  }</span><span class="add">+</span><span class="ctx">  private handleUserProfileResponse(res: any) {</span><span class="ctx">    if (!res.status &amp;&amp; (res?.data?.is_paused || res?.data?.is_suspended)) {</span><span class="ctx">      this.isUserFound = true;</span><span class="ctx">      this.isBasicProfileLoaded = true;</span><span class="ctx">      this.isLoader = false;</span><span class="ctx">      this.checkSuspendAndPauseStatus(res);</span><span class="ctx">    } else if (res.status) {</span><span class="ctx">      this.currentProfileUserData = res.data;</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1627,28 +1653,34 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">      cacheKey,</span><span class="ctx">      {}</span><span class="ctx">    );</span><span class="ctx">    const skyscraperAds$ = this.getSkyscraperAdsObservable(</span><span class="ctx">      SPONSORED_AD_CONSTANTS.REQUEST_FROM_PROFILE_FEED</span><span class="ctx">    );</span><span class="ctx"></span><span class="ctx">    forkJoin({</span><span class="del">-      otherPosts: otherPosts$,</span><span class="del">-      skyscraperAds: skyscraperAds$</span><span class="add">+      otherPosts: otherPosts$.pipe(</span><span class="add">+        timeout(8000),</span><span class="add">+        catchError(() =&gt; of({ status: false, data: [], message: null }))</span><span class="add">+      ),</span><span class="add">+      skyscraperAds: skyscraperAds$.pipe(</span><span class="add">+        timeout(8000),</span><span class="add">+        catchError(() =&gt; of([]))</span><span class="add">+      )</span><span class="ctx">    })</span><span class="ctx">      .pipe(takeUntil(this.destroy$))</span><span class="ctx">      .subscribe({</span><span class="ctx">        next: (results) =&gt; {</span><span class="ctx">          const res = results.otherPosts;</span><span class="del">-          if (res.status) {</span><span class="add">+          if (res?.status) {</span><span class="ctx">            // Store skyscraper ads</span><span class="ctx">            this.skyscraperAds = results.skyscraperAds;</span><span class="ctx">            // Merge ads with posts</span><span class="del">-            const updatedPosts = this.insertSkyscraperAds([...res.data]);</span><span class="add">+            const updatedPosts = this.insertSkyscraperAds([...(res.data || [])]);</span><span class="ctx">            this.isLoader = false;</span><span class="ctx"></span><span class="ctx">            this.userPosts = updatedPosts;</span><span class="ctx">            this.loadedPostPageNo = Application.ONE;</span><span class="ctx">            // this.userProfile.post_count = res.data.length;</span><span class="ctx">            this.postPages = res.LastEvaluatedKey || { pk: '', sk: '' };</span><span class="ctx">            if (this.authService.isAuthenticated()) {</span><span class="ctx">              this.fetchPostStatus();</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -1657,23 +1689,29 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">            }</span><span class="ctx">            this.restoreUnlockReturnIfNeeded();</span><span class="ctx">            this.restoreScrolledPostIfNeeded();</span><span class="ctx">            this.isFirstLoad = false;</span><span class="ctx">          } else {</span><span class="ctx">            this.isLoader = false;</span><span class="ctx">            this.loadedPostPageNo = Application.ZERO;</span><span class="ctx">            this.postPages = { pk: '', sk: '' };</span><span class="del">-            this.cs.showErrorMessage(res.message);</span><span class="add">+            const message = res?.message;</span><span class="add">+            if (message) {</span><span class="add">+              this.cs.showErrorMessage(message);</span><span class="add">+            }</span><span class="ctx">          }</span><span class="ctx">        },</span><span class="ctx">        error: (err) =&gt; {</span><span class="ctx">          this.isLoader = false;</span><span class="ctx">          this.loadedPostPageNo = Application.ZERO;</span><span class="del">-          this.cs.showErrorMessage(err.message);</span><span class="add">+          const message = err?.error?.message ?? err?.message;</span><span class="add">+          if (message) {</span><span class="add">+            this.cs.showErrorMessage(message);</span><span class="add">+          }</span><span class="ctx">        }</span><span class="ctx">      });</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  onMentionUserSelect = (selection) =&gt; {</span><span class="ctx">    this.setTeggedUsers(selection);</span><span class="ctx">    return `@${selection.first_name} ${selection.last_name} `;</span><span class="ctx">  };</span></pre>
+</article>
+
+<article class="slide">
+<h2>Welcome video and merch</h2>
+<pre class="diff small"><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -2006,23 +2044,29 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">        post.description = post.cta_title;</span><span class="ctx">      }</span><span class="ctx">    });</span><span class="ctx">  }</span><span class="ctx">  getWelcomeVideoMessage(id: string): void {</span><span class="ctx">    const url = `${API_URLS.welcomeMessage}/${id}`;</span><span class="ctx">    this.apiCacheService</span><span class="ctx">      .get(url, CacheTypes.REFRESH_EVERY_N)</span><span class="del">-      .pipe(takeUntil(this.destroy$))</span><span class="add">+      .pipe(</span><span class="add">+        timeout(8000),</span><span class="add">+        catchError((err) =&gt; {</span><span class="add">+          this.handleWelcomeVideoError(err);</span><span class="add">+          return of(null);</span><span class="add">+        }),</span><span class="add">+        takeUntil(this.destroy$)</span><span class="add">+      )</span><span class="ctx">      .subscribe({</span><span class="ctx">        next: (res) =&gt; {</span><span class="del">-          this.handleWelcomeVideoResponse(res);</span><span class="del">-        },</span><span class="del">-        error: (err) =&gt; {</span><span class="del">-          this.handleWelcomeVideoError(err);</span><span class="add">+          if (res) {</span><span class="add">+            this.handleWelcomeVideoResponse(res);</span><span class="add">+          }</span><span class="ctx">        }</span><span class="ctx">      });</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private handleWelcomeVideoResponse(res: any) {</span><span class="ctx">    if (res.status) {</span><span class="ctx">      this.welcomeVideoMessageData = {</span><span class="ctx">        ...res?.data,</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -2036,17 +2080,20 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">      this.cs.isBrowser</span><span class="ctx">    ) {</span><span class="ctx">      this.openCustomWelcomeModal();</span><span class="ctx">      this.paramsTab = '';</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private handleWelcomeVideoError(err: any) {</span><span class="del">-    this.cs.showErrorMessage(err.message);</span><span class="add">+    const message = err?.error?.message ?? err?.message;</span><span class="add">+    if (message) {</span><span class="add">+      this.cs.showErrorMessage(message);</span><span class="add">+    }</span><span class="ctx">  }</span><span class="ctx">  fetchStatusForSelectedPost(idx) {</span><span class="ctx">    this.userPosts.forEach((el, id) =&gt; {</span><span class="ctx">      if (idx === id &amp;&amp; el.is_locked) {</span><span class="ctx">        el.media_url = el?.lock_status?.media_url</span><span class="ctx">          ? el?.lock_status?.media_url</span><span class="ctx">          : el.media_url;</span><span class="ctx">        el.is_locked = !el?.lock_status?.is_unlocked;</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -4218,27 +4265,31 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">    if (!this.userProfile?.is_white_label || this.userProfile?.is_host_owner) {</span><span class="ctx">      this.isSidebarLoading = true;</span><span class="ctx">      this.apiCacheService</span><span class="ctx">        .get(</span><span class="ctx">          APIENDPOINT.getFeatureListOfUser(this.userProfile?.gsi4pk),</span><span class="ctx">          CacheTypes.REFRESH_EVERY_N</span><span class="ctx">        )</span><span class="ctx">        .pipe(</span><span class="add">+          timeout(8000),</span><span class="add">+          catchError((err) =&gt; {</span><span class="add">+            this.handleMerchandiseError(err);</span><span class="add">+            return of(null);</span><span class="add">+          }),</span><span class="ctx">          takeUntil(this.destroy$),</span><span class="ctx">          finalize(() =&gt; {</span><span class="ctx">            this.isSidebarLoading = false;</span><span class="ctx">          })</span><span class="ctx">        )</span><span class="ctx">        .subscribe({</span><span class="ctx">          next: (res) =&gt; {</span><span class="del">-            this.handleMerchandiseResponse(res);</span><span class="del">-          },</span><span class="del">-          error: (err) =&gt; {</span><span class="del">-            this.handleMerchandiseError(err);</span><span class="add">+            if (res) {</span><span class="add">+              this.handleMerchandiseResponse(res);</span><span class="add">+            }</span><span class="ctx">          }</span><span class="ctx">        });</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private handleMerchandiseResponse(res: any) {</span><span class="ctx">    if (res.status) {</span><span class="ctx">      this.isStoreConnected = res.is_store_connected;</span><span class="file">src/app/modules/shared/components/profile/profile.component.ts</span><span class="hunk">@@ -4250,17 +4301,20 @@ export class ProfileComponent implements OnInit, AfterViewInit, OnDestroy {</span><span class="ctx">        this.checkHasStoreItems();</span><span class="ctx">      }</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private handleMerchandiseError(err: any) {</span><span class="ctx">    this.merchandiseList = [];</span><span class="ctx">    this.hasStoreItems = false;</span><span class="del">-    this.cs.showErrorMessage(err.message);</span><span class="add">+    const message = err?.error?.message ?? err?.message;</span><span class="add">+    if (message) {</span><span class="add">+      this.cs.showErrorMessage(message);</span><span class="add">+    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  private checkHasStoreItems(): void {</span><span class="ctx">    const userId = this.userProfile?.gsi4pk;</span><span class="ctx">    if (!userId) {</span><span class="ctx">      return;</span><span class="ctx">    }</span><span class="ctx"></span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="Images">
+<article class="slide">
+<h2>Smaller images, less layout shift</h2>
+<p class="story">The mobile-optimization directive was generating a 2x srcset whenever the original was large enough. That wastes bytes on the LCP image and posters. The loaded skyscraper card is 500px tall; the skeleton was shorter.</p>
+<div class="cols">
+<ul><li>2x srcset is skipped for priority/LCP images. The size cap drops from 1000px to 640px.</li><li>The marketing header logo now requests 290×32 webp.</li><li>Both profile-skeleton and right-sidebar-skeleton give the ad slot a 500px min-height.</li></ul>
+<pre class="diff small"><span class="file">src/app/modules/profile/component/marketing-page-layout-container/header-layout/header-layout.component.html</span><span class="hunk">@@ -60,16 +60,19 @@</span><span class="ctx">            "</span><span class="ctx">            [src]="logoUrl"</span><span class="ctx">            [alt]="CONST.LOGO_ALT"</span><span class="ctx">            loading="eager"</span><span class="ctx">            decoding="async"</span><span class="ctx">            appDisableRightClick</span><span class="ctx">            appMobileOptimization</span><span class="ctx">            [originalUrl]="logoUrl"</span><span class="add">+            [width]="290"</span><span class="add">+            [height]="32"</span><span class="add">+            [format]="'webp'"</span><span class="ctx">          /&gt;</span><span class="ctx">        }</span><span class="ctx">      }</span><span class="ctx">    &lt;/div&gt;</span><span class="ctx"></span><span class="ctx">    &lt;nav class="header-layout__nav" aria-label="Header menu"&gt;</span><span class="ctx">      @for (item of menuItems; track item) {</span><span class="ctx">        @if (item.isWelcomeVideo) {</span><span class="file">src/app/shared/directives/mobile-optimization.directive.ts</span><span class="hunk">@@ -175,20 +175,22 @@ export class MobileOptimizationDirective</span><span class="ctx"></span><span class="ctx">    // Build srcset for responsive images - only add 2x if dimensions are small enough</span><span class="ctx">    let srcset = optimized;</span><span class="ctx">    try {</span><span class="ctx">      // Only generate 2x variant for high-DPI if:</span><span class="ctx">      // 1. Original width is known AND</span><span class="ctx">      // 2. Original is at least 2x the requested size AND</span><span class="ctx">      // 3. Requested size is reasonable (avoid excessive upscaling)</span><span class="add">+      // Skip 2x for LCP/priority images and posters — oversized srcset wastes bytes.</span><span class="ctx">      const shouldGenerate2x =</span><span class="add">+        !this.priority() &amp;&amp;</span><span class="ctx">        this._origWidth &amp;&amp;</span><span class="ctx">        this._origWidth &gt;= (widthToRequest ?? 0) * 2 &amp;&amp;</span><span class="del">-        (widthToRequest ?? 0) &lt; 1000; // Arbitrary limit to avoid huge requests</span><span class="add">+        (widthToRequest ?? 0) &lt; 640;</span><span class="ctx"></span><span class="ctx">      if (shouldGenerate2x &amp;&amp; !this.isPoster()) {</span><span class="ctx">        // Only generate 2x for regular images, not for posters</span><span class="ctx">        const optimized2x = this.mobileOptimizationService.getOptimizedImageUrl(</span><span class="ctx">          sourceUrlString,</span><span class="ctx">          widthToRequest ? Math.round((widthToRequest ?? 0) * 2) : undefined,</span><span class="ctx">          heightToRequest ? Math.round((heightToRequest ?? 0) * 2) : undefined,</span><span class="ctx">          qualityNum !== undefined ? qualityNum : undefined,</span></pre>
+</div>
+</article>
+
+<article class="slide">
+<h2>Ad skeleton min-height</h2>
+<pre class="diff"><span class="file">src/app/components/skeleton/profile-skeleton/profile-skeleton.component.scss</span><span class="hunk">@@ -150,10 +150,18 @@</span><span class="ctx">  @include breakpoints(mini-ipad) {</span><span class="ctx">    margin-top: 12px;</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  &amp;__ad {</span><span class="ctx">    width: 100%;</span><span class="ctx">    margin-top: 8px;</span><span class="ctx">    margin-bottom: 20px;</span><span class="add">+    // Match loaded skyscraper card (min-height 500px) to avoid desktop CLS.</span><span class="add">+    min-height: 500px;</span><span class="add">+</span><span class="add">+    app-skeleton {</span><span class="add">+      display: block;</span><span class="add">+      width: 100%;</span><span class="add">+      min-height: 500px;</span><span class="add">+    }</span><span class="ctx">  }</span><span class="ctx">}</span><span class="file">src/app/components/skeleton/right-sidebar-skeleton/right-sidebar-skeleton.component.scss</span><span class="hunk">@@ -65,10 +65,18 @@</span><span class="ctx">    app-skeleton {</span><span class="ctx">      display: block;</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="ctx">  &amp;__ad {</span><span class="ctx">    width: 100%;</span><span class="ctx">    margin-bottom: 20px;</span><span class="add">+    // Match loaded skyscraper card (min-height 500px) to avoid desktop CLS.</span><span class="add">+    min-height: 500px;</span><span class="add">+</span><span class="add">+    app-skeleton {</span><span class="add">+      display: block;</span><span class="add">+      width: 100%;</span><span class="add">+      min-height: 500px;</span><span class="add">+    }</span><span class="ctx">  }</span><span class="ctx">}</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="CSS">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="full" data-to="partials"></div>
+  <p class="lede"><code>styles.scss</code> imported the full Bootstrap barrel. Navbar, offcanvas, spinners, list-group, and placeholders never ship as used UI.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>The curated stack</h2>
+<pre class="diff small"><span class="file">src/assets/scss/_bootstrap-partials.scss</span><span class="hunk">@@ -0,0 +1,38 @@</span><span class="add">+// Bootstrap SCSS diet: only modules this app uses (drops navbar, list-group,</span><span class="add">+// spinners, offcanvas, placeholders). Keep in sync with class usage audits.</span><span class="add">+@import 'bootstrap/scss/functions';</span><span class="add">+@import 'bootstrap/scss/variables';</span><span class="add">+@import 'bootstrap/scss/variables-dark';</span><span class="add">+@import 'bootstrap/scss/maps';</span><span class="add">+@import 'bootstrap/scss/mixins';</span><span class="add">+@import 'bootstrap/scss/utilities';</span><span class="add">+</span><span class="add">+@import 'bootstrap/scss/root';</span><span class="add">+@import 'bootstrap/scss/reboot';</span><span class="add">+@import 'bootstrap/scss/type';</span><span class="add">+@import 'bootstrap/scss/images';</span><span class="add">+@import 'bootstrap/scss/containers';</span><span class="add">+@import 'bootstrap/scss/grid';</span><span class="add">+@import 'bootstrap/scss/tables';</span><span class="add">+@import 'bootstrap/scss/forms';</span><span class="add">+@import 'bootstrap/scss/buttons';</span><span class="add">+@import 'bootstrap/scss/transitions';</span><span class="add">+@import 'bootstrap/scss/dropdown';</span><span class="add">+@import 'bootstrap/scss/button-group';</span><span class="add">+@import 'bootstrap/scss/nav';</span><span class="add">+@import 'bootstrap/scss/card';</span><span class="add">+@import 'bootstrap/scss/accordion';</span><span class="add">+@import 'bootstrap/scss/breadcrumb';</span><span class="add">+@import 'bootstrap/scss/pagination';</span><span class="add">+@import 'bootstrap/scss/badge';</span><span class="add">+@import 'bootstrap/scss/alert';</span><span class="add">+@import 'bootstrap/scss/progress';</span><span class="add">+@import 'bootstrap/scss/close';</span><span class="add">+@import 'bootstrap/scss/toasts';</span><span class="add">+@import 'bootstrap/scss/modal';</span><span class="add">+@import 'bootstrap/scss/tooltip';</span><span class="add">+@import 'bootstrap/scss/popover';</span><span class="add">+@import 'bootstrap/scss/carousel';</span><span class="add">+</span><span class="add">+@import 'bootstrap/scss/helpers';</span><span class="add">+@import 'bootstrap/scss/utilities/api';</span><span class="file">src/styles.scss</span><span class="hunk">@@ -1,10 +1,9 @@</span><span class="ctx">@use 'sass:map';</span><span class="del">-@use 'bootstrap/scss/bootstrap';</span><span class="ctx">@use 'tools' as *;</span><span class="ctx">@use 'main';</span><span class="ctx">@use './app/components/skeleton/skeleton';</span><span class="ctx"></span><span class="ctx">@font-face {</span><span class="ctx">  font-family: 'Satoshi';</span><span class="ctx">  src: url('./assets/fonts/Satoshi-Regular.otf') format('opentype');</span><span class="ctx">  font-weight: 400;</span><span class="file">src/assets/scss/_icon-lite.scss</span><span class="hunk">@@ -4,17 +4,17 @@</span><span class="ctx">  src:  url('../fonts/icomoon-lite.eot?r4a7ko');</span><span class="ctx">  src:  url('../fonts/icomoon-lite.eot?r4a7ko#iefix') format('embedded-opentype'),</span><span class="ctx">    url('../fonts/icomoon-lite.woff2?r4a7ko') format('woff2'),</span><span class="ctx">    url('../fonts/icomoon-lite.ttf?r4a7ko') format('truetype'),</span><span class="ctx">    url('../fonts/icomoon-lite.woff?r4a7ko') format('woff'),</span><span class="ctx">    url('../fonts/icomoon-lite.svg?r4a7ko#icomoon-lite') format('svg');</span><span class="ctx">  font-weight: normal;</span><span class="ctx">  font-style: normal;</span><span class="del">-  font-display: block;</span><span class="add">+  font-display: swap;</span><span class="ctx">}</span><span class="ctx"></span><span class="ctx">[class^="icon-lite"], [class*=" icon-lite"] {</span><span class="ctx">  /* use !important to prevent issues with browser extensions that change fonts */</span><span class="ctx">  font-family: 'icomoon-lite' !important;</span><span class="ctx">  speak: never;</span><span class="ctx">  font-style: normal;</span><span class="ctx">  font-weight: normal;</span></pre>
+</article>
+
+<article class="slide">
+<h2>angular.json and generated tenants</h2>
+<p class="story quiet">The generate-whitelabel hunk also appears on S3. Same block forces critical-CSS inlining on prod/qa.</p>
+<pre class="diff small"><span class="file">angular.json</span><span class="hunk">@@ -70,16 +70,17 @@</span><span class="ctx">              {</span><span class="ctx">                "glob": "**/*",</span><span class="ctx">                "input": "node_modules/flag-icon-css/flags",</span><span class="ctx">                "output": "/flags"</span><span class="ctx">              }</span><span class="ctx">            ],</span><span class="ctx">            "styles": [</span><span class="ctx">              "node_modules/@ng-select/ng-select/themes/default.theme.css",</span><span class="add">+              "src/assets/scss/_bootstrap-partials.scss",</span><span class="ctx">              "src/styles.scss",</span><span class="ctx">              "src/assets/scss/_white-label-theme.scss",</span><span class="ctx">              {</span><span class="ctx">                "input": "node_modules/intl-tel-input/build/css/intlTelInput.css",</span><span class="ctx">                "bundleName": "lazy-intl-tel-input",</span><span class="ctx">                "inject": false</span><span class="ctx">              },</span><span class="ctx">              {</span><span class="file">angular.json</span><span class="hunk">@@ -369,16 +370,17 @@</span><span class="ctx">            ],</span><span class="ctx">            "styles": [</span><span class="ctx">              "node_modules/intl-tel-input/build/css/intlTelInput.css",</span><span class="ctx">              "node_modules/@angular/material/prebuilt-themes/indigo-pink.css",</span><span class="ctx">              "node_modules/@ng-select/ng-select/themes/default.theme.css",</span><span class="ctx">              "node_modules/ngx-bootstrap/datepicker/bs-datepicker.css",</span><span class="ctx">              "node_modules/ngx-owl-carousel-o/lib/styles/prebuilt-themes/owl.carousel.min.css",</span><span class="ctx">              "node_modules/ngx-owl-carousel-o/lib/styles/prebuilt-themes/owl.theme.default.min.css",</span><span class="add">+              "src/assets/scss/_bootstrap-partials.scss",</span><span class="ctx">              "src/styles.scss",</span><span class="ctx">              "node_modules/quill/dist/quill.snow.css",</span><span class="ctx">              "node_modules/ngx-toastr/toastr.css",</span><span class="ctx">              "node_modules/primeicons/primeicons.css",</span><span class="ctx">              "node_modules/quill-emoji/dist/quill-emoji.css",</span><span class="ctx">              "node_modules/@ctrl/ngx-emoji-mart/picker.css"</span><span class="ctx">            ],</span><span class="ctx">            "stylePreprocessorOptions": {</span><span class="file">scripts/generate-whitelabel.js</span><span class="hunk">@@ -688,25 +688,59 @@ function createProjectConfig(userName, baseProject, targetEnv = null) {</span><span class="ctx">  }</span><span class="ctx">  </span><span class="ctx">  // Application builder writes browser/ and server/ under this parent path</span><span class="ctx">  if (newProject.architect &amp;&amp; newProject.architect.build &amp;&amp; newProject.architect.build.options) {</span><span class="ctx">    newProject.architect.build.options.outputPath = `dist/${userName}`;</span><span class="ctx">    </span><span class="ctx">    // Add white-label-theme-entry.scss to styles array</span><span class="ctx">    if (newProject.architect.build.options.styles &amp;&amp; Array.isArray(newProject.architect.build.options.styles)) {</span><span class="add">+      const styles = newProject.architect.build.options.styles;</span><span class="add">+      const bootstrapPartialsPath = 'src/assets/scss/_bootstrap-partials.scss';</span><span class="add">+      const mainStylesPath = 'src/styles.scss';</span><span class="add">+      if (!styles.includes(bootstrapPartialsPath)) {</span><span class="add">+        const mainIdx = styles.indexOf(mainStylesPath);</span><span class="add">+        if (mainIdx &gt;= 0) {</span><span class="add">+          styles.splice(mainIdx, 0, bootstrapPartialsPath);</span><span class="add">+        } else {</span><span class="add">+          styles.unshift(bootstrapPartialsPath);</span><span class="add">+        }</span><span class="add">+        console.log(`✅ Added bootstrap-partials.scss to styles for ${userName}`);</span><span class="add">+      }</span><span class="ctx">      const whiteLabelThemePath = 'src/assets/scss/_white-label-theme.scss';</span><span class="ctx">      // Only add if it doesn't already exist</span><span class="del">-      if (!newProject.architect.build.options.styles.includes(whiteLabelThemePath)) {</span><span class="del">-        newProject.architect.build.options.styles.push(whiteLabelThemePath);</span><span class="add">+      if (!styles.includes(whiteLabelThemePath)) {</span><span class="add">+        styles.push(whiteLabelThemePath);</span><span class="ctx">        console.log(`✅ Added white-label-theme-entry.scss to styles for ${userName}`);</span><span class="ctx">      }</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="add">+  // Keep critical-CSS inlining on prod/qa (media=print + onload is intentional, not a duplicate stylesheet).</span><span class="add">+  const buildConfigs = newProject.architect?.build?.configurations;</span><span class="add">+  if (buildConfigs) {</span><span class="add">+    for (const name of ['production', 'qa']) {</span><span class="add">+      const cfg = buildConfigs[name];</span><span class="add">+      if (!cfg) continue;</span><span class="add">+      if (cfg.optimization === true || cfg.optimization == null) {</span><span class="add">+        cfg.optimization = {</span><span class="add">+          scripts: true,</span><span class="add">+          styles: { minify: true, inlineCritical: true },</span><span class="add">+          fonts: true</span><span class="add">+        };</span><span class="add">+      } else if (typeof cfg.optimization === 'object') {</span><span class="add">+        cfg.optimization.styles = {</span><span class="add">+          minify: true,</span><span class="add">+          ...(cfg.optimization.styles || {}),</span><span class="add">+          inlineCritical: true</span><span class="add">+        };</span><span class="add">+      }</span><span class="add">+    }</span><span class="add">+  }</span><span class="add">+</span><span class="ctx">  retargetArchitectProjectReferences(newProject.architect, userName);</span><span class="ctx">  </span><span class="ctx">  // Determine which environments to process</span><span class="ctx">  const envsToProcess = targetEnv ? [targetEnv] : CONFIG.environments;</span><span class="ctx"></span><span class="ctx">  // Update ALL build configurations with proper fileReplacements</span><span class="ctx">  if (newProject.architect &amp;&amp; newProject.architect.build &amp;&amp; newProject.architect.build.configurations) {</span><span class="ctx">    // First, update existing configurations (production, development, qa, staging, etc.)</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="S3">
+<article class="slide">
+<div class="hero">
+  <div class="comp text" data-from="1y HTML" data-to="revalidate"></div>
+  <p class="lede">Uploads stamped <code>Cache-Control: public,max-age=31536000,immutable</code> on the whole dist, including <code>index.html</code> and prerendered HTML. Browsers could keep a stale shell for a year.</p>
+</div>
+</article>
+
+<article class="slide">
+<h2>rclone-upload-dist.sh</h2>
+<div class="cols">
+<ul><li>Two rclone copy passes: everything except HTML as immutable, then only <code>index.html</code> / <code>**/index.html</code> as <code>max-age=0,must-revalidate</code>.</li><li>buildspec and the three tenant upload scripts call this helper.</li><li>Concurrency stays conservative (<code>transfers=2</code>, <code>checkers=4</code>).</li><li>explore, splash, manifest, favicon, and sitemaps stay excluded.</li></ul>
+<pre class="diff small"><span class="file">deployment_script/rclone-upload-dist.sh</span><span class="hunk">@@ -0,0 +1,56 @@</span><span class="add">+#!/usr/bin/env bash</span><span class="add">+# Upload a browser dist folder to S3 with split Cache-Control:</span><span class="add">+# - HTML (index.html / prerendered **/index.html): no-cache / must-revalidate</span><span class="add">+# - Hashed assets and everything else: long-lived immutable</span><span class="add">+set -euo pipefail</span><span class="add">+</span><span class="add">+OUTPUT_PATH="${1:?usage: rclone-upload-dist.sh &lt;outputPath&gt; &lt;s3Bucket&gt;}"</span><span class="add">+BUCKET="${2:?usage: rclone-upload-dist.sh &lt;outputPath&gt; &lt;s3Bucket&gt;}"</span><span class="add">+</span><span class="add">+COMMON_EXCLUDES=(</span><span class="add">+  --exclude "explore/**"</span><span class="add">+  --exclude "assets/splashscreen/**"</span><span class="add">+  --exclude "assets/Json/manifest.json"</span><span class="add">+  --exclude "assets/Json/splashscreens.json"</span><span class="add">+  --exclude "assets/favicon/**"</span><span class="add">+  --exclude "favicon.ico"</span><span class="add">+  --exclude "sitemap.xml"</span><span class="add">+  --exclude "sitemap-*.xml"</span><span class="add">+)</span><span class="add">+</span><span class="add">+LOG_FILE="${RCLONE_LOG_FILE:-rclone-${BUCKET}.log}"</span><span class="add">+</span><span class="add">+TRANSFERS="${RCLONE_TRANSFERS:-2}"</span><span class="add">+CHECKERS="${RCLONE_CHECKERS:-4}"</span><span class="add">+</span><span class="add">+echo "===== UPLOADING ASSETS (immutable) TO s3:$BUCKET ====="</span><span class="add">+rclone copy "$OUTPUT_PATH" ":s3:$BUCKET" \</span><span class="add">+  "${COMMON_EXCLUDES[@]}" \</span><span class="add">+  --exclude "**/*.html" \</span><span class="add">+  --header-upload "Cache-Control:public,max-age=31536000,immutable" \</span><span class="add">+  --s3-env-auth \</span><span class="add">+  --checksum \</span><span class="add">+  --transfers="$TRANSFERS" \</span><span class="add">+  --checkers="$CHECKERS" \</span><span class="add">+  --retries=3 \</span><span class="add">+  --retries-sleep=5s \</span><span class="add">+  --log-level="${RCLONE_LOG_LEVEL:-INFO}" \</span><span class="add">+  --log-file="$LOG_FILE"</span><span class="add">+</span><span class="add">+echo "===== UPLOADING HTML (must-revalidate) TO s3:$BUCKET ====="</span><span class="add">+rclone copy "$OUTPUT_PATH" ":s3:$BUCKET" \</span><span class="add">+  --include "index.html" \</span><span class="add">+  --include "**/index.html" \</span><span class="add">+  --exclude "*" \</span><span class="add">+  --header-upload "Cache-Control:public,max-age=0,must-revalidate" \</span><span class="add">+  --s3-env-auth \</span><span class="add">+  --checksum \</span><span class="add">+  --transfers="$TRANSFERS" \</span><span class="add">+  --checkers="$CHECKERS" \</span><span class="add">+  --retries=3 \</span><span class="add">+  --retries-sleep=5s \</span><span class="add">+  --log-level="${RCLONE_LOG_LEVEL:-INFO}" \</span><span class="add">+  --log-file="$LOG_FILE"</span><span class="add">+</span><span class="add">+echo "===== RCLONE LOG ($BUCKET) ====="</span><span class="add">+cat "$LOG_FILE" || true</span></pre>
+</div>
+</article>
+
+<article class="slide">
+<h2>Callers</h2>
+<pre class="diff small"><span class="file">buildspec-s3.yml</span><span class="hunk">@@ -39,30 +39,21 @@ phases:</span><span class="ctx">          echo "===== $BUILD_ENV ENV - SKIPPING NPM AUDIT ====="</span><span class="ctx">        fi</span><span class="ctx"></span><span class="ctx">      - npm run $BUILD_ENV</span><span class="ctx"></span><span class="ctx">      # Replace API endpoint in shell script</span><span class="ctx">      - sed -i "s|{{API_ENDPOINT}}|$API_ENDPOINT|g" deployment_script/whitelabel_invalidate.sh</span><span class="ctx"></span><span class="del">-      # Upload static assets (non-HTML) with long-term cache</span><span class="del">-      - echo "===== UPLOADING STATIC ASSETS TO S3 (LONG CACHE) ====="</span><span class="add">+      # Upload: hashed assets immutable; HTML must-revalidate</span><span class="add">+      - echo "===== UPLOADING DIST TO S3 (SPLIT CACHE) ====="</span><span class="ctx">      - |</span><span class="del">-        rclone copy dist/TopFans/browser/ :s3:$ENV_S3 \</span><span class="del">-          --exclude "explore/**" \</span><span class="del">-          --header-upload "Cache-Control:public,max-age=31536000,immutable" \</span><span class="del">-          --s3-env-auth \</span><span class="del">-          --checksum \</span><span class="del">-          --log-level=INFO \</span><span class="del">-          --log-file=rclone-static.log</span><span class="del">-</span><span class="del">-      # Show upload logs</span><span class="del">-      - echo "===== RCLONE STATIC ASSETS LOG ====="</span><span class="del">-      - cat rclone-static.log</span><span class="add">+        RCLONE_LOG_FILE=rclone-static.log \</span><span class="add">+          ./deployment_script/rclone-upload-dist.sh dist/TopFans/browser "$ENV_S3"</span><span class="ctx"></span><span class="ctx">      # Perform full CloudFront invalidation</span><span class="ctx">      - |</span><span class="ctx">        echo "===== INVALIDATING CLOUDFRONT: /* ====="</span><span class="ctx">        aws cloudfront create-invalidation \</span><span class="ctx">          --distribution-id "$ENV_CLOUDFRONT" \</span><span class="ctx">          --paths "/*" \</span><span class="ctx">          --query 'Invalidation.Id' \</span><span class="file">deployment_script/build_and_upload.sh</span><span class="hunk">@@ -28,34 +28,18 @@ for row in "${tenants[@]}"; do</span><span class="ctx"></span><span class="ctx">  echo "===== BUILDING FOR BUCKET: $bucket ====="</span><span class="ctx">  echo "&gt;&gt;&gt; DEBUG: command=$command"</span><span class="ctx">  </span><span class="ctx">  # Run build - will fail the entire script if this fails</span><span class="ctx">  eval "$command"</span><span class="ctx"></span><span class="ctx">  echo "===== UPLOADING WITH RCLONE TO $bucket ====="</span><span class="del">-  rclone copy "$outputPath" ":s3:$bucket" \</span><span class="del">-    --exclude "explore/**" \</span><span class="del">-    --exclude "assets/splashscreen/**" \</span><span class="del">-    --exclude "assets/Json/manifest.json" \</span><span class="del">-    --exclude "assets/Json/splashscreens.json" \</span><span class="del">-    --exclude "assets/favicon/**" \</span><span class="del">-    --exclude "favicon.ico" \</span><span class="del">-    --exclude "sitemap.xml" \</span><span class="del">-    --exclude "sitemap-*.xml" \</span><span class="del">-    --header-upload "Cache-Control:public,max-age=31536000,immutable" \</span><span class="del">-    --s3-env-auth \</span><span class="del">-    --checksum \</span><span class="del">-    --log-level=DEBUG \</span><span class="del">-    --log-file="rclone-$bucket.log"</span><span class="del">-</span><span class="del">-</span><span class="del">-  echo "===== RCLONE LOG OUTPUT ($bucket) ====="</span><span class="del">-  cat "rclone-$bucket.log"</span><span class="add">+  RCLONE_LOG_FILE="rclone-$bucket.log" RCLONE_LOG_LEVEL=DEBUG \</span><span class="add">+    ./deployment_script/rclone-upload-dist.sh "$outputPath" "$bucket"</span><span class="ctx">  echo "============================================="</span><span class="ctx"></span><span class="ctx">  userName=$(echo "$row" | jq -r '.userName // empty')</span><span class="ctx">  userId=$(echo "$row" | jq -r '.userId // empty')</span><span class="ctx">  environment=$(echo "$row" | jq -r '.environment // empty')</span><span class="ctx">  if [[ -z "$userId" || -z "$userName" || -z "$environment" ]]; then</span><span class="ctx">    echo "ERROR: missing userId/userName/environment for $bucket"</span><span class="ctx">    exit 1</span><span class="file">deployment_script/ondemand-build-and-upload.sh</span><span class="hunk">@@ -10,33 +10,18 @@ cd "$REPO_ROOT"</span><span class="ctx"></span><span class="ctx">node scripts/generate-whitelabel.js --env "$WL_ENV" --users "$WL_USERNAME" --user-id "$WL_USER_ID"</span><span class="ctx"></span><span class="ctx">npm run "prerender-all-${WL_USERNAME}-${WL_ENV}"</span><span class="ctx"></span><span class="ctx">output_path="${REPO_ROOT}/dist/${WL_USERNAME}/browser"</span><span class="ctx">[[ -d "$output_path" ]] || { echo "ERROR: missing build output at $output_path"; exit 1; }</span><span class="ctx"></span><span class="del">-rclone copy "$output_path" ":s3:${WL_S3_BUCKET}" \</span><span class="del">-  --exclude "explore/**" \</span><span class="del">-  --exclude "assets/splashscreen/**" \</span><span class="del">-  --exclude "assets/Json/manifest.json" \</span><span class="del">-  --exclude "assets/Json/splashscreens.json" \</span><span class="del">-  --exclude "assets/favicon/**" \</span><span class="del">-  --exclude "favicon.ico" \</span><span class="del">-  --exclude "sitemap.xml" \</span><span class="del">-  --exclude "sitemap-*.xml" \</span><span class="del">-  --header-upload "Cache-Control:public,max-age=31536000,immutable" \</span><span class="del">-  --s3-env-auth \</span><span class="del">-  --checksum \</span><span class="del">-  --log-level=INFO \</span><span class="del">-  --transfers=2 \</span><span class="del">-  --checkers=4 \</span><span class="del">-  --retries=3 \</span><span class="del">-  --retries-sleep=5s</span><span class="add">+RCLONE_LOG_FILE="rclone-${WL_S3_BUCKET}.log" \</span><span class="add">+  "$REPO_ROOT/deployment_script/rclone-upload-dist.sh" "$output_path" "$WL_S3_BUCKET"</span><span class="ctx"></span><span class="ctx">node scripts/request-wls-build.mjs \</span><span class="ctx">  --env="$WL_ENV" \</span><span class="ctx">  --user="$WL_USERNAME" \</span><span class="ctx">  --userId="$WL_USER_ID" \</span><span class="ctx">  --tasks=CONFIG,SPLASH,APP_ICON,MANIFEST,SITEMAP</span><span class="ctx"></span><span class="ctx">if [[ -n "${WL_CF_DIST:-}" ]]; then</span><span class="file">deployment_script/parallel-build-and-upload.sh</span><span class="hunk">@@ -77,36 +77,21 @@ process_tenant() {</span><span class="ctx">    echo "❌ No output at $out_abs after ${WAIT_FOR_OUTPUT_SECONDS}s"</span><span class="ctx">    ls -la "$REPO_ROOT" || true</span><span class="ctx">    popd &gt;/dev/null</span><span class="ctx">    return 21</span><span class="ctx">  fi</span><span class="ctx">  echo "Output ready:"</span><span class="ctx">  ls -la "$out_abs" || true</span><span class="ctx"></span><span class="del">-  # Upload with rclone (conservative concurrency)</span><span class="add">+  # Upload with rclone (assets immutable; HTML must-revalidate)</span><span class="ctx">  echo "===== UPLOADING: $bucket from $out_abs ====="</span><span class="ctx">  set +e</span><span class="del">-  rclone copy "$out_abs" ":s3:$bucket" \</span><span class="del">-    --exclude "explore/**" \</span><span class="del">-    --exclude "assets/splashscreen/**" \</span><span class="del">-    --exclude "assets/Json/manifest.json" \</span><span class="del">-    --exclude "assets/Json/splashscreens.json" \</span><span class="del">-    --exclude "assets/favicon/**" \</span><span class="del">-    --exclude "favicon.ico" \</span><span class="del">-    --exclude "sitemap.xml" \</span><span class="del">-    --exclude "sitemap-*.xml" \</span><span class="del">-    --header-upload "Cache-Control:public,max-age=31536000,immutable" \</span><span class="del">-    --s3-env-auth \</span><span class="del">-    --checksum \</span><span class="del">-    --log-level=INFO \</span><span class="del">-    --transfers=2 \</span><span class="del">-    --checkers=4 \</span><span class="del">-    --retries=3 \</span><span class="del">-    --retries-sleep=5s</span><span class="add">+  RCLONE_LOG_FILE="rclone-$bucket.log" \</span><span class="add">+    "$REPO_ROOT/deployment_script/rclone-upload-dist.sh" "$out_abs" "$bucket"</span><span class="ctx">  rc=$?</span><span class="ctx">  set -e</span><span class="ctx">  popd &gt;/dev/null</span><span class="ctx"></span><span class="ctx">  if [[ $rc -ne 0 ]]; then</span><span class="ctx">    echo "❌ RCLONE FAILED for $bucket (rc=$rc)"</span><span class="ctx">    return "$rc"</span><span class="ctx">  fi</span></pre>
+</article>
+
+<article class="slide">
+<h2>Inline critical CSS on white-label prod/qa</h2>
+<p class="story quiet">Same generate-whitelabel.js hunk as Bootstrap. Repeated because the two edits solve different problems.</p>
+<pre class="diff small"><span class="file">scripts/generate-whitelabel.js</span><span class="hunk">@@ -688,25 +688,59 @@ function createProjectConfig(userName, baseProject, targetEnv = null) {</span><span class="ctx">  }</span><span class="ctx">  </span><span class="ctx">  // Application builder writes browser/ and server/ under this parent path</span><span class="ctx">  if (newProject.architect &amp;&amp; newProject.architect.build &amp;&amp; newProject.architect.build.options) {</span><span class="ctx">    newProject.architect.build.options.outputPath = `dist/${userName}`;</span><span class="ctx">    </span><span class="ctx">    // Add white-label-theme-entry.scss to styles array</span><span class="ctx">    if (newProject.architect.build.options.styles &amp;&amp; Array.isArray(newProject.architect.build.options.styles)) {</span><span class="add">+      const styles = newProject.architect.build.options.styles;</span><span class="add">+      const bootstrapPartialsPath = 'src/assets/scss/_bootstrap-partials.scss';</span><span class="add">+      const mainStylesPath = 'src/styles.scss';</span><span class="add">+      if (!styles.includes(bootstrapPartialsPath)) {</span><span class="add">+        const mainIdx = styles.indexOf(mainStylesPath);</span><span class="add">+        if (mainIdx &gt;= 0) {</span><span class="add">+          styles.splice(mainIdx, 0, bootstrapPartialsPath);</span><span class="add">+        } else {</span><span class="add">+          styles.unshift(bootstrapPartialsPath);</span><span class="add">+        }</span><span class="add">+        console.log(`✅ Added bootstrap-partials.scss to styles for ${userName}`);</span><span class="add">+      }</span><span class="ctx">      const whiteLabelThemePath = 'src/assets/scss/_white-label-theme.scss';</span><span class="ctx">      // Only add if it doesn't already exist</span><span class="del">-      if (!newProject.architect.build.options.styles.includes(whiteLabelThemePath)) {</span><span class="del">-        newProject.architect.build.options.styles.push(whiteLabelThemePath);</span><span class="add">+      if (!styles.includes(whiteLabelThemePath)) {</span><span class="add">+        styles.push(whiteLabelThemePath);</span><span class="ctx">        console.log(`✅ Added white-label-theme-entry.scss to styles for ${userName}`);</span><span class="ctx">      }</span><span class="ctx">    }</span><span class="ctx">  }</span><span class="ctx"></span><span class="add">+  // Keep critical-CSS inlining on prod/qa (media=print + onload is intentional, not a duplicate stylesheet).</span><span class="add">+  const buildConfigs = newProject.architect?.build?.configurations;</span><span class="add">+  if (buildConfigs) {</span><span class="add">+    for (const name of ['production', 'qa']) {</span><span class="add">+      const cfg = buildConfigs[name];</span><span class="add">+      if (!cfg) continue;</span><span class="add">+      if (cfg.optimization === true || cfg.optimization == null) {</span><span class="add">+        cfg.optimization = {</span><span class="add">+          scripts: true,</span><span class="add">+          styles: { minify: true, inlineCritical: true },</span><span class="add">+          fonts: true</span><span class="add">+        };</span><span class="add">+      } else if (typeof cfg.optimization === 'object') {</span><span class="add">+        cfg.optimization.styles = {</span><span class="add">+          minify: true,</span><span class="add">+          ...(cfg.optimization.styles || {}),</span><span class="add">+          inlineCritical: true</span><span class="add">+        };</span><span class="add">+      }</span><span class="add">+    }</span><span class="add">+  }</span><span class="add">+</span><span class="ctx">  retargetArchitectProjectReferences(newProject.architect, userName);</span><span class="ctx">  </span><span class="ctx">  // Determine which environments to process</span><span class="ctx">  const envsToProcess = targetEnv ? [targetEnv] : CONFIG.environments;</span><span class="ctx"></span><span class="ctx">  // Update ALL build configurations with proper fileReplacements</span><span class="ctx">  if (newProject.architect &amp;&amp; newProject.architect.build &amp;&amp; newProject.architect.build.configurations) {</span><span class="ctx">    // First, update existing configurations (production, development, qa, staging, etc.)</span></pre>
+</article>
+
+</section>
+
+<section class="page" data-title="Watch">
+<article class="slide">
+<h2>The performance contract</h2>
+<div class="cols">
+<ul><li>Bootstrap is the curated partial, not the full barrel.</li><li>Google Translate loads from <code>LocaleService</code>, not <code>index.html</code>.</li><li>GTM/GA4 idle-load stays in <code>gtag.service.ts</code>.</li><li>Follow-up, not in this PR: <code>source-map-explorer</code> on the production bundle, Firebase modular imports, leftover Bootstrap JS.</li><li><code>polyfills.ts</code> only adds a comment: keep zone.js plus <code>@angular/localize</code>.</li></ul>
+<pre class="diff"><span class="file">knowledge/stack.md</span><span class="hunk">@@ -59,8 +59,15 @@ Clone an existing feature module (wallet, messages, monetize). Lazy route in `ap</span><span class="ctx">## Definition of done (UI slice)</span><span class="ctx"></span><span class="ctx">1. HTTP uses `ApiCacheService` / `ApiCallService` (no raw `HttpClient` in pages)</span><span class="ctx">2. Lazy route registered; path from `ROUTE_PATHS`</span><span class="ctx">3. Constants file for user-facing strings</span><span class="ctx">4. Matches [web-conventions.md](web-conventions.md)</span><span class="ctx">5. Talks to the existing backend via `environment.baseURL`; no assumed endpoints</span><span class="ctx">6. `tsc` and lint clean on touched files</span><span class="add">+</span><span class="add">+## Performance notes</span><span class="add">+</span><span class="add">+- Bootstrap SCSS is a curated partial stack in `src/assets/scss/_bootstrap-partials.scss` (listed in `angular.json` styles before `styles.scss`), not the full `bootstrap/scss/bootstrap` barrel.</span><span class="add">+- Google Translate `element.js` loads via `LocaleService.ensureGoogleTranslateLoaded()` (language switcher open or non-`en` restore), not from `index.html`.</span><span class="add">+- GTM/GA4 idle-load lives in `gtag.service.ts`. Duplicate container IDs are a tenant/`environment` config cleanup, not a second loader.</span><span class="add">+- Bundle audit (follow-up PRs): `ng build --configuration=production --stats-json` then `npx source-map-explorer dist/TopFans/browser/*.js` — prioritize Firebase modular imports and unused Bootstrap JS.</span><span class="file">src/polyfills.ts</span><span class="hunk">@@ -11,16 +11,20 @@</span><span class="ctx"> * automatically update themselves. This includes Safari &gt;= 10, Chrome &gt;= 55 (including Opera),</span><span class="ctx"> * Edge &gt;= 13 on the desktop, and iOS 10 and Chrome on mobile.</span><span class="ctx"> *</span><span class="ctx"> * Learn more in https://angular.io/guide/browser-support</span><span class="ctx"> */</span><span class="ctx"></span><span class="ctx">/***************************************************************************************************</span><span class="ctx"> * BROWSER POLYFILLS</span><span class="add">+ *</span><span class="add">+ * Keep only zone.js + @angular/localize on the critical path. Do not add IE/legacy shims</span><span class="add">+ * or heavy polyfills here without an ADR (zoneless would also need an ADR). Optional</span><span class="add">+ * Node shims below are for browser libs that expect `global` / `process`.</span><span class="ctx"> */</span><span class="ctx"></span><span class="ctx">import 'zone.js'; // Included with Angular CLI.</span><span class="ctx">import '@angular/localize/init';</span><span class="ctx">//  import 'intersection-observer';</span><span class="ctx"></span><span class="ctx">(window as any).global = window;</span><span class="ctx"></span></pre>
+</div>
+</article>
+
+<article class="slide">
+<h2>Watch on review</h2>
+<dl class="case">
+            <dt class="sym">CSS</dt>
+            <dd>Any screen still using dropped Bootstrap modules: navbar, list-group, offcanvas, spinner-*, placeholders.</dd>
+            <dt class="sym">Translate</dt>
+            <dd>Non-English first load: element.js starts from LocaleService, so there can be a short untranslated flash even though the googtrans cookie is set early.</dd>
+            <dt class="sym">Timeouts</dt>
+            <dd>8s timeouts swallow slow merch / welcome-video / posts / ads. The user sees an empty section, not an error, unless the body has a message.</dd>
+            <dt class="cause">@defer</dt>
+            <dd>No welcome-video placeholder. SSR/hydration and below-the-fold first visit should be clicked through.</dd>
+            <dt class="cause">SEO</dt>
+            <dd>Organization JSON-LD and iPhone 17 splash images are gone from index.html. Confirm that was intended.</dd>
+            <dt class="fix">Cache</dt>
+            <dd>After deploy, confirm index.html and prerendered routes send must-revalidate, not immutable.</dd>
+          </dl>
+          <p class="fine">Built from git range 17dd0e9a46...cb09e9d27b (pull/10977).</p>
+</article>
+
+</section>
+
+  </main>
+  <footer class="foot">
+    <div class="nav">
+      <button type="button" id="prev">Back</button>
+      <button type="button" id="next">Next</button>
+    </div>
+    <div class="progress" id="progress" aria-hidden="true"></div>
+    <div id="counter" aria-live="polite"></div>
+  </footer>
+</div>
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var deck = document.getElementById('deck');
+  var rail = document.getElementById('rail');
+  var progress = document.getElementById('progress');
+  var counter = document.getElementById('counter');
+  var pages = Array.prototype.slice.call(deck.querySelectorAll('.page'));
+  var slides = [];
+
+  pages.forEach(function (page, pi) {
+    var ps = Array.prototype.slice.call(page.querySelectorAll('.slide'));
+    ps.forEach(function (s, si) {
+      slides.push({ el: s, page: pi, index: si, count: ps.length });
+    });
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = page.getAttribute('data-title');
+    b.addEventListener('click', function () { go(firstOfPage(pi)); });
+    rail.appendChild(b);
+  });
+
+  slides.forEach(function () {
+    var i = document.createElement('i');
+    progress.appendChild(i);
+  });
+
+  var current = 0;
+  var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* "from -> to" comps: the arrow draws itself on entry */
+  var ARROW_SVG =
+    '<svg class="arrow" viewBox="0 0 100 60" aria-hidden="true" focusable="false">' +
+      '<path class="shaft" pathLength="1" d="M6 30 H84"/>' +
+      '<path class="head" pathLength="1" d="M60 8 L88 30 L60 52"/>' +
+    '</svg>';
+
+  function buildComp(comp) {
+    var from = comp.getAttribute('data-from');
+    var to = comp.getAttribute('data-to');
+    comp.innerHTML = '';
+    var fromEl = document.createElement('span');
+    fromEl.className = 'from';
+    fromEl.textContent = from;
+    var toEl = document.createElement('span');
+    toEl.className = 'to';
+    toEl.textContent = to;
+    comp.appendChild(fromEl);
+    comp.insertAdjacentHTML('beforeend', ARROW_SVG);
+    comp.appendChild(toEl);
+  }
+
+  /* Restart the CSS animation when a slide is re-entered */
+  function playComp(comp) {
+    if (reduceMotion) return;
+    var parent = comp.parentNode;
+    var next = comp.nextSibling;
+    parent.removeChild(comp);
+    parent.insertBefore(comp, next);
+  }
+
+  Array.prototype.forEach.call(deck.querySelectorAll('.comp'), buildComp);
+
+  function firstOfPage(pi) {
+    for (var i = 0; i < slides.length; i++) if (slides[i].page === pi) return i;
+    return 0;
+  }
+
+  function go(n) {
+    if (n < 0 || n >= slides.length) return;
+    slides[current].el.classList.remove('current');
+    current = n;
+    var s = slides[current];
+    s.el.classList.add('current');
+    s.el.scrollTop = 0;
+    s.el.setAttribute('tabindex', '-1');
+    if (document.activeElement === document.body || (document.activeElement && document.activeElement.classList.contains('slide'))) {
+      s.el.focus({ preventScroll: true });
+    }
+    Array.prototype.forEach.call(s.el.querySelectorAll('.comp'), playComp);
+    Array.prototype.forEach.call(rail.children, function (b, i) {
+      b.classList.toggle('current', i === s.page);
+    });
+    Array.prototype.forEach.call(progress.children, function (dot, i) {
+      dot.classList.toggle('done', i < current);
+      dot.classList.toggle('now', i === current);
+    });
+    counter.textContent = 'Page ' + (s.page + 1) + ' of ' + pages.length +
+      ', slide ' + (s.index + 1) + ' of ' + s.count;
+    history.replaceState(null, '', '#p' + (s.page + 1) + 's' + (s.index + 1));
+  }
+
+  function fromHash() {
+    var m = /#p(\d+)s(\d+)/.exec(location.hash);
+    if (!m) return 0;
+    var pi = parseInt(m[1], 10) - 1, si = parseInt(m[2], 10) - 1;
+    for (var i = 0; i < slides.length; i++) {
+      if (slides[i].page === pi && slides[i].index === si) return i;
+    }
+    return 0;
+  }
+
+  function fit() {
+    var w = document.documentElement.clientWidth || window.innerWidth;
+    var h = document.documentElement.clientHeight || window.innerHeight;
+    var scale = Math.min(w / 1280, h / 720);
+    stage.style.transform = 'scale(' + scale + ')';
+  }
+
+  document.getElementById('next').addEventListener('click', function () { go(current + 1); });
+  document.getElementById('prev').addEventListener('click', function () { go(current - 1); });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+    switch (e.key) {
+      case 'ArrowRight': case 'PageDown': case ' ': e.preventDefault(); go(current + 1); break;
+      case 'ArrowLeft': case 'PageUp': e.preventDefault(); go(current - 1); break;
+      case 'Home': e.preventDefault(); go(0); break;
+      case 'End': e.preventDefault(); go(slides.length - 1); break;
+      default:
+        if (/^[0-9]$/.test(e.key)) {
+          var pi = e.key === '0' ? 9 : parseInt(e.key, 10) - 1;
+          if (pi < pages.length) go(firstOfPage(pi));
+        }
+    }
+  });
+
+  window.addEventListener('resize', fit);
+  window.addEventListener('hashchange', function () { go(fromHash()); });
+
+  fit();
+  window.addEventListener('load', fit);
+  requestAnimationFrame(fit);
+  go(fromHash());
+})();
+</script>
+</body>
+</html>

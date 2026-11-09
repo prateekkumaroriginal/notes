@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Public marketing pages load only the layouts they use</title>
+  <meta name="description" content="The public marketing preview loads layout components with import() and waits during SSR. Measured first-visit sizes, the header exception, and a checklist.">
+  <link rel="stylesheet" href="code-blocks.css">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --sans: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+    }
+
+    h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
+
+    a {
+      color: var(--blue);
+      text-underline-offset: 0.18em;
+      border-radius: 0.2rem;
+    }
+
+    a:focus-visible {
+      outline: 2px solid var(--blue);
+      outline-offset: 3px;
+    }
+
+    p, li, td { color: var(--muted); }
+
+    strong { color: var(--text); font-weight: 650; }
+
+    code {
+      border-radius: 0.3rem;
+      background: rgba(255, 255, 255, 0.07);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 0.9em;
+      padding: 0.1em 0.35em;
+    }
+
+    h1 code, h2 code, h3 code { background: none; padding: 0; font-size: inherit; }
+
+    .page {
+      width: min(900px, calc(100% - 2rem));
+      margin-inline: auto;
+      padding-block: 5rem;
+    }
+
+    header { display: grid; gap: 1rem; }
+
+    h1 { padding-bottom: 0.75rem; }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem 1.25rem;
+      color: var(--muted);
+      font-family: var(--mono);
+      font-size: 0.85rem;
+    }
+
+    main { padding-top: 3rem; }
+
+    section + section { padding-top: 2.5rem; }
+
+    h2 { padding-bottom: 0.75rem; }
+
+    h3 { font-size: 1rem; padding-bottom: 0.5rem; }
+
+    section > * + * { padding-top: 0.75rem; }
+
+    section > h2 + *, section > h3 + * { padding-top: 0; }
+
+    section > .table-wrap + p,
+    section > p + .table-wrap,
+    section > ul + .table-wrap,
+    section > h3 + .table-wrap { margin-top: 0.75rem; }
+
+    section > h3 + .table-wrap { margin-top: 0; }
+
+    section > * + .table-wrap { padding-top: 0; }
+
+    ul, ol { padding-left: 1.2rem; display: grid; gap: 0.35rem; }
+
+    .table-wrap { overflow-x: auto; border-radius: 0.6rem; border: 1px solid var(--line); }
+
+    table { width: 100%; border-collapse: collapse; min-width: 560px; }
+
+    th, td {
+      padding: 0.8rem 1rem;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface);
+      color: var(--text);
+      font-size: 0.78rem;
+      font-weight: 650;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    tr + tr td { border-top: 1px solid var(--line); }
+
+    td.num, th.num { text-align: right; font-family: var(--mono); font-size: 0.9rem; white-space: nowrap; }
+
+    .tag {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 0.2rem 0.6rem;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .tag.high { background: rgba(255, 145, 184, 0.14); color: var(--pink); }
+    .tag.medium { background: rgba(241, 198, 109, 0.14); color: var(--amber); }
+    .tag.low { background: rgba(104, 215, 255, 0.12); color: var(--blue); }
+
+    .checklist { display: grid; gap: 1.75rem; }
+
+    .group { display: grid; gap: 0.6rem; }
+
+    .group h4 { font-size: 0.95rem; color: var(--text); }
+
+    .group h4 .tag { vertical-align: 0.12em; }
+
+    section > .meta + h3 { padding-top: 1.75rem; }
+
+    .checks { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
+
+    .checks label {
+      display: grid;
+      grid-template-columns: 1.1rem minmax(0, 1fr);
+      gap: 0.7rem;
+      align-items: start;
+      color: var(--muted);
+      cursor: pointer;
+    }
+
+    .checks input {
+      width: 1.1rem;
+      height: 1.1rem;
+      margin: 0.15rem 0 0;
+      accent-color: var(--green);
+      cursor: pointer;
+    }
+
+    .checks input:checked + span { color: var(--line); text-decoration: line-through; }
+    .checks input:checked + span code { color: var(--line); }
+
+    .progress { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); }
+
+    .reset {
+      border: 1px solid var(--line);
+      border-radius: 0.375rem;
+      background: var(--surface);
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.85rem;
+      padding: 0.35rem 0.7rem;
+      cursor: pointer;
+    }
+
+    .reset:hover { color: var(--text); border-color: var(--blue); }
+
+    .reset:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+    .progress-row { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; }
+
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Public marketing pages load only the layouts they use</h1>
+        <p>The public preview used to import 54 layout classes and ship every one on home, marketing, comparison, pro, creators-home, and a white-label cover. It now loads only the layout ids the page actually shows. The server waits for those imports before it writes HTML, so title, description, and the <code>app-*-layout</code> tags stay the same. The editor still imports the full catalog. That is the right call. The three files are walked in <a href="lazy-marketing-layouts-code.html">how the marketing preview loads a layout</a>. A follow-up stops the appearance-tab leak on <code>/edit-preference/whitelabel</code>. Notes are in <a href="fix-marketing-preview-load-loop.html">stop the cover preview from reloading layouts every cycle</a>.</p>
+      <div class="meta">
+        <span>branch t3code/lazy-marketing-layouts</span>
+        <span>on top of 33fcd8d508, PR 10847 merged</span>
+        <span>the leftover from <a href="standalone-leftovers.html">after the SharedModule work</a></span>
+        <span>1 commit, <a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10849">PR 10849</a></span>
+      </div>
+    </header>
+
+    <main>
+      <section>
+        <h2>First-visit JavaScript</h2>
+        <p>What a first visit fetches on top of the initial bundle, from the QA build. Sizes are minified bytes before compression. Before means after PR 10847. MB means a million bytes. The walk is the static import graph of each entry. It does not count the layout chunks a page then fetches with <code>import()</code>.</p>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Entry</th><th class="num">Before</th><th class="num">After</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>The promotional routes file, which is main <code>/</code></td><td class="num">2.79 MB</td><td class="num">1.76 MB</td></tr>
+              <tr><td>The marketing page component</td><td class="num">1.23 MB</td><td class="num">0.03 MB</td></tr>
+              <tr><td>The comparison page component</td><td class="num">1.23 MB</td><td class="num">0.03 MB</td></tr>
+              <tr><td>The pro page component</td><td class="num">2.05 MB</td><td class="num">0.86 MB</td></tr>
+              <tr><td>Creators-home</td><td class="num">1.30 MB</td><td class="num">0.11 MB</td></tr>
+              <tr><td>Sub-page view</td><td class="num">1.36 MB</td><td class="num">0.21 MB</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Marketing and comparison are the clean case. Those pages were almost all the 54-layout preview. Pro stays heavier because the pro page still statically owns <code>pro-contact-form-layout</code>. That id never had a preview class in the 54.</p>
+        <p>Home at 1.76 MB is not a failed split. <code>promotional.routes.ts</code> still statically imports landing, promotional, promotional-detail, and search-result. Those four sit in one graph. Some unused layout source files still appear in that graph because they share a chunk with header or chrome. The browser on <code>/</code> still did not fetch newsletter, most portfolio details, pro-hero, read-more, or feature-creator. Those staying off the wire is the proof the split works.</p>
+      </section>
+
+      <section>
+        <h2>Commit 3645b6d5ee: load only the layouts a public page uses</h2>
+        <p class="meta">3 files, +385 &minus;345</p>
+        <h3>What changed</h3>
+        <ul>
+          <li><code>marketing-page-layout-loaders.ts</code> maps 53 layout ids to literal <code>import()</code> calls. A variable path would not split. Header is not in the map. <code>pro-contact-form-layout</code> is not either.</li>
+          <li><code>MarketingPageFullPreviewComponent</code> no longer lists 54 layout classes in <code>imports</code>. After it resolves sections it loads the unique visible ids in parallel, caches the classes, and renders them with <code>ngComponentOutlet</code>.</li>
+          <li>A <code>PendingTasks</code> handle stays open until those imports finish, then <code>done()</code> runs in <code>finally</code>. A generation token drops a stale load when sections change or the component is destroyed.</li>
+          <li>Header stays a static template. It projects the welcome-video modal and binds <code>[post]="headerLayout.welcomeVideoPost"</code>. <code>ngComponentOutlet</code> cannot do that without moving the modal into HeaderLayout.</li>
+          <li>The extra inputs each layout already had, like <code>disablePinnedScroll</code>, <code>isEditingMode</code>, footer branding, and <code>forceMobileView</code>, move into <code>getMarketingPageLayoutInputs</code>.</li>
+          <li><code>add-marketing-page-section</code> still statically imports every layout. The picker needs the full catalog.</li>
+        </ul>
+        <p>SEO tags come from <code>setMarketingPageSeo</code> on the page, from the published payload. They never depended on the layout imports. Title and description on <code>/</code>, <code>/athletes</code>, <code>/music-artists</code>, <code>/topfan-vs-patreon</code>, and <code>/creators-home</code> matched the 10847 SSR. So did every <code>app-*-layout</code> count. Skip <code>PendingTasks</code> and the first HTML loses those tags, the same way white-label <code>/</code> lost <code>&lt;app-profile&gt;</code> before 10847. <code>@defer</code> would do the same. It is client-only.</p>
+
+        <h3>How I checked it</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Check</th><th>Result</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>QA build</td><td>Passes. Output in <code>/tmp/tf-sm/layouts</code>.</td></tr>
+              <tr><td>Route-weight against the 10847 QA build</td><td>The table above. Same script as the leftovers numbers, walking <code>stats.json</code>.</td></tr>
+              <tr><td>SSR HTML against the 10847 server</td><td>Title match, description match, layout tag counts match on home, athletes, music-artists, comparison, and creators-home. <code>/apps/music-artists-fan-club</code> 404s on both. That is old.</td></tr>
+              <tr><td>Browser on the new server</td><td>Home, athletes, and comparison render. Athletes "See Example" still goes to <code>/</code>. No hydration errors. CDN 404s are old image URLs.</td></tr>
+              <tr><td>Network on <code>/</code></td><td>Newsletter, most portfolio details, pro-hero, read-more, and feature-creator stay off the wire.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <h2>What this does not do</h2>
+        <ul>
+          <li>It does not lazy-load the four promotional route components. That leftover 1.76 MB on home is a different split.</li>
+          <li>It does not skip <code>ProfileComponent</code> on a published white-label cover. That import still starts in the landing constructor.</li>
+          <li>It does not split <code>comparison-layout.utils</code> off the editor field constants. That 29 KB leak is still there.</li>
+          <li>It does not touch <code>bootstrapApplication</code>.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>Verification checklist</h3>
+        <p>Keep the console and the network panel open. Do not buy, subscribe, or publish. Checks are saved in this browser.</p>
+        <div class="progress-row">
+          <span class="progress" id="progress">0 of 0 checked</span>
+          <button type="button" class="reset" id="reset">Clear checks</button>
+        </div>
+
+        <div class="checklist">
+          <div class="group">
+            <h4><span class="tag high">High</span> The page still looks like itself</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="look-home"><span>On the main site, open <code>/</code>. The same sections show, in the same order. No blank bands where a hero or footer should be.</span></label></li>
+              <li><label><input type="checkbox" data-id="look-market"><span>Open a marketing page, a comparison page, a pro page, and creators-home. Each still matches the page before the change.</span></label></li>
+              <li><label><input type="checkbox" data-id="look-header"><span>A page with a header still shows the user menu when you are logged in, and the welcome video still opens from the header.</span></label></li>
+              <li><label><input type="checkbox" data-id="look-refresh"><span>Refresh each of those URLs. View source, or the first document in the network panel, still contains the section tags. A late fill-in after load means the server did not wait.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag high">High</span> The unused layouts stay off the wire</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="net-home"><span>On main <code>/</code>, a layout the homepage does not use should not appear in the network panel. Newsletter and pro-hero are easy ones to look for.</span></label></li>
+              <li><label><input type="checkbox" data-id="net-thin"><span>Open a thin marketing page. Count the layout files. It should be close to the number of distinct types on that page, not 54.</span></label></li>
+              <li><label><input type="checkbox" data-id="net-console"><span>Console stays clean. No missing component, and no hydration error that names a layout tag.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag medium">Medium</span> Clicks still work</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="click-hero"><span>A hero or banner button still goes to the same place.</span></label></li>
+              <li><label><input type="checkbox" data-id="click-store"><span>A store or event block still opens the item it pointed at. Do not buy anything.</span></label></li>
+              <li><label><input type="checkbox" data-id="click-news"><span>A newsletter block still shows its form. Do not subscribe.</span></label></li>
+            </ul>
+          </div>
+          <div class="group">
+            <h4><span class="tag low">Low</span> The editor is unchanged</h4>
+            <ul class="checks">
+              <li><label><input type="checkbox" data-id="edit-picker"><span>In the cover or marketing editor, the add-section picker still lists every layout.</span></label></li>
+              <li><label><input type="checkbox" data-id="edit-preview"><span>Preview a draft section in the editor. It still matches the public component for that type. Do not publish.</span></label></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="copy-code.js"></script>
+  <script>
+    (() => {
+      const storageKey = "lazy-marketing-layouts-checklist";
+      const boxes = [...document.querySelectorAll(".checks input[type=checkbox]")];
+      const progress = document.getElementById("progress");
+      let saved = {};
+
+      try {
+        saved = JSON.parse(localStorage.getItem(storageKey)) || {};
+      } catch {
+        saved = {};
+      }
+
+      const update = () => {
+        const done = boxes.filter((box) => box.checked).length;
+        progress.textContent = `${done} of ${boxes.length} checked`;
+      };
+
+      boxes.forEach((box) => {
+        box.checked = !!saved[box.dataset.id];
+        box.addEventListener("change", () => {
+          saved[box.dataset.id] = box.checked;
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(saved));
+          } catch {}
+          update();
+        });
+      });
+
+      document.getElementById("reset").addEventListener("click", () => {
+        boxes.forEach((box) => { box.checked = false; });
+        saved = {};
+        try {
+          localStorage.removeItem(storageKey);
+        } catch {}
+        update();
+      });
+
+      update();
+    })();
+  </script>
+</body>
+</html>

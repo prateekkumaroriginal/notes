@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10838 review-astra</title>
+<meta name="description" content="Review of the link-in-bio, profile and portfolio standalone migration. Code checks, bundle measurements and the dashboard route change.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10838-review-astra">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible,summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > figure + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+figure { display: grid; gap: .75rem; }
+details { padding-top: 1rem; } summary { cursor: pointer; color: var(--blue); border-radius: .25rem; }
+details > .stack { padding-top: 1rem; }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style><link rel="stylesheet" href="/code-blocks.css"><script src="/copy-code.js" defer></script>
+</head><body><div class="page">
+<header><a href="/">All notes</a>
+<div><h1>PR 10838 review-astra</h1><p>Link-in-bio, profile and portfolio stop loading SharedModule.</p></div>
+<div class="meta"><span>Reviewed 24 September 2026</span><span>38 files</span><span>+426 / -231 lines</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10838">PR 10838</a> · Comparison base <code>b0114afffd</code> · Head <code>9897f212fd</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Verdict</a><a href="#checks">Code checks</a><a href="#routes">Dashboard routes</a><a href="#size">Bundle sizes</a><a href="#validation">Validation</a><a href="#remaining">Remaining checks</a></nav></header>
+<main>
+<section id="verdict"><h2>No blocking findings</h2>
+<p class="ok">I found no actionable regression in the reviewed diff.</p>
+<p>The migration removes a large dependency from three lazy entries without changing their component logic. SharedModule remains in <strong>3 of 45 lazy application entries</strong>, down from 6. The measured JavaScript reductions support the change.</p>
+<p>There is one deliberate behavior change. Dashboard stops inheriting portfolio routes through PortfolioModule. The supported dashboard portfolio URLs remain in its own route configuration. The removed aliases deserve a release note, but I would not block this PR on routes that the author explicitly retires and that have no direct callers in the checked source.</p>
+<p>This verdict covers source, compilation and bundle checks. I did not independently run logged-in workflows, hydration or server-rendered URL comparisons for this PR.</p></section>
+<section id="scope"><h2>What changes</h2><div class="items">
+<div><h3>Link-in-bio</h3><p>The fan preview and its feed, carousel and welcome-video components replace SharedModule with explicit template imports. The imports include the existing media player, formatting pipes, fundraising view, polls and mobile directives.</p></div>
+<div><h3>Profile</h3><p>The app lazy-loads <code>PROFILE_ROUTES</code> for both <code>/:id</code> and <code>/wls/:id</code>. ProfileContainerComponent and DynamicSeoProfileComponent become standalone. The route still renders DynamicSeoProfileComponent at its empty child path.</p></div>
+<div><h3>Portfolio</h3><p>The 18 former module declarations become standalone. Monetize lazy-loads <code>PORTFOLIO_ROUTES</code>. Dashboard imports PortfolioBannerViewComponent directly, so rendering that view no longer imports the portfolio editor's route table.</p></div>
+</div></section>
+<section id="checks"><h2>What I checked in the code</h2><div class="items">
+<div><h3>Component logic is unchanged</h3><p>An AST comparison found 26 changed files that differ only in imports, standalone metadata or comments. The remaining 12 files contain module and route wiring, module removal, or the four HTML binding removals described below. No component method body changes.</p></div>
+<div><h3>Template dependencies remain available</h3><p>Angular emits 650 components at the PR head, compared with 653 at the comparison base. Of the 650 common components, 649 retain exactly the same matched directives and pipes after resolving import aliases.</p><p>PortfolioComponent loses only <code>NativeElementInjectorDirective</code> from ngx-intl-tel-input. Its template has no phone input. The three missing compiled components are SelectInterestsAccordionComponent, SeoLandingComponent and SeoLandingCreatorCardComponent. Their files remain, but the removed module imports and declarations were their only connection to the active compilation graph.</p></div>
+<div><h3>Routes and providers stay in place</h3><p>The profile route array and all 26 portfolio route objects are byte-identical after excluding their renamed declarations and NgModule wrappers. Paths, ordering, component references, permission guards and route data remain intact. The app and monetize parents change only their lazy import targets.</p><p>SharedModule's providers and exports are unchanged. AppModule already calls <code>provideSharedRootProviders</code>, which includes the circle-progress root configuration and shared services. Removing PortfolioModule's duplicate <code>NgCircleProgressModule.forRoot</code> call does not remove that root configuration.</p></div>
+<div><h3>The four removed bindings were not component inputs</h3><p>Four portfolio templates remove <code>[infoIconSize]="18"</code> from app-info-icon. InfoIconComponent has height and width inputs, but no infoIconSize input. The removed modules allowed custom elements, which hid this invalid binding. Removing it does not change the component's declared dimensions.</p></div>
+</div></section>
+<section id="routes"><h2>The dashboard route change is intentional</h2>
+<p>Before this PR, DashboardModule imported PortfolioModule to render its banner view. That import also registered the portfolio routes under dashboard. Importing the standalone banner component removes that accidental registration.</p>
+<p>The PR author reports that <code>/dashboard/add-edit-portfolio</code> now behaves like an unknown dashboard path and <code>/dashboard/banner-view/:id</code> becomes a 404. I confirmed the import change and found no direct source links to those two aliases. I did not rerun those HTTP requests.</p>
+<p>The real dashboard route <code>/dashboard/portfolio/:userId/banner-view/:id</code> remains. Profile navigation, unlock flows and the portfolio navigation helper use that form. Dashboard's music, podcast, video and collection routes remain too.</p>
+<p>If old bookmarks or external integrations rely on the accidental aliases, they will need redirects. The repository search cannot establish whether such external callers exist.</p></section>
+<section id="size"><h2>Independent bundle measurements</h2>
+<figure><div class="table-wrap"><table><thead><tr><th scope="col">Lazy entry</th><th scope="col">Base MB</th><th scope="col">PR MB</th><th scope="col">Reduction</th></tr></thead><tbody>
+<tr><th scope="row">Link-in-bio</th><td>3.816</td><td>1.204</td><td class="ok">68.5%</td></tr>
+<tr><th scope="row">Profile</th><td>3.345</td><td>1.863</td><td class="ok">44.3%</td></tr>
+<tr><th scope="row">Portfolio</th><td>5.099</td><td>2.068</td><td class="ok">59.4%</td></tr>
+<tr><th scope="row">Dashboard</th><td>6.457</td><td>5.657</td><td class="ok">12.4%</td></tr>
+</tbody></table></div><figcaption>Uncompressed JavaScript added on a first visit after the initial load. Decimal MB. Shared static dependencies count once per entry; these rows should not be added together.</figcaption></figure>
+<p>The initial JavaScript grows by <strong>1,127 bytes</strong>, from 7,139,809 to 7,140,936 bytes. Dashboard, edit-preference and the white-label cover page are the three remaining lazy entries that load SharedModule.</p>
+<p>I calculated these totals from the build graph by following static JavaScript imports and subtracting the initial main, polyfill and scripts chunks. They are bundle measurements, not compressed transfer sizes or page-load timings. The 45 entries include dynamically loaded components as well as route entries.</p></section>
+<section id="validation"><h2>Checks run for this review</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead><tbody>
+<tr><th scope="row">TopFans QA build</th><td><span class="ok">Pass.</span> Fresh client and server build from an isolated checkout of the PR head. The 42 warning groups match the base build's count.</td></tr>
+<tr><th scope="row">Angular compiler</th><td><span class="ok">Pass.</span> Fresh compilation at head; emitted template dependencies compared against the saved base output.</td></tr>
+<tr><th scope="row">Generated ajwhite QA project</th><td><span class="ok">Pass.</span> Generated ajwhite from QA API data in the isolated checkout, then compiled its client and server bundles.</td></tr>
+<tr><th scope="row">Route comparison</th><td><span class="ok">Pass.</span> Profile and portfolio route arrays match the base exactly.</td></tr>
+<tr><th scope="row">Source and whitespace checks</th><td><span class="ok">Pass.</span> Component logic comparison, provider inspection, caller searches and git diff --check.</td></tr>
+</tbody></table></div>
+<p>The comparison uses merge base <code>b0114afffd</code>, which is the prior PR's reviewed head. I reused its existing QA build and compiler artifacts, and ran the head checks afresh. The target branch tip reported by GitHub was <code>5891824685</code>; this review does not claim to test the result of merging onto that tip.</p>
+<details><summary>Build command and scope</summary><div class="stack"><pre><code>node --max_old_space_size=10048 node_modules/@angular/cli/bin/ng.js \
+  build TopFans --configuration qa --prerender=false --stats-json \
+  --output-path=/tmp/pr10838-astra-qa</code></pre>
+<p>The white-label check uses the same 10 GB Node heap limit with the generated ajwhite project. Prerendering is disabled. This review does not include a fresh development or production build, the full prerender list, or an interactive application test.</p></div></details>
+</section>
+<section id="remaining"><h2>What still needs browser evidence</h2>
+<p>The author reports logged-in white-label comparisons across 20 portfolio URLs, profile hydration checks, media playback, groups selection, form validation and server-rendered comparisons. Those are author-reported results, not checks I reran.</p>
+<p>Before release, retain coverage for opening a creator profile on the main and white-label sites, playing a link-in-bio media preview, editing a portfolio through its steps, opening pricing and image dialogs, and following a dashboard portfolio link.</p>
+<p>The author also reports a <code>portfolio_shape</code> error on the add-edit-portfolio page and says it occurs on base. I did not reproduce it. It is outside this review's verified findings.</p></section>
+<section id="sources"><h2>Review references</h2><ul>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10838">PR description and three commits</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/b0114afffd3a05b2d2214b43c3dd2366ff90f69d...9897f212fd6aa8dfac95559355f0a9aeb43d7367">Exact reviewed comparison</a></li><li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9897f212fd6aa8dfac95559355f0a9aeb43d7367/src/app/app-routing.module.ts#L350">Profile lazy-loading entries</a></li><li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9897f212fd6aa8dfac95559355f0a9aeb43d7367/src/app/modules/edit-preference/components/portfolio/portfolio.routes.ts#L15">Portfolio routes</a></li><li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9897f212fd6aa8dfac95559355f0a9aeb43d7367/src/app/modules/dashboard/dashboard-routing.module.ts#L281">Explicit dashboard portfolio routes</a></li><li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9897f212fd6aa8dfac95559355f0a9aeb43d7367/src/app/modules/shared/shared-root.providers.ts#L60">Shared root providers</a></li><li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/9897f212fd6aa8dfac95559355f0a9aeb43d7367/src/app/components/info-icon/info-icon.component.ts#L18">Info icon inputs</a></li>
+<li><a href="/shared-module-bio-profile-portfolio.html">Migration notes</a></li>
+</ul></section></main><footer>Review applies to <code>9897f212fd</code>. Later commits need a fresh comparison.</footer>
+</div></body></html>

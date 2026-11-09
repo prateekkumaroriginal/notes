@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PR 10839 review-astra</title>
+<meta name="description" content="Merge recommendation and independent review of edit-preference and white-label cover page standalone migration.">
+<link rel="canonical" href="https://notes.prateekkumar.site/pr-10839-review-astra">
+<style>
+:root { color-scheme: dark; --bg: #0c1015; --surface: #121923; --text: #e8edf3; --muted: #99a6b5; --line: #2b3745; --blue: #68d7ff; --green: #8ee6a2; --violet: #d5a6ff; --amber: #f1c66d; --pink: #ff91b8; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+h1,h2,h3,p,ul,ol,pre,figure { margin: 0; }
+.page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+header, .stack { display: grid; gap: 1rem; }
+h1,h2 { padding-bottom: .75rem; }
+h3 { padding-bottom: .5rem; }
+p,li,td,figcaption,.meta { color: var(--muted); }
+a { color: var(--blue); text-underline-offset: .18em; border-radius: .2rem; overflow-wrap: anywhere; }
+a:focus-visible,summary:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+strong { color: var(--text); }
+.ok { color: var(--green); } .warn { color: var(--amber); } .focus { color: var(--blue); }
+.meta { display: flex; flex-wrap: wrap; gap: .5rem 1.25rem; }
+nav { display: flex; flex-wrap: wrap; gap: .6rem 1.25rem; }
+main { padding-top: 3rem; }
+section + section { padding-top: 2.5rem; }
+section > p + p, section > p + ul, section > ul + p { padding-top: 1rem; }
+.items { display: grid; gap: 1.75rem; }
+.items p + p, section > figure + p, section > .table-wrap + p { padding-top: 1rem; }
+ul,ol { padding-left: 1.25rem; } li + li { padding-top: .5rem; }
+code { font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; font-size: .9em; color: var(--text); overflow-wrap: anywhere; }
+pre { padding: 1.25rem; background: var(--surface); border: 1px solid var(--line); border-radius: .6rem; overflow-x: auto; line-height: 1.5; }
+pre code { overflow-wrap: normal; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: .6rem; }
+table { border-collapse: collapse; width: 100%; min-width: 480px; }
+th,td { padding: .75rem 1rem; text-align: left; vertical-align: top; }
+thead { background: var(--surface); } tbody th { font-weight: 500; }
+tr + tr td, tr + tr th { border-top: 1px solid var(--line); }
+figure { display: grid; gap: .75rem; }
+details { padding-top: 1rem; } summary { cursor: pointer; color: var(--blue); border-radius: .25rem; }
+details > .stack { padding-top: 1rem; }
+footer { padding-top: 3rem; color: var(--muted); }
+@media (max-width: 720px) { .page { padding-block: 3rem; } }
+</style></head><body><div class="page">
+<header><a href="/">All notes</a>
+<div><h1>PR 10839 review-astra</h1><p>Edit-preference and the white-label cover page stop loading SharedModule.</p></div>
+<div class="meta"><span>Reviewed 24 September 2026</span><span>82 files</span><span>+873 / -446 lines</span></div>
+<p><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10839">PR 10839</a> · Base <code>9897f212fd</code> · Head <code>e92a285200</code></p>
+<nav aria-label="Review sections"><a href="#verdict">Merge decision</a><a href="#checks">Code review</a><a href="#size">Bundle sizes</a><a href="#validation">Validation</a><a href="#limits">Coverage limits</a></nav>
+</header><main>
+<section id="verdict"><h2>Should I merge it now? Yes.</h2>
+<p class="ok">I found no blocking regression in the reviewed changes.</p>
+<p>The route definitions retain their paths, guards and data. Component logic stays the same. The compiled templates retain their used dependencies, and both migrated entries stop loading SharedModule. The smaller bundles are measurable.</p>
+<p>This recommendation applies to <code>e92a285200</code>. It is a code and build review. The logged-in browser checks below are the author's evidence, not checks I reran.</p></section>
+<section id="scope"><h2>What changes</h2>
+<ul><li>EditPreferenceModule and its routing module become <code>EDIT_PREFERENCE_ROUTES</code>. Its 48 declared components become standalone.</li>
+<li>WhitelabelCoverPageModule and its routing module become <code>WHITELABEL_COVER_PAGE_ROUTES</code>. Its 25 declared components become standalone.</li>
+<li>VipOfferShareModalComponent and ScrollContainerLoaderDirective become standalone too. SharedModule imports and still exports both.</li>
+<li>Dashboard is the only remaining lazy application entry that loads SharedModule, down from three.</li></ul></section>
+<section id="checks"><h2>What I checked</h2><div class="items">
+<div><h3>Routes and component behavior</h3><p>An AST comparison found 74 of the 82 changed files differ only in imports, standalone metadata or comments. The other eight contain route and module wiring, the DatePipe provider, or the removed HTML binding. No component method body changes.</p>
+<p>The cover-page route array is unchanged after removing the NgModule wrapper and renaming the export. Edit-preference retains its route definitions; its nested cover-page lazy import now points at the route array. The app's parent guards and permission data remain in place.</p></div>
+<div><h3>Template dependencies</h3><p>Fresh Angular compilation emits all 650 components present in the base output. Of those, 644 retain exactly the same matched directive and pipe dependencies. The other six lose only <code>NativeElementInjectorDirective</code> from ngx-intl-tel-input. None of those six templates contains a phone input.</p>
+<p>The six are GroupBadgesComponent, BlockUsersComponent, PreviewCreatorBioComponent, VipOfferShareModalComponent, AddMarketingPageSectionComponent and AddSectionLayoutPickerModalComponent.</p></div>
+<div><h3>Providers remain available</h3><p>DelegateDetailsComponent now provides DatePipe, and its transaction-detail modal remains a child in its template. DatePipe is also already in the shared root provider list registered by AppModule. The provider move does not leave either component without it.</p>
+<p>AppModule provides TitleCasePipe, and NgxImageCompressService declares <code>providedIn: 'root'</code>. Removing their EditPreferenceModule registrations does not remove access to them. SharedModule's provider list and all 160 exports are unchanged.</p></div>
+<div><h3>The removed social binding was invalid</h3><p>The PR removes <code>[socialHandles]="socialHandles"</code> from the social-links modal. That component has no socialHandles input. Its existing subscription reads saved handles from LinkInBioDataService, so this deletion does not remove the actual data path. The old CUSTOM_ELEMENTS_SCHEMA had hidden the invalid binding.</p></div>
+<div><h3>One minor cleanup</h3><p><code>git diff --check</code> reports trailing whitespace at line 8 of pending-request-popup.component.ts. Remove it when convenient. It is not a reason to hold the merge.</p></div>
+</div></section>
+<section id="size"><h2>Independent bundle measurements</h2>
+<figure><div class="table-wrap"><table><thead><tr><th scope="col">Lazy entry</th><th scope="col">Base MB</th><th scope="col">PR MB</th><th scope="col">Reduction</th></tr></thead><tbody>
+<tr><th scope="row">Edit-preference</th><td>6.033</td><td>4.324</td><td class="ok">28.3%</td></tr>
+<tr><th scope="row">White-label cover page</th><td>5.290</td><td>3.183</td><td class="ok">39.8%</td></tr>
+<tr><th scope="row">Dashboard</th><td>5.657</td><td>5.652</td><td>0.09%</td></tr>
+</tbody></table></div><figcaption>Uncompressed JavaScript added by each entry after the initial load, in decimal MB. Each row includes its static dependencies. Do not add the rows together.</figcaption></figure>
+<p>Initial JavaScript falls by 4 bytes, from 7,140,936 to 7,140,932 bytes. SharedModule appears in the static dependency graph of <strong>1 of 45 lazy application entries</strong>. Those entries include dynamically loaded components as well as routes.</p>
+<p>I calculated these values from Angular's build statistics, followed static JavaScript imports and subtracted the initial main, polyfills and scripts chunks. These are bundle sizes, not compressed transfer sizes or loading times.</p></section>
+<section id="validation"><h2>Checks run for this review</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Check</th><th scope="col">Result</th></tr></thead><tbody>
+<tr><th scope="row">TopFans QA client and server build</th><td><span class="ok">Pass.</span> Fresh build at the PR head. 42 warning groups, matching the saved base build's count.</td></tr>
+<tr><th scope="row">Angular compiler</th><td><span class="ok">Pass.</span> Fresh compilation and a comparison of all 650 component dependency lists against the saved base output.</td></tr>
+<tr><th scope="row">Generated ajwhite QA build</th><td><span class="ok">Pass.</span> Generated ajwhite from QA API data in the isolated worktree and compiled its client and server bundles.</td></tr>
+<tr><th scope="row">Source review</th><td><span class="ok">Pass.</span> Route comparison, component AST comparison, provider inspection and shared export comparison.</td></tr>
+<tr><th scope="row">Whitespace check</th><td><span class="warn">One minor issue.</span> Trailing whitespace in pending-request-popup.component.ts.</td></tr>
+</tbody></table></div>
+<p>Builds use Node's 10 GB heap limit and disable prerendering. The head was checked in an isolated worktree. Base measurements and compiled output come from the preceding review of <code>9897f212fd</code>.</p>
+<p>GitHub reports the PR open, mergeable and clean. No status checks were listed at review time. The target branch tip was <code>c206a6662c</code>; these checks cover the PR head against its merge base, not a fresh build of the merge result.</p></section>
+<section id="limits"><h2>Coverage limits</h2>
+<p>I did not rerun logged-in application flows, SSR response comparisons, hydration, development builds or the full prerender list. Compilation checks template wiring; it does not establish that every form and modal works in a signed-in session.</p>
+<p>The author reports matching server rendering across 138 URLs, logged-in checks across 34 edit-preference and cover-page URLs, all 47 add-section layouts, header and footer editors, previews, sub-pages, the VIP picker, saved social handles and color-picker coordination. The author also reports successful development builds. Treat those as author-reported results.</p>
+<p>The author could not open delegate details because the test account had no delegates. The provider wiring checks out in source, so I would not block this refactor on that gap. Keep a delegate-details and transaction-modal smoke test in the release checklist when a suitable account is available.</p></section>
+<section id="sources"><h2>Review references</h2><ul>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/pull/10839">PR description and author-reported validation</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/compare/9897f212fd6aa8dfac95559355f0a9aeb43d7367...e92a2852002812a78cf1ba733b0d32fa49710597">Exact reviewed comparison</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/app-routing.module.ts#L88">Parent lazy route and guards</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/modules/edit-preference/edit-preference.routes.ts#L43">Edit-preference route definitions</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/modules/whitelabel-cover-page/whitelabel-cover-page.routes.ts#L7">Cover-page route definitions</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/modules/edit-preference/components/delegation/components/delegate-details/delegate-details.component.ts#L57">Delegate DatePipe provider</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/modules/shared/shared-root.providers.ts#L46">Existing root DatePipe provider</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/app.module.ts#L88">Shared root provider registration</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/modules/shared/shared.module.ts#L383">Shared imports and preserved exports</a></li>
+<li><a href="https://github.com/topfan/TopFansLite-WebFrontend/blob/e92a2852002812a78cf1ba733b0d32fa49710597/src/app/modules/edit-preference/link-in-bio/social-media-links-modal/social-media-links-modal.component.ts#L59">Saved social handles subscription</a></li>
+<li><a href="/shared-module-edit-preference-cover-page.html">Migration checklist</a></li></ul></section>
+</main><footer>Review applies to <code>e92a285200</code>. Later commits need a fresh comparison.</footer>
+</div></body></html>
