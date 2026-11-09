@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Compare Overidify and Requestly's Chrome extensions: response mocks, Chrome's Network tab, their own DevTools panels, and remaining feature gaps.">
+  <title>Overidify and Requestly</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--muted); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1, h2, h3, p, ul, ol, dl, dt, dd, figure { margin: 0; }
+    h1, h2, h3, dt, th { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.5rem; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 1rem; }
+    header h1 { padding-bottom: 0; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    p + p, p + ul, p + ol, p + dl, ul + p, ol + p, figure + p, .table-wrap + p { padding-top: 1rem; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { padding-top: 0.65rem; }
+    li::marker { color: inherit; }
+    a { color: var(--blue); text-underline-offset: 0.2em; overflow-wrap: anywhere; border-radius: 0.25rem; }
+    a:hover { color: var(--green); }
+    a:focus-visible, button:focus-visible, .table-wrap:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    code { padding: 0.12em 0.35em; border-radius: 0.3rem; background: var(--surface); color: var(--text); font-family: var(--mono); overflow-wrap: anywhere; }
+    .meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+    .native { color: var(--blue); }
+    .mock { color: var(--green); }
+    .panel { color: var(--violet); }
+    .caution { color: var(--amber); }
+    .terms { display: grid; grid-template-columns: minmax(9rem, 13rem) minmax(0, 1fr); gap: 1rem 1.5rem; }
+    .mode-controls { display: flex; flex-wrap: wrap; gap: 0.75rem; padding-top: 1.25rem; }
+    button { font: inherit; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 0.5rem; padding: 0.65rem 1rem; cursor: pointer; }
+    button[aria-pressed="true"] { border-color: var(--blue); color: var(--blue); }
+    .mode-note { padding-top: 1rem; }
+    .request-flow { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.75rem; padding-top: 1.75rem; }
+    .request-flow article { min-width: 0; }
+    .request-flow article p + p { padding-top: 0.65rem; }
+    .request-flow h3 { color: var(--amber); }
+    .request-flow article:nth-child(2) h3 { color: var(--blue); }
+    .request-flow article:nth-child(3) h3 { color: var(--green); }
+    figcaption { padding-top: 1rem; }
+    .table-wrap { overflow-x: auto; padding-top: 1.25rem; border-radius: 0.5rem; }
+    table { width: 100%; border-collapse: separate; border-spacing: 0; table-layout: fixed; }
+    col:first-child { width: 35%; }
+    col:not(:first-child) { width: 32.5%; }
+    th, td { text-align: left; vertical-align: top; padding: 0.75rem 0.85rem 0.75rem 0; overflow-wrap: anywhere; }
+    th { font-weight: 600; }
+    thead th { padding-top: 0; padding-bottom: 1rem; }
+    tbody th { font-weight: 400; }
+    footer { display: flex; flex-wrap: wrap; gap: 1rem 2rem; padding-top: 3rem; }
+    .sources { padding-top: 1rem; }
+    @media (max-width: 720px) {
+      .page { padding-block: 3rem; }
+      .terms, .request-flow { grid-template-columns: 1fr; }
+      .terms { gap: 0; }
+      .terms dt:not(:first-child) { padding-top: 1.25rem; }
+      .terms dd { padding-top: 0.35rem; }
+      .table-wrap table, .table-wrap tbody { display: block; }
+      .table-wrap colgroup { display: none; }
+      .table-wrap thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+      .table-wrap tbody { display: grid; gap: 1.75rem; }
+      .table-wrap tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem 1rem; }
+      .table-wrap tbody th { grid-column: 1 / -1; font-weight: 600; }
+      .table-wrap tbody th, .table-wrap td { padding: 0; }
+      .table-wrap td::before { display: block; padding-bottom: 0.35rem; color: var(--text); font-weight: 600; }
+      .table-wrap td:nth-child(2)::before { content: 'Overidify'; }
+      .table-wrap td:nth-child(3)::before { content: 'Requestly'; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <a href="/">Back to notes</a>
+      <h1>Overidify and Requestly</h1>
+      <p>Both Chrome extensions can give an app a mock API response while Chrome's Network tab shows the server response. Requestly adds more rule types and execution feedback. Overidify already has a DevTools panel that captures API requests and opens a new Network Rule.</p>
+      <div class="meta"><span>Updated 2 November 2026</span><span>Chrome extensions only</span></div>
+    </header>
+    <main>
+      <section aria-labelledby="scope">
+        <h2 id="scope">Which version does this compare?</h2>
+        <p>This note checks Overidify main at <a href="https://github.com/prateekkumaroriginal/overidify/tree/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c">commit 20d17b0, dated 1 November 2026</a>. Requestly findings use its official docs and public extension source. These are code and document checks, not a test of installed release ZIPs.</p>
+        <p>This main version includes request capture and rule creation from DevTools. Treat both as existing features when choosing the next work. The stable ZIP was not retested for this note.</p>
+      </section>
+
+      <section aria-labelledby="views">
+        <h2 id="views">Keep the three views separate</h2>
+        <dl class="terms">
+          <dt class="native">Native Network response</dt><dd>What Chrome's built-in Network tab displays. It records real network activity. A mock returned by page JavaScript can differ from this response.</dd>
+          <dt class="mock">Mock response</dt><dd>The body, status code, and headers supplied to the app. In Overidify, a Network Rule defines this response.</dd>
+          <dt class="panel">Extension panel</dt><dd>A separate tab inside DevTools. Each extension controls its own panel. A panel can list requests without changing Chrome's native Network tab.</dd>
+        </dl>
+      </section>
+
+      <section aria-labelledby="request">
+        <h2 id="request">Follow one API request</h2>
+        <p>The server normally returns status <code>200</code> with Alice's data. The selected mock response returns status <code>500</code> with an error message. Choose whether the real request runs.</p>
+        <div class="mode-controls" role="group" aria-label="Server behavior in the example">
+          <button type="button" id="call-mode" aria-pressed="true" aria-controls="request-example">Call-server mode</button>
+          <button type="button" id="bypass-mode" aria-pressed="false" aria-controls="request-example">Bypass-server mode</button>
+        </div>
+        <div id="request-example" aria-live="polite" aria-atomic="true">
+          <p class="mode-note" id="mode-note">The extension calls the server, then gives the app the mock response. The real call can still change server data.</p>
+          <figure aria-label="Compare the server result, Chrome Network, and the app result">
+            <div class="request-flow">
+              <article><h3>The API server</h3><p id="server-result">Receives the request.</p><p id="server-data"><code>200</code> with Alice's data.</p></article>
+              <article><h3>Chrome Network</h3><p id="network-result">Records the real server call.</p><p id="network-data"><code>200</code> with Alice's data.</p></article>
+              <article><h3>The app</h3><p>Receives the mock response.</p><p><code>500</code> with an error message.</p></article>
+            </div>
+            <figcaption>The response-mocking approach is shared by both extensions. This example describes page and iframe fetch/XHR calls.</figcaption>
+          </figure>
+        </div>
+        <p>Both extensions wrap the page's <code>fetch</code> and <code>XMLHttpRequest</code> APIs. A wrapped call can return a different response to JavaScript after a real request completes. Requestly also supports a static response without a server call. See <a href="https://interceptor-docs.requestly.com/troubleshoot/http-rules/rule-changes-not-reflecting-in-chrome-devtools">Requestly's native Network limitation</a> and <a href="https://github.com/requestly/interceptor/blob/master/browser-extension/mv3/src/page-scripts/ajaxRequestInterceptor/fetch.js">its fetch wrapper</a>.</p>
+      </section>
+
+      <section aria-labelledby="panels">
+        <h2 id="panels">Compare the DevTools panels</h2>
+        <p>Overidify's panel reads Chrome's captured request data. It can open the response in a new Network Rule. That capture can contain the server response even when the app received a mock.</p>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="DevTools comparison">
+          <table>
+            <colgroup><col><col><col></colgroup>
+            <thead><tr><th scope="col">Task</th><th scope="col">Overidify</th><th scope="col">Requestly extension</th></tr></thead>
+            <tbody>
+              <tr><th scope="row">List captured API requests</th><td>Yes. Filter by URL or method. Refresh or clear the list.</td><td>Yes. Its own Network Traffic table lists requests.</td></tr>
+              <tr><th scope="row">Use a request to create a Rule</th><td>Yes. Opens a draft with the URL, method, body, status, headers, and website scope. Save is a separate action.</td><td>Yes. Request details have shortcuts to create rules.</td></tr>
+              <tr><th scope="row">Inspect request and response details</th><td>The list shows the method, request, and captured status. The response opens in the Rule editor.</td><td>Its own panel shows request headers, request body, and response body.</td></tr>
+              <tr><th scope="row">Show which Rule ran</th><td>No per-request execution history in the reviewed panel.</td><td>Rule Executions, applied-row highlights, and an Executed Rules popup view.</td></tr>
+              <tr><th scope="row">Compare server data with the app's mock response</th><td>No combined before-and-after view.</td><td>A complete before-and-after view was not confirmed.</td></tr>
+              <tr><th scope="row">Rewrite native Network rows to show page mocks</th><td>No. Page mocks do not replace Chrome's response display.</td><td>No confirmed support. Its docs warn that native Network can show the original response.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Requestly's green applied-request highlights are part of its own inspection workflow. They do not prove that it changes rows in Chrome's native Network tab. See <a href="https://interceptor-docs.requestly.com/interceptor/browser-extension/browser-interception">its panel guide</a> and <a href="https://interceptor-docs.requestly.com/http-rules/advanced-usage/validate-rules-execution">execution feedback guide</a>.</p>
+      </section>
+
+      <section aria-labelledby="headers">
+        <h2 id="headers">Headers use a different path</h2>
+        <p>Overidify's Header Rules and Switch Rules use Chrome's browser-level header rules. They change outgoing request headers. The response wrapper is a separate mechanism.</p>
+        <p>Requestly also uses browser-level header actions. It supports removing headers and changing live response headers. Overidify currently sets request headers and supplies headers as part of a mock response.</p>
+        <p>A mock response header returned to JavaScript does not provide a general browser-level CORS override. It also cannot set browser cookies. Do not assume that every header change has the same Network display behavior as a response-body mock. Requestly specifically warns that response-header changes may remain invisible there.</p>
+        <p>Source: <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/lib/dnr.ts">Overidify's header rules</a>, <a href="https://github.com/requestly/interceptor/blob/master/app/src/modules/extension/mv3RuleParser/parseHeadersRule.ts">Requestly's header actions</a>, and the <a href="https://interceptor-docs.requestly.com/troubleshoot/http-rules/rule-changes-not-reflecting-in-chrome-devtools">display warning</a>. Exact native header rendering still needs a test of each operation.</p>
+      </section>
+
+      <section aria-labelledby="gaps">
+        <h2 id="gaps">Where Overidify still has gaps</h2>
+        <p>The main gaps are more precise matching, changes to live traffic, and clear execution feedback.</p>
+        <div class="table-wrap" tabindex="0" role="region" aria-label="Feature comparison">
+          <table>
+            <colgroup><col><col><col></colgroup>
+            <thead><tr><th scope="col">Capability</th><th scope="col">Overidify</th><th scope="col">Requestly extension</th></tr></thead>
+            <tbody>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/advanced-usage/source-conditions">API URL matching</a></th><td>Exact URL and method or Any. Query order is ignored, but names and values must match.</td><td>Equals, Contains, Wildcard, and Regex, with a URL tester.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/advanced-usage/advance-filters">Request-header targeting</a></th><td>Website scope covers eligible requests from the matching website. No API-host or endpoint filter.</td><td>URL conditions and additional filters for applicable rule types.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/rule-types/modify-response-body">GraphQL operations</a></th><td>Cannot distinguish operations that share one URL and method.</td><td>Can target payload fields such as the operation name.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/rule-types/modify-response-body">Change one field in a live response</a></th><td>Replaces the complete response with saved data.</td><td>JavaScript can transform the server response.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/rule-types/modify-request-body">Edit outgoing request data</a></th><td>No request-body editor.</td><td>Static or JavaScript changes to fetch/XHR payloads.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/rule-types/redirect-rule">Redirect or switch API hosts</a></th><td>Switch Rules select headers. They do not change the destination URL.</td><td>Redirect and URL-replacement rules.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/rule-types/modify-query-params">Edit query parameters</a></th><td>Used for matching only.</td><td>Add, change, or remove query parameters.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/rule-types/delay-network-requests">Test slow or blocked requests</a></th><td>Can return an HTTP error status. No configured delay or blocking.</td><td>Fixed delay and cancel rules. Fixed delay is different from bandwidth throttling.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/advanced-usage/grouping">Activate several Rules together</a></th><td>Per-Rule toggles and named Switch Rule options.</td><td>Groups can enable or disable several rules.</td></tr>
+              <tr><th scope="row"><a href="https://interceptor-docs.requestly.com/http-rules/sharing/share-in-workspace">Share with a team</a></th><td>Reviewed JSON import and export.</td><td>Shared links, account sync, and team workspaces. Plan limits need a separate check.</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>Requestly also documents <a href="https://interceptor-docs.requestly.com/sessions/record-bug-reports">browser bug recordings</a>, <a href="https://interceptor-docs.requestly.com/http-rules/rule-types/insert-scripts">JS/CSS insertion</a>, and <a href="https://interceptor-docs.requestly.com/guides/intercepting-and-modifying-network-requests-in-web-automation-frameworks-like-selenium-and-playwright">automation integration</a>. Its <a href="https://chromewebstore.google.com/detail/requestly-intercept-modif/mdnleldcmiljblolnjhpnblkcekpdkpa?hl=en">store listing</a> provides a simpler installation path than Overidify's ZIP and Load unpacked steps.</p>
+      </section>
+
+      <section aria-labelledby="next">
+        <h2 id="next">What I would improve first</h2>
+        <ol>
+          <li>Show the matched Rule, server result, and mock response together. Mark a bypassed call clearly. Extend the existing capture panel.</li>
+          <li>Add request target patterns and selected-query matching. Keep website scope separate. Add GraphQL operation conditions.</li>
+          <li>Add delay, deliberate blocking, and request-header removal. Keep a transport failure separate from an HTTP error response.</li>
+          <li>Add host switching and controlled changes to live response data.</li>
+          <li>Add groups for complete test scenarios. Improve installation before building a cloud collaboration service.</li>
+        </ol>
+        <p>These are product recommendations. They are not measured user demand or delivery estimates. The first changes fit the current response-mocking engine.</p>
+      </section>
+
+      <section aria-labelledby="evidence">
+        <h2 id="evidence">Evidence and limits</h2>
+        <p>The scope is the Chrome extension and its documented account workflows. Requestly's desktop proxy, native-app interception, hosted mock servers, and API Client test runners are separate products. They are excluded from the gap list.</p>
+        <p>This review does not confirm that every Requestly panel response is the final mock seen by the app. It also does not establish an extension environment-variable system, bandwidth controls, or built-in Git history. Exact paid quotas remain unverified.</p>
+        <ul class="sources">
+          <li>Overidify <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/README.md">supported workflows</a>, <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/devtools/DevtoolsApp.tsx">capture panel</a>, and <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/lib/devtools-requests.ts">captured response handling</a>.</li>
+          <li>Overidify <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/network/interceptor.ts">page response interceptor</a> and <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/lib/network-matching.ts">request target matching</a>.</li>
+          <li>Terms follow Overidify's <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/CONTEXT.md">Rule definitions</a> and <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/docs/network-rules/glossary.md">Network Rules glossary</a>.</li>
+        </ul>
+        <p>Requestly links point to mutable docs and source. The reviewed source is not proof of the exact code in a published extension build. No installed-extension comparison was run for this note.</p>
+      </section>
+    </main>
+    <footer><a href="/">Back to notes</a><a href="overidify-improvements.html">Useful improvements for Overidify</a></footer>
+  </div>
+  <script>
+    const callButton = document.getElementById('call-mode');
+    const bypassButton = document.getElementById('bypass-mode');
+    function setMode(bypass) {
+      callButton.setAttribute('aria-pressed', String(!bypass));
+      bypassButton.setAttribute('aria-pressed', String(bypass));
+      document.getElementById('mode-note').textContent = bypass
+        ? 'The extension returns the mock response without making the target API call.'
+        : 'The extension calls the server, then gives the app the mock response. The real call can still change server data.';
+      document.getElementById('server-result').textContent = bypass ? 'Receives no target request.' : 'Receives the request.';
+      document.getElementById('server-data').hidden = bypass;
+      document.getElementById('network-result').textContent = bypass ? 'Has no real target API call to record.' : 'Records the real server call.';
+      document.getElementById('network-data').hidden = bypass;
+    }
+    callButton.addEventListener('click', () => setMode(false));
+    bypassButton.addEventListener('click', () => setMode(true));
+  </script>
+</body>
+</html>

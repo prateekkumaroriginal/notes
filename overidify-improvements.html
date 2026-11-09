@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Practical improvements for Overidify: reliable saves, safer request headers, clear rule matching, test scenarios, and simpler daily use.">
+  <title>Useful improvements for Overidify</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0c1015;
+      --surface: #121923;
+      --text: #e8edf3;
+      --muted: #99a6b5;
+      --line: #2b3745;
+      --blue: #68d7ff;
+      --green: #8ee6a2;
+      --violet: #d5a6ff;
+      --amber: #f1c66d;
+      --pink: #ff91b8;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--muted); font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    h1, h2, h3, p, ul, ol, dl, dt, dd { margin: 0; }
+    h1, h2, h3, dt { color: var(--text); }
+    h1, h2 { padding-bottom: 0.75rem; }
+    h3 { padding-bottom: 0.5rem; }
+    .page { width: min(900px, calc(100% - 2rem)); margin-inline: auto; padding-block: 5rem; }
+    header { display: grid; gap: 1rem; }
+    header h1 { padding-bottom: 0; }
+    main { padding-top: 3rem; }
+    section + section { padding-top: 2.5rem; }
+    .ideas { display: grid; gap: 1.75rem; }
+    p + p, p + ul, p + ol, p + dl, ul + p, ol + p { padding-top: 1rem; }
+    ul, ol { padding-left: 1.25rem; }
+    li + li { padding-top: 0.5rem; }
+    li::marker { color: inherit; }
+    .terms { display: grid; grid-template-columns: minmax(8rem, 12rem) minmax(0, 1fr); gap: 0.75rem 1.5rem; }
+    a { color: var(--blue); text-underline-offset: 0.2em; overflow-wrap: anywhere; border-radius: 0.25rem; }
+    a:hover { color: var(--green); }
+    a:focus-visible { outline: 2px solid var(--blue); outline-offset: 4px; }
+    code { padding: 0.12em 0.35em; border-radius: 0.3rem; background: var(--surface); color: var(--text); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+    .focus { color: var(--blue); }
+    .saved { color: var(--green); }
+    .scenario { color: var(--violet); }
+    .caution { color: var(--amber); }
+    .failure { color: var(--pink); }
+    .meta { display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+    footer { padding-top: 3rem; }
+    @media (max-width: 720px) { .page { padding-block: 3rem; } .terms { grid-template-columns: 1fr; gap: 0; } .terms dt:not(:first-child) { padding-top: 1rem; } .terms dd { padding-top: 0.35rem; } }
+    @media print { :root { color-scheme: light; } body { background: white; color: #333; } h1, h2, h3, dt, .focus, .saved, .scenario, .caution, .failure, a { color: #111; } .page { width: 100%; padding-block: 0; } article { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Useful improvements for Overidify</h1>
+      <p>Start with reliable saves and safer request headers. Then help users understand which Rule applies. These changes will make daily development easier before we add more mock response options.</p>
+      <div class="meta"><span>Prepared 2 November 2026</span><span>Based on the source review from 1 November</span></div>
+    </header>
+    <main>
+      <section aria-labelledby="context">
+        <h2 id="context">What the extension already does</h2>
+        <p>Overidify changes request headers and returns mock API responses. It already supports capture from DevTools, Rule copies, search, import, and export. Saved changes affect later requests. A request that has started keeps its original settings.</p>
+        <p>The distinction between a website and its API matters:</p>
+        <dl class="terms">
+          <dt>Website scope</dt><dd>The website domains where a Rule can apply. This uses the top-level URL in the address bar.</dd>
+          <dt>Request target</dt><dd>The outgoing API URL and HTTP method. A website can call an API on another host.</dd>
+          <dt>Header Rule</dt><dd>A Rule that supplies one set of request headers.</dd>
+          <dt>Switch Rule</dt><dd>A Rule with named header options. The selected option supplies the headers.</dd>
+          <dt>Network Rule</dt><dd>A Rule that returns a mock response for a request target within a website scope.</dd>
+          <dt>Activation</dt><dd>The step that applies saved Rules to browser requests. A successful save does not prove that activation succeeded.</dd>
+        </dl>
+        <p><a href="#evidence">The review evidence</a> separates observed behavior, dependency advisories, and proposals. Performance improvements below still need measurements.</p>
+      </section>
+
+      <section aria-labelledby="fix-first">
+        <h2 id="fix-first">Fix saves and protect sensitive data first</h2>
+        <div class="ideas">
+          <article id="reliable-saves">
+            <h3>Keep a saved Rule when activation fails</h3>
+            <p>Ordinary editor saves write the Rule to storage before they check activation. If activation fails, the editor reports an error. A new Rule gets a fresh ID on each save attempt. A second attempt can therefore create a Rule copy by accident.</p>
+            <p>Keep one ID for each new draft. Show <span class="saved">Saved</span> and <span class="caution">Activation pending</span> as separate states. Offer <span class="focus">Retry activation</span> without another storage write. Import and duplication already separate these outcomes.</p>
+            <p>Check that repeated activation failures preserve one saved Rule. Also check that a storage failure creates no Rule. Source: <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/lib/network-storage.ts">save and activation</a>, <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/options/OptionsApp.tsx">editor save handlers</a>.</p>
+          </article>
+          <article id="destination-scope">
+            <h3>Choose which API hosts receive request headers</h3>
+            <p>A Header Rule for <code>localhost:4200</code> currently changes supported requests from that website, including requests to other hosts. An authorization token can reach a third-party service if that request also receives the header.</p>
+            <p>Add an optional destination restriction such as <code>api.example.com</code>. Show the website scope and allowed API hosts before saving. Keep the current shared website matcher for Header Rules, Switch Rules, Network Rules, and the popup.</p>
+            <p>This adds a safety control to the existing behavior. It is not evidence of a reported token leak. Source: <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/src/lib/dnr.ts">request header conditions</a>.</p>
+          </article>
+          <article id="dependencies">
+            <h3>Update development dependencies with known advisories</h3>
+            <p>The full dependency audit flags development tools, including Vite and the Rollup version used by CRXJS. Review the affected versions and their use, then update the tools and lockfile. Run the build and extension tests after the update.</p>
+            <p>Add dependency scanning to CI. Review each finding before using a forced dependency override. The <a href="https://github.com/vitejs/vite/security/advisories/GHSA-v2wj-q39q-566r">Vite advisory</a> and <a href="https://github.com/rollup/rollup/security/advisories/GHSA-mw96-cpmx-2vgc">Rollup advisory</a> describe specific attack conditions. These findings alone do not prove that the installed extension is exposed.</p>
+          </article>
+          <article id="privacy">
+            <h3>Limit the mock configuration sent to a page</h3>
+            <p>The page bridge receives matching Network Rules, including disabled Rules and their response bodies. Send only enabled Rules and the fields needed to return the mock response. Do not include Rule names or other editor data without a runtime need.</p>
+            <p>Restrict local extension storage to trusted extension contexts where possible. Keep sensitive header values in the extension. Code that runs inside the website must not be treated as private storage. See <a href="https://developer.chrome.com/docs/extensions/develop/security-privacy/stay-secure#use-content-scripts-carefully">Chrome's content script guidance</a>.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="daily-use">
+        <h2 id="daily-use">Make Rules easier to understand and use</h2>
+        <div class="ideas">
+          <article id="rule-tester">
+            <h3>Show why a Rule applies</h3>
+            <p>Add a Rule tester. The user enters a website URL, request URL, and method. Show which Rules match, which Network Rule wins, and which headers replace other values.</p>
+            <p>Use specific explanations such as <span class="failure">Query parameter differs</span> or <span class="caution">A later Rule has higher priority</span>. Reuse the application's matchers so the tester and live requests make the same decision. Later, add recent request activity with a clear distinction between the native Network response and the mock response received by the page.</p>
+          </article>
+          <article id="scenarios">
+            <h3>Switch a complete test scenario in one action</h3>
+            <p>A <span class="scenario">test scenario</span> would be a saved choice of enabled Rules and selected Switch Rule options. For example, "Expired session" could select an account header option and enable the Network Rules that return authentication errors.</p>
+            <p>Let the user activate one scenario from the popup. Show the intended changes first. Apply the saved choices together, then report activation separately. This is the strongest larger feature after the reliability fixes.</p>
+          </article>
+          <article id="drafts">
+            <h3>Protect unfinished edits</h3>
+            <p>Escape currently leaves an editor without checking for unsaved changes. Add a warning before a user leaves a changed form. Keep a recoverable draft for long response edits.</p>
+            <p>If another options tab changes the same Rule, tell the user before an older form overwrites it. Offer a way to review the newer saved Rule and keep the local draft.</p>
+          </article>
+          <article id="sharing">
+            <h3>Make Rule exports safe to share</h3>
+            <p>A Rule export contains the exact saved header values and response bodies. Add a sharing review that identifies sensitive headers and lets the user remove or replace their values.</p>
+            <p>Support placeholders such as <code>{{API_TOKEN}}</code> for shared Rules. Keep an exact <span class="saved">Full backup</span> available as a separate choice. Imported placeholders must stay inactive until the user supplies the required values.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="mock-options">
+        <h2 id="mock-options">Cover more API test cases</h2>
+        <div class="ideas">
+          <article id="matching">
+            <h3>Allow controlled request target patterns</h3>
+            <p>Exact matching becomes difficult when requests contain timestamps, page numbers, or generated IDs. Add explicit options to ignore selected query parameters and match a path pattern. Keep exact matching as the default.</p>
+            <p>Later, add conditions for request bodies and GraphQL operation names. That would let two operations on the same endpoint use different Network Rules. Extend request target matching without changing the shared website scope logic.</p>
+          </article>
+          <article id="response-behavior">
+            <h3>Return delayed responses, failures, and sequences</h3>
+            <p>Add a response delay to test loading states. Add a transport failure to test connection error handling. Keep this separate from an HTTP error response such as status <code>500</code>.</p>
+            <p>A response sequence could return two errors, then a success. Named response variants could switch between populated data, empty data, and a validation error. Define when a sequence resets and whether each tab has its own sequence.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="performance">
+        <h2 id="performance">Handle large responses and long sessions</h2>
+        <div class="ideas">
+          <article id="storage">
+            <h3>Check storage before opening a captured response</h3>
+            <p>DevTools can retain a response body that is too large for the session storage used to open its draft. Several abandoned drafts can also fill that shared storage. Capture success does not guarantee that the editor can open the response.</p>
+            <p>Check available space before the handoff. Show an action the user can take if the body will not fit. Remove expired drafts and use storage suited to larger bodies if large captures remain a supported use case. Add similar checks before saving Rules. See <a href="https://developer.chrome.com/docs/extensions/reference/api/storage#storage_areas">Chrome's storage limits</a>.</p>
+          </article>
+          <article id="long-sessions">
+            <h3>Keep capture and interception work bounded</h3>
+            <p>The DevTools list keeps request rows without a fixed count limit. It sorts the retained history when it publishes changes and renders every visible row. Batch capture updates, render only the rows in view, and offer a history retention setting.</p>
+            <p>Measure request matching with many Rules. If it is costly, prepare URL match keys when settings change. Also measure the frame scans triggered by DOM additions. Use those results to limit repeated scans. These are optimization candidates; the review did not measure a performance regression.</p>
+          </article>
+        </div>
+      </section>
+
+      <section aria-labelledby="small-changes">
+        <h2 id="small-changes">Reduce friction in the popup and editors</h2>
+        <ul>
+          <li>Add <span class="focus">Pause all Rules for this website</span>, with a visible resume action and an optional expiry.</li>
+          <li>Create a Rule from the popup with the current website scope filled in.</li>
+          <li>Open a matching Rule's editor directly from the popup.</li>
+          <li>Add explicit priority controls and warnings when enabled Rules compete.</li>
+          <li>Show active, disabled, needs reload, and activation failed states. Offer a reload action for affected tabs.</li>
+          <li>Rename the Header Rule editor's "Domain" field to "Website domain". Explain its effect on requests to other hosts beside the field.</li>
+          <li>Add a compact list view, grouping by website, and an enabled-only filter.</li>
+          <li>Offer light and system themes as application options.</li>
+          <li>Add response templates for empty results, pagination, validation errors, and authentication failures.</li>
+        </ul>
+      </section>
+
+      <section aria-labelledby="next">
+        <h2 id="next">Suggested order of work</h2>
+        <ol>
+          <li>Fix save and activation outcomes. Review the dependency advisories. Add destination restrictions for sensitive headers.</li>
+          <li>Build the Rule tester. Add unsaved-change protection and storage checks.</li>
+          <li>Add test scenarios, flexible request targets, and more mock response behavior.</li>
+          <li>Measure long-session costs. Use the results to select performance work.</li>
+        </ol>
+        <p>Keep regression tests for matching decisions, state changes, failure handling, and side effects. Check layout and routine UI wiring during implementation. Keep one-time screenshots and scripts outside the retained regression suite.</p>
+      </section>
+
+      <section aria-labelledby="evidence">
+        <h2 id="evidence">What the review checked</h2>
+        <p>The review inspected the README, behavior docs, storage code, matchers, background workers, page bridge, editors, popup, and DevTools capture code at <a href="https://github.com/prateekkumaroriginal/overidify/tree/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c">commit 20d17b0</a>.</p>
+        <ul>
+          <li><span class="saved">All 120 automated tests passed</span> during the 1 November review.</li>
+          <li>The production dependency audit reported no known advisories at that time.</li>
+          <li>The full audit reported development dependency advisories. Each requires a review of affected versions and attack conditions.</li>
+          <li>The save retry behavior and storage mismatch came from code inspection and documented browser limits.</li>
+          <li>The review did not include a visual check of the running extension, a performance benchmark, or an exploit test.</li>
+        </ul>
+        <p>This document proposes work. It does not report that these application changes have been made. Its terminology follows the project's <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/CONTEXT.md">Rule definitions</a> and <a href="https://github.com/prateekkumaroriginal/overidify/blob/20d17b0d99fb4613394fffa5eafe5bb3a6d9182c/docs/network-rules/glossary.md">Network Rules glossary</a>.</p>
+      </section>
+    </main>
+    <footer><a href="/">Back to notes</a></footer>
+  </div>
+</body>
+</html>
