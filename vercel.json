@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/topfans-platform-research",
+      "destination": "/topfans-platform-research.html"
+    },
+    {
       "source": "/cursor-claude-chatgpt",
       "destination": "/cursor-claude-chatgpt.html"
     },
