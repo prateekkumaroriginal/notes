@@ -1,0 +1,772 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="dark"><meta name="theme-color" content="#0c1015"><title>Payment checkout changes handoff</title><link rel="stylesheet" href="/code-blocks.css"><style>
+:root{color-scheme:dark;--bg:#0c1015;--surface:#121923;--text:#e8edf3;--muted:#99a6b5;--line:#2b3745;--blue:#68d7ff;--green:#8ee6a2;--pink:#ff91b8}
+html{background:var(--bg);color:var(--text);color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}.page{width:min(900px,calc(100% - 2rem));margin-inline:auto;padding-block:5rem}h1,h2,p,ul,pre{margin:0}h1{padding-bottom:.75rem}h2{padding-bottom:.75rem;overflow-wrap:anywhere}p,li{color:var(--muted)}p+p{padding-top:1rem}a{color:var(--blue);border-radius:.2rem}a:focus-visible{outline:2px solid var(--blue);outline-offset:3px}nav{padding-top:3rem}ul{padding-left:1.3rem;display:grid;gap:.5rem}section{padding-top:2.5rem}code,pre{font-family:ui-monospace,monospace}pre{padding:1.25rem;overflow:auto;background:var(--surface);line-height:1.5}pre code{white-space:pre;color:var(--text)}p code,li code{color:var(--text);background:var(--surface);padding:.1em .3em;border-radius:.3rem}::selection{background:#2b3745;color:var(--text)}section p{padding-bottom:1rem}.add{color:var(--green)}.del{color:var(--pink)}.meta{color:var(--muted)}@media(max-width:720px){.page{padding-block:3rem}}
+</style><script src="/copy-code.js" defer></script></head><body><main class="page"><h1>Payment checkout changes handoff</h1><p>Changes relative to Git commit <code>5ebc2be14712d5023e46e9dadbea35c3fcba15e6</code>. Only the six files changed for the Apple Pay focus fix and trial payment checkout work are included. QA build settings, environment changes, generated tenant files, index.html changes and the QA route list are excluded. The separate API repository is outside this handoff.</p><p>For each file, find the unchanged context lines, remove lines beginning with <code>-</code>, and add lines beginning with <code>+</code>. The <code>@@</code> lines identify approximate locations; do not copy diff markers into the source. Adapt changes if the destination differs. Apply the six files together for the full trial checkout update. For only the original Apple Pay blue focus fix, apply the SCSS section alone.</p><p>The payment flow depends on how the API creates SetupIntents. Test trial and paid checkout, redirect returns, card fallback, and available wallets in the target environment. Temporary pay-debug logs and the debugLogIntent helper are included to match the current worktree. Remove the temporary logging and its calls before committing production code; preserve any non-debug statement sharing a line with a debug call.</p><nav><h2>Files</h2><ul><li><a href="#f0">src/app/constants/payment-intent.constants.ts</a></li><li><a href="#f1">src/app/utils/apple-pay-recurring.utils.ts</a></li><li><a href="#f2">src/app/services/stripe.service.ts</a></li><li><a href="#f3">src/app/modules/dashboard/components/post-payment/post-payment.component.ts</a></li><li><a href="#f4">src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.ts</a></li><li><a href="#f5">src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.scss</a></li></ul></nav><section id="f0"><h2>src/app/constants/payment-intent.constants.ts</h2><p>Adds trial labels and a setup redirect marker.</p><pre tabindex="0"><code><span class="meta">diff --git a/src/app/constants/payment-intent.constants.ts b/src/app/constants/payment-intent.constants.ts</span>
+<span class="meta">index 07a9597012..4ebeb3df80 100644</span>
+<span class="meta">--- a/src/app/constants/payment-intent.constants.ts</span>
+<span class="meta">+++ b/src/app/constants/payment-intent.constants.ts</span>
+<span class="meta">@@ -8,7 +8,10 @@ export const APPLE_PAY_RECURRING_LABELS = {</span>
+<span class="">   everyMonth: &#x27;every month&#x27;,</span>
+<span class="">   everyMonths: &#x27;every {count} months&#x27;,</span>
+<span class="">   billingAgreement:</span>
+<span class="del">-    &#x27;Billed {interval} until you cancel. Manage or cancel in Wallet &gt; My Purchases.&#x27;</span>
+<span class="add">+    &#x27;Billed {interval} until you cancel. Manage or cancel in Wallet &gt; My Purchases.&#x27;,</span>
+<span class="add">+  trialLabel: &#x27;Free trial&#x27;,</span>
+<span class="add">+  trialBillingAgreement:</span>
+<span class="add">+    &#x27;Free for {days} days, then billed {interval} until you cancel. Manage or cancel in Wallet &gt; My Purchases.&#x27;</span>
+<span class=""> } as const;</span>
+<span class=""> </span>
+<span class=""> export const PAYMENT_INTENT_LABELS = {</span>
+<span class="meta">@@ -186,7 +189,8 @@ export const STRIPE_REDIRECT_QUERY = {</span>
+<span class=""> /** sessionStorage marker so a SetupIntent redirect is not treated as a PaymentIntent. */</span>
+<span class=""> export const CHECKOUT_SETUP_PURPOSE = {</span>
+<span class="">   orderSetup: &#x27;order-setup&#x27;,</span>
+<span class="del">-  trialMandate: &#x27;trial-mandate&#x27;</span>
+<span class="add">+  trialMandate: &#x27;trial-mandate&#x27;,</span>
+<span class="add">+  trialSetup: &#x27;trial-setup&#x27;</span>
+<span class=""> } as const;</span>
+<span class=""> </span>
+<span class=""> export const STRIPE_REDIRECT_STATUS = {</span></code></pre></section><section id="f1"><h2>src/app/utils/apple-pay-recurring.utils.ts</h2><p>Adds trial details to the recurring Apple Pay request.</p><pre tabindex="0"><code><span class="meta">diff --git a/src/app/utils/apple-pay-recurring.utils.ts b/src/app/utils/apple-pay-recurring.utils.ts</span>
+<span class="meta">index 077a82f6da..952ded38c2 100644</span>
+<span class="meta">--- a/src/app/utils/apple-pay-recurring.utils.ts</span>
+<span class="meta">+++ b/src/app/utils/apple-pay-recurring.utils.ts</span>
+<span class="meta">@@ -14,6 +14,11 @@ export interface ApplePayRecurringPaymentRequestDetails {</span>
+<span class="">     recurringPaymentIntervalUnit: &#x27;month&#x27;;</span>
+<span class="">     recurringPaymentIntervalCount: number;</span>
+<span class="">   };</span>
+<span class="add">+  trialBilling?: {</span>
+<span class="add">+    amount: 0;</span>
+<span class="add">+    label: string;</span>
+<span class="add">+    recurringPaymentEndDate: Date;</span>
+<span class="add">+  };</span>
+<span class="">   billingAgreement: string;</span>
+<span class=""> }</span>
+<span class=""> </span>
+<span class="meta">@@ -28,6 +33,10 @@ export interface ApplePayRecurringPaymentInput {</span>
+<span class="">   managementOrigin?: string;</span>
+<span class="">   /** Anchor for the first renewal. Defaults to now. */</span>
+<span class="">   startFrom?: Date;</span>
+<span class="add">+  /** Free-trial length. When set, billing starts when the trial ends. */</span>
+<span class="add">+  trialDays?: number;</span>
+<span class="add">+  /** Trial end from the order. Defaults to now + trialDays. */</span>
+<span class="add">+  trialEndDate?: Date;</span>
+<span class=""> }</span>
+<span class=""> </span>
+<span class=""> const DESCRIPTION_MAX_LENGTH = 128;</span>
+<span class="meta">@@ -36,7 +45,7 @@ const LABEL_MAX_LENGTH = 128;</span>
+<span class=""> /**</span>
+<span class="">  * Apple Pay sheet for an auto-renewing subscription.</span>
+<span class="">  * Returns null when the amount or management URL cannot be sent.</span>
+<span class="del">- * Callers omit one-time purchases, season passes, lifetime plans, and free trials.</span>
+<span class="add">+ * Callers omit one-time purchases, season passes, and lifetime plans.</span>
+<span class="">  */</span>
+<span class=""> export function buildApplePayRecurringPaymentRequest(</span>
+<span class="">   input: ApplePayRecurringPaymentInput</span>
+<span class="meta">@@ -58,6 +67,11 @@ export function buildApplePayRecurringPaymentRequest(</span>
+<span class="">           &#x27;{count}&#x27;,</span>
+<span class="">           String(intervalCount)</span>
+<span class="">         );</span>
+<span class="add">+  const trialDays = normalizeDayCount(input.trialDays);</span>
+<span class="add">+  const now = new Date();</span>
+<span class="add">+  const trialEnd = trialDays</span>
+<span class="add">+    ? futureDate(input.trialEndDate, now) || addDays(now, trialDays)</span>
+<span class="add">+    : null;</span>
+<span class=""> </span>
+<span class="">   return {</span>
+<span class="">     paymentDescription: clip(</span>
+<span class="meta">@@ -75,17 +89,27 @@ export function buildApplePayRecurringPaymentRequest(</span>
+<span class="">     regularBilling: {</span>
+<span class="">       amount,</span>
+<span class="">       label: clip(planName, LABEL_MAX_LENGTH),</span>
+<span class="del">-      recurringPaymentStartDate: addMonths(</span>
+<span class="del">-        input.startFrom || new Date(),</span>
+<span class="del">-        intervalCount</span>
+<span class="del">-      ),</span>
+<span class="add">+      recurringPaymentStartDate:</span>
+<span class="add">+        trialEnd || addMonths(input.startFrom || now, intervalCount),</span>
+<span class="">       recurringPaymentIntervalUnit: &#x27;month&#x27;,</span>
+<span class="">       recurringPaymentIntervalCount: intervalCount</span>
+<span class="">     },</span>
+<span class="del">-    billingAgreement: APPLE_PAY_RECURRING_LABELS.billingAgreement.replace(</span>
+<span class="del">-      &#x27;{interval}&#x27;,</span>
+<span class="del">-      intervalLabel</span>
+<span class="del">-    )</span>
+<span class="add">+    ...(trialEnd</span>
+<span class="add">+      ? {</span>
+<span class="add">+          trialBilling: {</span>
+<span class="add">+            amount: 0 as const,</span>
+<span class="add">+            label: APPLE_PAY_RECURRING_LABELS.trialLabel,</span>
+<span class="add">+            recurringPaymentEndDate: trialEnd</span>
+<span class="add">+          }</span>
+<span class="add">+        }</span>
+<span class="add">+      : {}),</span>
+<span class="add">+    billingAgreement: (trialEnd</span>
+<span class="add">+      ? APPLE_PAY_RECURRING_LABELS.trialBillingAgreement.replace(</span>
+<span class="add">+          &#x27;{days}&#x27;,</span>
+<span class="add">+          String(trialDays)</span>
+<span class="add">+        )</span>
+<span class="add">+      : APPLE_PAY_RECURRING_LABELS.billingAgreement</span>
+<span class="add">+    ).replace(&#x27;{interval}&#x27;, intervalLabel)</span>
+<span class="">   };</span>
+<span class=""> }</span>
+<span class=""> </span>
+<span class="meta">@@ -112,6 +136,21 @@ function normalizeMonthCount(value: number | undefined): number {</span>
+<span class="">   return Math.round(count);</span>
+<span class=""> }</span>
+<span class=""> </span>
+<span class="add">+function normalizeDayCount(value: number | undefined): number {</span>
+<span class="add">+  const count = Number(value);</span>
+<span class="add">+  return Number.isFinite(count) &amp;&amp; count &gt; 0 ? Math.round(count) : 0;</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+function futureDate(value: Date | undefined, now: Date): Date | null {</span>
+<span class="add">+  return value instanceof Date &amp;&amp; value.getTime() &gt; now.getTime() ? value : null;</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class="add">+function addDays(from: Date, days: number): Date {</span>
+<span class="add">+  const next = new Date(from.getTime());</span>
+<span class="add">+  next.setDate(next.getDate() + days);</span>
+<span class="add">+  return next;</span>
+<span class="add">+}</span>
+<span class="add">+</span>
+<span class=""> function addMonths(from: Date, months: number): Date {</span>
+<span class="">   const next = new Date(from.getTime());</span>
+<span class="">   next.setMonth(next.getMonth() + months);</span></code></pre></section><section id="f2"><h2>src/app/services/stripe.service.ts</h2><p>Adds deferred setup Elements and setup confirmation for express checkout.</p><pre tabindex="0"><code><span class="meta">diff --git a/src/app/services/stripe.service.ts b/src/app/services/stripe.service.ts</span>
+<span class="meta">index d8e7757fa9..a7d2767a7b 100644</span>
+<span class="meta">--- a/src/app/services/stripe.service.ts</span>
+<span class="meta">+++ b/src/app/services/stripe.service.ts</span>
+<span class="meta">@@ -30,10 +30,18 @@ type StripeConfirmResult = {</span>
+<span class=""> type StripeSetupConfirmResult = {</span>
+<span class="">   error?: { message?: string };</span>
+<span class="">   setupIntentId?: string;</span>
+<span class="add">+  paymentMethodId?: string;</span>
+<span class=""> };</span>
+<span class=""> </span>
+<span class=""> export type ExpressWalletAvailability = { applePay: boolean; googlePay: boolean };</span>
+<span class=""> </span>
+<span class="add">+export type ExpressCheckoutConfirmResult = StripeConfirmResult &amp; {</span>
+<span class="add">+  setupIntentId?: string;</span>
+<span class="add">+  paymentMethodId?: string;</span>
+<span class="add">+};</span>
+<span class="add">+</span>
+<span class="add">+export type ExpressCheckoutIntentType = &#x27;payment&#x27; | &#x27;setup&#x27;;</span>
+<span class="add">+</span>
+<span class=""> const stripeMountAborted = () =&gt;</span>
+<span class="">   new Error(PAYMENT_INTENT_ERRORS.mountAborted);</span>
+<span class=""> </span>
+<span class="meta">@@ -343,6 +351,29 @@ export class StripeService {</span>
+<span class="">     }</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="add">+  /**</span>
+<span class="add">+   * Deferred setup-mode Elements; confirm with `confirmSetup(returnUrl, clientSecret)`.</span>
+<span class="add">+   * `paymentMethodTypes` must match how the SetupIntent was created: null for</span>
+<span class="add">+   * automatic payment methods (filtered by `currency`), a list for explicit types.</span>
+<span class="add">+   */</span>
+<span class="add">+  async createSetupElements(</span>
+<span class="add">+    paymentMethodTypes: string[] | null,</span>
+<span class="add">+    currency: string,</span>
+<span class="add">+    invertedColorScheme = false</span>
+<span class="add">+  ): Promise&lt;void&gt; {</span>
+<span class="add">+    this.invertedColorScheme = invertedColorScheme;</span>
+<span class="add">+    if (!this.stripe) await this.initializeStripe();</span>
+<span class="add">+    this.destroyPaymentElements();</span>
+<span class="add">+    if (this.stripe) {</span>
+<span class="add">+      this.elements = this.stripe.elements({</span>
+<span class="add">+        mode: &#x27;setup&#x27;,</span>
+<span class="add">+        currency,</span>
+<span class="add">+        ...(paymentMethodTypes ? { paymentMethodTypes } : {}),</span>
+<span class="add">+        appearance: this.buildAppearance(invertedColorScheme)</span>
+<span class="add">+      } as any);</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="">   async createCardElements(invertedColorScheme = false): Promise&lt;void&gt; {</span>
+<span class="">     this.invertedColorScheme = invertedColorScheme;</span>
+<span class="">     if (!this.stripe) await this.initializeStripe();</span>
+<span class="meta">@@ -499,10 +530,11 @@ export class StripeService {</span>
+<span class="">     clientSecret: string,</span>
+<span class="">     returnUrl: string,</span>
+<span class="">     lineItems: Array&lt;{ name: string; amount: number }&gt;,</span>
+<span class="del">-    onConfirm: (result: StripeConfirmResult) =&gt; void,</span>
+<span class="add">+    onConfirm: (result: ExpressCheckoutConfirmResult) =&gt; void,</span>
+<span class="">     onBeforeConfirm?: () =&gt; void,</span>
+<span class="">     onWalletsChange?: (wallets: ExpressWalletAvailability) =&gt; void,</span>
+<span class="del">-    applePayRecurringPaymentRequest?: ApplePayRecurringPaymentRequestDetails | null</span>
+<span class="add">+    applePayRecurringPaymentRequest?: ApplePayRecurringPaymentRequestDetails | null,</span>
+<span class="add">+    intentType: ExpressCheckoutIntentType = &#x27;payment&#x27;</span>
+<span class="">   ): Promise&lt;boolean&gt; {</span>
+<span class="">     return new Promise(async (resolve) =&gt; {</span>
+<span class="">       if (!this.stripe) await this.initializeStripe();</span>
+<span class="meta">@@ -564,6 +596,12 @@ export class StripeService {</span>
+<span class="">       });</span>
+<span class="">       expressCheckoutElement.on(&#x27;confirm&#x27;, async (event: { paymentFailed: (payload?: { reason?: &#x27;fail&#x27; }) =&gt; void }) =&gt; {</span>
+<span class="">         onBeforeConfirm?.();</span>
+<span class="add">+        if (intentType === &#x27;setup&#x27;) {</span>
+<span class="add">+          const result = await this.confirmExpressSetup(elements, returnUrl);</span>
+<span class="add">+          if (result.error) event.paymentFailed({ reason: &#x27;fail&#x27; });</span>
+<span class="add">+          onConfirm(result);</span>
+<span class="add">+          return;</span>
+<span class="add">+        }</span>
+<span class="">         try {</span>
+<span class="">           const result = await this.stripe!.confirmPayment({</span>
+<span class="">             elements,</span>
+<span class="meta">@@ -596,16 +634,22 @@ export class StripeService {</span>
+<span class="">     }</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="del">-  async confirmSetup(returnUrl: string): Promise&lt;StripeSetupConfirmResult&gt; {</span>
+<span class="add">+  /** Pass `clientSecret` when Elements were created in deferred mode (`createSetupElements`). */</span>
+<span class="add">+  async confirmSetup(returnUrl: string, clientSecret?: string): Promise&lt;StripeSetupConfirmResult&gt; {</span>
+<span class="">     if (!this.stripe || !this.elements) {</span>
+<span class="">       return { error: { message: PAYMENT_INTENT_ERRORS.stripeNotInitialized } };</span>
+<span class="">     }</span>
+<span class="">     try {</span>
+<span class="add">+      if (clientSecret) {</span>
+<span class="add">+        const { error: submitError } = await this.elements.submit();</span>
+<span class="add">+        if (submitError) return { error: { message: submitError.message } };</span>
+<span class="add">+      }</span>
+<span class="">       const result = await this.stripe.confirmSetup({</span>
+<span class="">         elements: this.elements,</span>
+<span class="add">+        ...(clientSecret ? { clientSecret } : {}),</span>
+<span class="">         confirmParams: { return_url: returnUrl },</span>
+<span class="">         redirect: &#x27;if_required&#x27;</span>
+<span class="del">-      });</span>
+<span class="add">+      } as any);</span>
+<span class="">       return this.normalizeSetupConfirmResult(result);</span>
+<span class="">     } catch (error: unknown) {</span>
+<span class="">       const message = error instanceof Error ? error.message : PAYMENT_INTENT_ERRORS.paymentFailed;</span>
+<span class="meta">@@ -613,6 +657,28 @@ export class StripeService {</span>
+<span class="">     }</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="add">+  private async confirmExpressSetup(</span>
+<span class="add">+    elements: StripeElements,</span>
+<span class="add">+    returnUrl: string</span>
+<span class="add">+  ): Promise&lt;ExpressCheckoutConfirmResult&gt; {</span>
+<span class="add">+    try {</span>
+<span class="add">+      const result = await this.stripe!.confirmSetup({</span>
+<span class="add">+        elements,</span>
+<span class="add">+        confirmParams: { return_url: returnUrl },</span>
+<span class="add">+        redirect: &#x27;if_required&#x27;</span>
+<span class="add">+      });</span>
+<span class="add">+      const normalized = this.normalizeSetupConfirmResult(result);</span>
+<span class="add">+      if (normalized.error) return { error: normalized.error };</span>
+<span class="add">+      if (!normalized.paymentMethodId) {</span>
+<span class="add">+        return { error: { message: PAYMENT_INTENT_ERRORS.cardSaveFailed } };</span>
+<span class="add">+      }</span>
+<span class="add">+      return normalized;</span>
+<span class="add">+    } catch (error: unknown) {</span>
+<span class="add">+      const message = error instanceof Error ? error.message : PAYMENT_INTENT_ERRORS.cardSaveFailed;</span>
+<span class="add">+      return { error: { message } };</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="">   async confirmCardPaymentWithElement(clientSecret: string, returnUrl: string): Promise&lt;StripeConfirmResult&gt; {</span>
+<span class="">     if (!this.stripe || !this.cardElement) return { error: { message: PAYMENT_INTENT_ERRORS.stripeNotInitialized } };</span>
+<span class="">     try {</span>
+<span class="meta">@@ -693,7 +759,11 @@ export class StripeService {</span>
+<span class=""> </span>
+<span class="">   private normalizeSetupConfirmResult(result: {</span>
+<span class="">     error?: { message?: string };</span>
+<span class="del">-    setupIntent?: { id?: string; status?: string };</span>
+<span class="add">+    setupIntent?: {</span>
+<span class="add">+      id?: string;</span>
+<span class="add">+      status?: string;</span>
+<span class="add">+      payment_method?: string | { id?: string } | null;</span>
+<span class="add">+    };</span>
+<span class="">   }): StripeSetupConfirmResult {</span>
+<span class="">     if (result?.error) {</span>
+<span class="">       return { error: { message: result.error.message } };</span>
+<span class="meta">@@ -705,7 +775,53 @@ export class StripeService {</span>
+<span class="">     ) {</span>
+<span class="">       return { error: { message: PAYMENT_INTENT_ERRORS.paymentNotConfirmed } };</span>
+<span class="">     }</span>
+<span class="del">-    return { setupIntentId: result?.setupIntent?.id };</span>
+<span class="add">+    const paymentMethodRef = result?.setupIntent?.payment_method;</span>
+<span class="add">+    return {</span>
+<span class="add">+      setupIntentId: result?.setupIntent?.id,</span>
+<span class="add">+      paymentMethodId:</span>
+<span class="add">+        typeof paymentMethodRef === &#x27;string&#x27; ? paymentMethodRef : paymentMethodRef?.id</span>
+<span class="add">+    };</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  // TEMP DEBUG: remove before commit.</span>
+<span class="add">+  async debugLogIntent(label: string, clientSecret: string): Promise&lt;void&gt; {</span>
+<span class="add">+    try {</span>
+<span class="add">+      if (!this.stripe) await this.initializeStripe();</span>
+<span class="add">+      if (!this.stripe || !clientSecret) {</span>
+<span class="add">+        console.log(&#x27;[pay-debug]&#x27;, label, &#x27;no stripe or client secret&#x27;);</span>
+<span class="add">+        return;</span>
+<span class="add">+      }</span>
+<span class="add">+      const isSetup = clientSecret.startsWith(&#x27;seti_&#x27;);</span>
+<span class="add">+      const result: any = isSetup</span>
+<span class="add">+        ? await this.stripe.retrieveSetupIntent(clientSecret)</span>
+<span class="add">+        : await this.stripe.retrievePaymentIntent(clientSecret);</span>
+<span class="add">+      const intent = isSetup ? result?.setupIntent : result?.paymentIntent;</span>
+<span class="add">+      console.log(&#x27;[pay-debug]&#x27;, label, {</span>
+<span class="add">+        intentType: isSetup ? &#x27;SetupIntent&#x27; : &#x27;PaymentIntent&#x27;,</span>
+<span class="add">+        id: intent?.id,</span>
+<span class="add">+        status: intent?.status,</span>
+<span class="add">+        amount: intent?.amount,</span>
+<span class="add">+        currency: intent?.currency,</span>
+<span class="add">+        payment_method_types: intent?.payment_method_types,</span>
+<span class="add">+        usage: intent?.usage,</span>
+<span class="add">+        setup_future_usage: intent?.setup_future_usage,</span>
+<span class="add">+        error: result?.error?.message</span>
+<span class="add">+      });</span>
+<span class="add">+    } catch (error) {</span>
+<span class="add">+      console.log(&#x27;[pay-debug]&#x27;, label, &#x27;retrieve failed&#x27;, error);</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  /** After a SetupIntent redirect (Amazon Pay, Cash App), read the saved payment method. */</span>
+<span class="add">+  async retrieveSetupIntent(clientSecret: string): Promise&lt;StripeSetupConfirmResult&gt; {</span>
+<span class="add">+    if (!this.stripe) await this.initializeStripe();</span>
+<span class="add">+    if (!this.stripe) return { error: { message: PAYMENT_INTENT_ERRORS.stripeNotInitialized } };</span>
+<span class="add">+    try {</span>
+<span class="add">+      return this.normalizeSetupConfirmResult(await this.stripe.retrieveSetupIntent(clientSecret));</span>
+<span class="add">+    } catch (error: unknown) {</span>
+<span class="add">+      const message = error instanceof Error ? error.message : PAYMENT_INTENT_ERRORS.cardSaveFailed;</span>
+<span class="add">+      return { error: { message } };</span>
+<span class="add">+    }</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">   async confirmCardSetup(</span></code></pre></section><section id="f3"><h2>src/app/modules/dashboard/components/post-payment/post-payment.component.ts</h2><p>Passes trial information into the Apple Pay recurring request.</p><pre tabindex="0"><code><span class="meta">diff --git a/src/app/modules/dashboard/components/post-payment/post-payment.component.ts b/src/app/modules/dashboard/components/post-payment/post-payment.component.ts</span>
+<span class="meta">index 6cce9a20da..893bd544ea 100644</span>
+<span class="meta">--- a/src/app/modules/dashboard/components/post-payment/post-payment.component.ts</span>
+<span class="meta">+++ b/src/app/modules/dashboard/components/post-payment/post-payment.component.ts</span>
+<span class="meta">@@ -2244,17 +2244,15 @@ export class PostPaymentComponent implements OnInit, OnDestroy {</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">   /**</span>
+<span class="del">-   * Apple Pay merchant-token request for auto-renewing subscribe and upgrade.</span>
+<span class="del">-   * Free trials stay on the saved-card form, and season/lifetime passes are one-time.</span>
+<span class="add">+   * Apple Pay merchant-token request for auto-renewing subscribe, upgrade, and</span>
+<span class="add">+   * free trials. Season/lifetime passes are one-time.</span>
+<span class="">    */</span>
+<span class="">   get applePayRecurringPaymentRequest(): ApplePayRecurringPaymentRequestDetails | null {</span>
+<span class="del">-    if (</span>
+<span class="del">-      !this.isSubscriptionCheckout ||</span>
+<span class="del">-      this.isFreeTrialCheckout ||</span>
+<span class="del">-      this.isNonRenewingSubscription()</span>
+<span class="del">-    ) {</span>
+<span class="add">+    if (!this.isSubscriptionCheckout || this.isNonRenewingSubscription()) {</span>
+<span class="">       return null;</span>
+<span class="">     }</span>
+<span class="add">+    const isTrial = this.isFreeTrialCheckout;</span>
+<span class="add">+    const trialEndMs = Number(this.paymentData?.trial_end_date);</span>
+<span class="">     const discountedAmount = Number(this.paymentData?.amount);</span>
+<span class="">     const listAmount = Number(this.paymentData?.actualAmt);</span>
+<span class="">     const amountMajor =</span>
+<span class="meta">@@ -2266,7 +2264,10 @@ export class PostPaymentComponent implements OnInit, OnDestroy {</span>
+<span class="">       creatorName: this.creatorDisplayName,</span>
+<span class="">       amountMajor,</span>
+<span class="">       intervalCount: Number(this.paymentData?.duration),</span>
+<span class="del">-      managementOrigin: this.subscriptionManagementOrigin</span>
+<span class="add">+      managementOrigin: this.subscriptionManagementOrigin,</span>
+<span class="add">+      trialDays: isTrial ? Number(this.paymentData?.trial_days) : undefined,</span>
+<span class="add">+      trialEndDate:</span>
+<span class="add">+        isTrial &amp;&amp; trialEndMs &gt; 0 ? new Date(trialEndMs) : undefined</span>
+<span class="">     });</span>
+<span class="">   }</span>
+<span class=""> </span></code></pre></section><section id="f4"><h2>src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.ts</h2><p>Updates trial setup, wallet confirmation and redirect handling. Includes temporary pay-debug logging.</p><pre tabindex="0"><code><span class="meta">diff --git a/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.ts b/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.ts</span>
+<span class="meta">index 2274c126e3..30523eef8c 100644</span>
+<span class="meta">--- a/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.ts</span>
+<span class="meta">+++ b/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.ts</span>
+<span class="meta">@@ -14,7 +14,10 @@ import {</span>
+<span class=""> } from &#x27;@angular/core&#x27;;</span>
+<span class=""> import { Location, CommonModule } from &#x27;@angular/common&#x27;;</span>
+<span class=""> import { firstValueFrom, Subject, takeUntil } from &#x27;rxjs&#x27;;</span>
+<span class="del">-import { StripeService } from &#x27;@services/stripe.service&#x27;;</span>
+<span class="add">+import {</span>
+<span class="add">+  ExpressWalletAvailability,</span>
+<span class="add">+  StripeService</span>
+<span class="add">+} from &#x27;@services/stripe.service&#x27;;</span>
+<span class=""> import { PaymentIntentService } from &#x27;@services/payment-intent.service&#x27;;</span>
+<span class=""> import {</span>
+<span class="">   CreatePaymentIntentResponse,</span>
+<span class="meta">@@ -45,6 +48,7 @@ import {</span>
+<span class="">   stripeReturnPathForRedirectSource</span>
+<span class=""> } from &#x27;@constants/payment-intent.constants&#x27;;</span>
+<span class=""> import { PAYMENT_METHOD_LABELS } from &#x27;@constants/payment-method.constants&#x27;;</span>
+<span class="add">+import { DEFAULT_CURRENCY } from &#x27;@constants/constant&#x27;;</span>
+<span class=""> import { getPaymentMethodTypeLabel } from &#x27;@utils/transaction-payment-method.utils&#x27;;</span>
+<span class=""> import { cardIcomoonMap } from &#x27;@modules/wallet/constants/wallet-const.constant&#x27;;</span>
+<span class=""> import { environment } from &#x27;src/environments/environment&#x27;;</span>
+<span class="meta">@@ -53,6 +57,7 @@ import { FormsModule } from &#x27;@angular/forms&#x27;;</span>
+<span class=""> import { CommonService } from &#x27;@modules/shared/services/common.service&#x27;;</span>
+<span class=""> import { ApplePayRecurringPaymentRequestDetails } from &#x27;@utils/apple-pay-recurring.utils&#x27;;</span>
+<span class=""> import {</span>
+<span class="add">+  isSetupIntentClientSecret,</span>
+<span class="">   isTrialPaymentFulfilled,</span>
+<span class="">   responseUsesSetupIntent,</span>
+<span class="">   setupIntentIdFromClientSecret,</span>
+<span class="meta">@@ -135,6 +140,8 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">   paymentIntentId = &#x27;&#x27;;</span>
+<span class="">   private requiresSetupIntent = false;</span>
+<span class="">   private setupIntentId = &#x27;&#x27;;</span>
+<span class="add">+  /** null: the order SetupIntent uses automatic payment methods. */</span>
+<span class="add">+  private trialPaymentMethodTypes: string[] | null = [STRIPE_PAYMENT_METHOD_TYPE.card];</span>
+<span class="">   paymentBreakdown: PaymentBreakdown | null = null;</span>
+<span class="">   requiresStripePayment = true;</span>
+<span class="">   saveCard = false;</span>
+<span class="meta">@@ -187,11 +194,11 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">   get showExpressCheckout(): boolean {</span>
+<span class="del">-    return !this.isFreeTrial() &amp;&amp; !this.cardOnly() &amp;&amp; !this.expressCheckoutUnavailable;</span>
+<span class="add">+    return !this.cardOnly() &amp;&amp; !this.expressCheckoutUnavailable;</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">   get usesCardForm(): boolean {</span>
+<span class="del">-    return this.cardOnly() || this.isFreeTrial();</span>
+<span class="add">+    return this.cardOnly() || (this.isFreeTrial() &amp;&amp; !this.clientSecret);</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">   get hasWalletGap(): boolean {</span>
+<span class="meta">@@ -287,7 +294,8 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">           }</span>
+<span class="">           this.clientSecret = data.clientSecret || &#x27;&#x27;;</span>
+<span class="">           this.paymentIntentId = data.paymentIntentId || &#x27;&#x27;;</span>
+<span class="del">-          await this.loadSavedCards(data.savedCards || []);</span>
+<span class="add">+          // TEMP DEBUG: remove before commit.</span>
+<span class="add">+          void this.stripeService.debugLogIntent(&#x27;non-trial createPaymentIntent&#x27;, this.clientSecret);          await this.loadSavedCards(data.savedCards || []);</span>
+<span class="">           if (this.requiresSetupIntent) {</span>
+<span class="">             this.resetExpressCheckoutState();</span>
+<span class="">             this.expressCheckoutUnavailable = true;</span>
+<span class="meta">@@ -711,6 +719,25 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">         );</span>
+<span class="">         await this.stripeService.mountSplitCardElements(this.cardElementIds);</span>
+<span class="">         this.selectedPaymentMethodType = STRIPE_PAYMENT_METHOD_TYPE.card;</span>
+<span class="add">+      } else if (this.isFreeTrial()) {</span>
+<span class="add">+        await this.stripeService.createSetupElements(</span>
+<span class="add">+          this.trialPaymentMethodTypes,</span>
+<span class="add">+          DEFAULT_CURRENCY,</span>
+<span class="add">+          this.stripeColorSchemeInverted</span>
+<span class="add">+        );</span>
+<span class="add">+        // TEMP DEBUG: remove before commit.</span>
+<span class="add">+        console.log(&#x27;[pay-debug] trial Payment Element (deferred setup)&#x27;, {</span>
+<span class="add">+          paymentMethodTypes: this.trialPaymentMethodTypes ?? &#x27;automatic&#x27;,</span>
+<span class="add">+          currency: DEFAULT_CURRENCY,</span>
+<span class="add">+          confirmsSetupIntent: this.setupIntentId</span>
+<span class="add">+        });</span>
+<span class="add">+        this.stripeService.setPaymentMethodChangeHandler(</span>
+<span class="add">+          handlePaymentMethodChange</span>
+<span class="add">+        );</span>
+<span class="add">+        await this.stripeService.mountPaymentElement(</span>
+<span class="add">+          this.elementId,</span>
+<span class="add">+          this.applePayRecurringPaymentRequest()</span>
+<span class="add">+        );</span>
+<span class="">       } else {</span>
+<span class="">         await this.stripeService.createElements(</span>
+<span class="">           this.clientSecret,</span>
+<span class="meta">@@ -746,6 +773,10 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="">   private async setupExpressCheckout(): Promise&lt;void&gt; {</span>
+<span class="add">+    if (this.isFreeTrial()) {</span>
+<span class="add">+      await this.setupTrialExpressCheckout();</span>
+<span class="add">+      return;</span>
+<span class="add">+    }</span>
+<span class="">     if (this.cardOnly() || this.requiresSetupIntent || !this.clientSecret) return;</span>
+<span class="">     const amountCents = Math.round(</span>
+<span class="">       Number(this.paymentBreakdown?.creditCard || 0) * 100</span>
+<span class="meta">@@ -781,14 +812,51 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">             });</span>
+<span class="">           },</span>
+<span class="">           () =&gt; this.persistRedirectContext(),</span>
+<span class="del">-          (wallets) =&gt; {</span>
+<span class="del">-            this.ngZone.run(() =&gt; {</span>
+<span class="del">-              this.applePayVisible = wallets.applePay;</span>
+<span class="del">-              this.googlePayVisible = wallets.googlePay;</span>
+<span class="add">+          (wallets) =&gt; this.onExpressWalletsChange(wallets),</span>
+<span class="add">+          this.applePayRecurringPaymentRequest()</span>
+<span class="add">+        );</span>
+<span class="add">+      this.expressCheckoutUnavailable = !this.expressCheckoutVisible;</span>
+<span class="add">+    } catch {</span>
+<span class="add">+      this.resetExpressCheckoutState();</span>
+<span class="add">+      this.expressCheckoutUnavailable = true;</span>
+<span class="add">+    }</span>
+<span class="add">+    this.cdr.detectChanges();</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  /** Free trial: the wallet saves a card on a SetupIntent, then /v2/payment starts the trial. */</span>
+<span class="add">+  private async setupTrialExpressCheckout(): Promise&lt;void&gt; {</span>
+<span class="add">+    if (this.cardOnly() || !this.clientSecret) return;</span>
+<span class="add">+    this.expressCheckoutUnavailable = false;</span>
+<span class="add">+    try {</span>
+<span class="add">+      this.expressCheckoutVisible =</span>
+<span class="add">+        await this.stripeService.mountExpressCheckout(</span>
+<span class="add">+          this.expressCheckoutElementId,</span>
+<span class="add">+          this.clientSecret,</span>
+<span class="add">+          this.resolvedReturnUrl,</span>
+<span class="add">+          [],</span>
+<span class="add">+          (result) =&gt; {</span>
+<span class="add">+            this.ngZone.run(async () =&gt; {</span>
+<span class="add">+              this.loading = true;</span>
+<span class="add">+              this.loadingChange.emit(true);</span>
+<span class="add">+              this.error = &#x27;&#x27;;</span>
+<span class="">               this.cdr.detectChanges();</span>
+<span class="add">+              if (result.error || !result.paymentMethodId) {</span>
+<span class="add">+                this.failPayment(</span>
+<span class="add">+                  result.error?.message || this.errors.cardSaveFailed</span>
+<span class="add">+                );</span>
+<span class="add">+                return;</span>
+<span class="add">+              }</span>
+<span class="add">+              try {</span>
+<span class="add">+                await this.completeTrialWithCard(result.paymentMethodId);</span>
+<span class="add">+              } catch (err: any) {</span>
+<span class="add">+                this.failPayment(err?.message || this.errors.paymentFailed);</span>
+<span class="add">+              }</span>
+<span class="">             });</span>
+<span class="">           },</span>
+<span class="del">-          this.applePayRecurringPaymentRequest()</span>
+<span class="add">+          undefined,</span>
+<span class="add">+          (wallets) =&gt; this.onExpressWalletsChange(wallets),</span>
+<span class="add">+          this.applePayRecurringPaymentRequest(),</span>
+<span class="add">+          &#x27;setup&#x27;</span>
+<span class="">         );</span>
+<span class="">       this.expressCheckoutUnavailable = !this.expressCheckoutVisible;</span>
+<span class="">     } catch {</span>
+<span class="meta">@@ -798,6 +866,14 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">     this.cdr.detectChanges();</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="add">+  private onExpressWalletsChange(wallets: ExpressWalletAvailability): void {</span>
+<span class="add">+    this.ngZone.run(() =&gt; {</span>
+<span class="add">+      this.applePayVisible = wallets.applePay;</span>
+<span class="add">+      this.googlePayVisible = wallets.googlePay;</span>
+<span class="add">+      this.cdr.detectChanges();</span>
+<span class="add">+    });</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="">   private resetExpressCheckoutState(): void {</span>
+<span class="">     this.expressCheckoutVisible = false;</span>
+<span class="">     this.expressCheckoutUnavailable = false;</span>
+<span class="meta">@@ -893,6 +969,7 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">     const params = new URLSearchParams(window.location.search);</span>
+<span class="">     const paymentIntentId = params.get(STRIPE_REDIRECT_QUERY.paymentIntent);</span>
+<span class="">     const setupIntentId = params.get(STRIPE_REDIRECT_QUERY.setupIntent);</span>
+<span class="add">+    const setupClientSecret = params.get(STRIPE_REDIRECT_QUERY.setupIntentClientSecret);</span>
+<span class="">     const redirectStatus = params.get(STRIPE_REDIRECT_QUERY.redirectStatus);</span>
+<span class="">     if ((!paymentIntentId &amp;&amp; !setupIntentId) || !redirectStatus) {</span>
+<span class="">       return false;</span>
+<span class="meta">@@ -913,11 +990,15 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">       const purpose = pending?.setupPurpose;</span>
+<span class="">       const knownPurpose =</span>
+<span class="">         purpose === CHECKOUT_SETUP_PURPOSE.orderSetup ||</span>
+<span class="del">-        purpose === CHECKOUT_SETUP_PURPOSE.trialMandate;</span>
+<span class="add">+        purpose === CHECKOUT_SETUP_PURPOSE.trialMandate ||</span>
+<span class="add">+        purpose === CHECKOUT_SETUP_PURPOSE.trialSetup;</span>
+<span class="">       if (!knownPurpose) return false;</span>
+<span class="">       if (purpose === CHECKOUT_SETUP_PURPOSE.trialMandate &amp;&amp; !pending?.cardId) {</span>
+<span class="">         return false;</span>
+<span class="">       }</span>
+<span class="add">+      if (purpose === CHECKOUT_SETUP_PURPOSE.trialSetup &amp;&amp; !setupClientSecret) {</span>
+<span class="add">+        return false;</span>
+<span class="add">+      }</span>
+<span class="">     }</span>
+<span class=""> </span>
+<span class="">     this.redirectResumeHandled = true;</span>
+<span class="meta">@@ -946,6 +1027,16 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">         });</span>
+<span class="">         return true;</span>
+<span class="">       }</span>
+<span class="add">+      if (</span>
+<span class="add">+        resumingSetup &amp;&amp;</span>
+<span class="add">+        pending?.setupPurpose === CHECKOUT_SETUP_PURPOSE.trialSetup &amp;&amp;</span>
+<span class="add">+        setupClientSecret</span>
+<span class="add">+      ) {</span>
+<span class="add">+        void this.ngZone.run(async () =&gt; {</span>
+<span class="add">+          await this.finishTrialAfterSetupRedirect(setupClientSecret);</span>
+<span class="add">+        });</span>
+<span class="add">+        return true;</span>
+<span class="add">+      }</span>
+<span class="">       if (resumingSetup) {</span>
+<span class="">         this.setupIntentId = setupIntentId;</span>
+<span class="">         void this.ngZone.run(async () =&gt; {</span>
+<span class="meta">@@ -1085,13 +1176,23 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">     this.requiresStripeChange.emit(true);</span>
+<span class="">     this.resetExpressCheckoutState();</span>
+<span class="">     this.expressCheckoutUnavailable = true;</span>
+<span class="del">-    try {</span>
+<span class="del">-      const response = this.skipSavedCards()</span>
+<span class="del">-        ? { savedCards: [] }</span>
+<span class="del">-        : await firstValueFrom(this.paymentIntentService.getSavedCards());</span>
+<span class="del">-      await this.loadSavedCards(response?.savedCards || []);</span>
+<span class="del">-    } catch {</span>
+<span class="del">-      await this.loadSavedCards([]);</span>
+<span class="add">+    this.setupIntentId = &#x27;&#x27;;</span>
+<span class="add">+    const [setupClientSecret, savedCards] = await Promise.all([</span>
+<span class="add">+      this.cardOnly() ? Promise.resolve(&#x27;&#x27;) : this.createTrialSetupIntent(),</span>
+<span class="add">+      this.skipSavedCards()</span>
+<span class="add">+        ? Promise.resolve([] as SavedCard[])</span>
+<span class="add">+        : firstValueFrom(this.paymentIntentService.getSavedCards()).then(</span>
+<span class="add">+            (response) =&gt; response?.savedCards || [],</span>
+<span class="add">+            () =&gt; [] as SavedCard[]</span>
+<span class="add">+          )</span>
+<span class="add">+    ]);</span>
+<span class="add">+    this.clientSecret = setupClientSecret;</span>
+<span class="add">+    this.setupIntentId = setupIntentIdFromClientSecret(setupClientSecret);</span>
+<span class="add">+    // TEMP DEBUG: remove before commit.</span>
+<span class="add">+    void this.stripeService.debugLogIntent(&#x27;trial SetupIntent&#x27;, setupClientSecret);    await this.loadSavedCards(savedCards);</span>
+<span class="add">+    if (this.clientSecret) {</span>
+<span class="add">+      this.expressCheckoutUnavailable = false;</span>
+<span class="add">+      this.pendingExpressCheckoutMount = true;</span>
+<span class="">     }</span>
+<span class="">     this.intentLoading = false;</span>
+<span class="">     this.loadingChange.emit(false);</span>
+<span class="meta">@@ -1107,29 +1208,49 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">     try {</span>
+<span class="">       const cardId = this.selectedSavedCard</span>
+<span class="">         ? this.selectedSavedCard.id</span>
+<span class="del">-        : await this.saveNewCardForTrial();</span>
+<span class="add">+        : this.usesCardForm</span>
+<span class="add">+          ? await this.saveNewCardForTrial()</span>
+<span class="add">+          : await this.savePaymentMethodForTrial();</span>
+<span class="">       if (!cardId) {</span>
+<span class="">         this.failPayment(this.errors.cardSaveFailed);</span>
+<span class="">         return;</span>
+<span class="">       }</span>
+<span class="del">-      const cardType = savedCardTypeFromId(cardId);</span>
+<span class="del">-      const response = await firstValueFrom(</span>
+<span class="del">-        this.paymentIntentService.completeTrialPayment(this.orderSK(), cardId, cardType)</span>
+<span class="del">-      );</span>
+<span class="del">-      if (response?.requiresAction) {</span>
+<span class="del">-        await this.confirmTrialRequiresAction(response, cardId, cardType);</span>
+<span class="del">-        return;</span>
+<span class="del">-      }</span>
+<span class="del">-      if (!isTrialPaymentFulfilled(response)) {</span>
+<span class="del">-        this.failPayment(response?.message || this.errors.paymentFailed);</span>
+<span class="del">-        return;</span>
+<span class="del">-      }</span>
+<span class="del">-      this.emitTrialCompleted(response);</span>
+<span class="add">+      await this.completeTrialWithCard(cardId);</span>
+<span class="add">+    } catch (err: any) {</span>
+<span class="add">+      this.failPayment(err?.message || this.errors.paymentFailed);</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  private async finishTrialAfterSetupRedirect(setupClientSecret: string): Promise&lt;void&gt; {</span>
+<span class="add">+    const result = await this.stripeService.retrieveSetupIntent(setupClientSecret);</span>
+<span class="add">+    this.clearRedirectContext();</span>
+<span class="add">+    if (result.error || !result.paymentMethodId) {</span>
+<span class="add">+      this.failPayment(result.error?.message || this.errors.paymentNotConfirmed);</span>
+<span class="add">+      return;</span>
+<span class="add">+    }</span>
+<span class="add">+    try {</span>
+<span class="add">+      await this.completeTrialWithCard(result.paymentMethodId);</span>
+<span class="">     } catch (err: any) {</span>
+<span class="">       this.failPayment(err?.message || this.errors.paymentFailed);</span>
+<span class="">     }</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="add">+  private async completeTrialWithCard(cardId: string): Promise&lt;void&gt; {</span>
+<span class="add">+    const cardType = savedCardTypeFromId(cardId);</span>
+<span class="add">+    const response = await firstValueFrom(</span>
+<span class="add">+      this.paymentIntentService.completeTrialPayment(this.orderSK(), cardId, cardType)</span>
+<span class="add">+    );</span>
+<span class="add">+    if (response?.requiresAction) {</span>
+<span class="add">+      await this.confirmTrialRequiresAction(response, cardId, cardType);</span>
+<span class="add">+      return;</span>
+<span class="add">+    }</span>
+<span class="add">+    if (!isTrialPaymentFulfilled(response)) {</span>
+<span class="add">+      this.failPayment(response?.message || this.errors.paymentFailed);</span>
+<span class="add">+      return;</span>
+<span class="add">+    }</span>
+<span class="add">+    this.emitTrialCompleted(response);</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="">   private async confirmTrialRequiresAction(</span>
+<span class="">     response: TrialPaymentResponse,</span>
+<span class="">     cardId: string,</span>
+<span class="meta">@@ -1226,6 +1347,72 @@ export class PaymentIntentCheckoutComponent</span>
+<span class="">     });</span>
+<span class="">   }</span>
+<span class=""> </span>
+<span class="add">+  /** Payment Element on the trial SetupIntent: card, Amazon Pay, Cash App, or anything else it allows. */</span>
+<span class="add">+  private async savePaymentMethodForTrial(): Promise&lt;string&gt; {</span>
+<span class="add">+    this.persistRedirectContext({</span>
+<span class="add">+      setupPurpose: CHECKOUT_SETUP_PURPOSE.trialSetup,</span>
+<span class="add">+      setupIntentId: this.setupIntentId</span>
+<span class="add">+    });</span>
+<span class="add">+    const result = await this.stripeService.confirmSetup(</span>
+<span class="add">+      this.resolvedReturnUrl,</span>
+<span class="add">+      this.clientSecret</span>
+<span class="add">+    );</span>
+<span class="add">+    // TEMP DEBUG: remove before commit.</span>
+<span class="add">+    console.log(&#x27;[pay-debug] trial confirmSetup result&#x27;, result);</span>
+<span class="add">+    this.clearRedirectContext();</span>
+<span class="add">+    if (result.error || !result.paymentMethodId) {</span>
+<span class="add">+      throw new Error(result.error?.message || this.errors.cardSaveFailed);</span>
+<span class="add">+    }</span>
+<span class="add">+    return result.paymentMethodId;</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  /**</span>
+<span class="add">+   * The order&#x27;s own SetupIntent carries every payment method enabled for the</span>
+<span class="add">+   * account; the generic card SetupIntent is card-only. A PaymentIntent here</span>
+<span class="add">+   * would charge the trial up front, so it is never used.</span>
+<span class="add">+   */</span>
+<span class="add">+  private async createTrialSetupIntent(): Promise&lt;string&gt; {</span>
+<span class="add">+    this.trialPaymentMethodTypes = [STRIPE_PAYMENT_METHOD_TYPE.card];</span>
+<span class="add">+    try {</span>
+<span class="add">+      const data = await firstValueFrom(</span>
+<span class="add">+        this.paymentIntentService.createPaymentIntent(</span>
+<span class="add">+          this.orderSK(),</span>
+<span class="add">+          this.payUsingWallet(),</span>
+<span class="add">+          this.extraPaymentPayload()</span>
+<span class="add">+        )</span>
+<span class="add">+      );</span>
+<span class="add">+      // TEMP DEBUG: remove before commit.</span>
+<span class="add">+      console.log(&#x27;[pay-debug] trial createPaymentIntent response&#x27;, {</span>
+<span class="add">+        requiresSetupIntent: data?.requiresSetupIntent,</span>
+<span class="add">+        paymentIntentId: data?.paymentIntentId,</span>
+<span class="add">+        setupIntentId: data?.setupIntentId,</span>
+<span class="add">+        usesSetupIntent: responseUsesSetupIntent(data)</span>
+<span class="add">+      });</span>
+<span class="add">+      if (</span>
+<span class="add">+        responseUsesSetupIntent(data) &amp;&amp;</span>
+<span class="add">+        isSetupIntentClientSecret(data.clientSecret)</span>
+<span class="add">+      ) {</span>
+<span class="add">+        this.trialPaymentMethodTypes = null;</span>
+<span class="add">+        return data.clientSecret;</span>
+<span class="add">+      }</span>
+<span class="add">+    } catch (err: any) {</span>
+<span class="add">+      // TEMP DEBUG: remove before commit.</span>
+<span class="add">+      console.log(&#x27;[pay-debug] trial createPaymentIntent error, falling back to card SetupIntent&#x27;, err?.message || err);</span>
+<span class="add">+    }</span>
+<span class="add">+    return this.createTrialCardSetupIntent();</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="add">+  private async createTrialCardSetupIntent(): Promise&lt;string&gt; {</span>
+<span class="add">+    try {</span>
+<span class="add">+      const response = await firstValueFrom(</span>
+<span class="add">+        this.paymentIntentService.createSetupIntent(PAYMENT_INTENT_SETUP_METHOD.card)</span>
+<span class="add">+      );</span>
+<span class="add">+      return response?.clientSecret || &#x27;&#x27;;</span>
+<span class="add">+    } catch {</span>
+<span class="add">+      return &#x27;&#x27;;</span>
+<span class="add">+    }</span>
+<span class="add">+  }</span>
+<span class="add">+</span>
+<span class="">   private async saveNewCardForTrial(): Promise&lt;string&gt; {</span>
+<span class="">     const setupResponse = await firstValueFrom(</span>
+<span class="">       this.paymentIntentService.createSetupIntent(PAYMENT_INTENT_SETUP_METHOD.card)</span></code></pre></section><section id="f5"><h2>src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.scss</h2><p>Masks the wallet gap to hide the blue focus ring.</p><pre tabindex="0"><code><span class="meta">diff --git a/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.scss b/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.scss</span>
+<span class="meta">index 1c88dc9c69..6cf59865bd 100644</span>
+<span class="meta">--- a/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.scss</span>
+<span class="meta">+++ b/src/app/modules/shared/components/payment-intent-checkout/payment-intent-checkout.component.scss</span>
+<span class="meta">@@ -81,9 +81,12 @@</span>
+<span class="">       inset: 0;</span>
+<span class="">     }</span>
+<span class=""> </span>
+<span class="add">+    // The shadow paints the gap so the in-iframe focus ring of the top wallet</span>
+<span class="add">+    // button cannot bleed below it.</span>
+<span class="">     &amp;--has-gap::before {</span>
+<span class="">       top: 0;</span>
+<span class="">       height: $wallet-height;</span>
+<span class="add">+      box-shadow: 0 $wallet-gap 0 0 var(--configBgColor);</span>
+<span class="">     }</span>
+<span class=""> </span>
+<span class="">     &amp;--has-gap::after {</span></code></pre></section></main></body></html>

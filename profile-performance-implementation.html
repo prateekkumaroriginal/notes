@@ -43,6 +43,7 @@
       background: var(--paper);
       color: var(--ink);
       font-family: var(--sans);
+      line-height: 1.5;
     }
 
     h1, h2, h3, p, ul, ol, pre, table, figure { margin: 0; }
@@ -191,6 +192,11 @@
       align-items: start;
       color: var(--muted);
       cursor: pointer;
+    }
+
+    .checks label > span {
+      min-width: 0;
+      overflow-wrap: anywhere;
     }
 
     .checks input {
@@ -390,41 +396,41 @@
         <div class="group">
           <h3>First paint and LCP</h3>
           <ul class="checks">
-            <li><label><input type="checkbox"> Anonymous TopFans profile, view-source or disable JS: banner, name, and bio are in the HTML, not an empty <code>app-root</code>.</label></li>
-            <li><label><input type="checkbox"> The LCP image is the profile banner. It has <code>fetchpriority="high"</code> and is not <code>loading="lazy"</code>.</label></li>
-            <li><label><input type="checkbox"> DevTools: no NG05xx hydration errors on that profile.</label></li>
-            <li><label><input type="checkbox"> Logged-in visit of a private creator: public first paint, then follow/subscribe state updates without wiping the feed unless privacy actually changed.</label></li>
-            <li><label><input type="checkbox"> Logged-out visit does not fire a second user-by-username request after TransferState is consumed.</label></li>
+            <li><label><input type="checkbox"> <span>Anonymous TopFans profile, view-source or disable JS: banner, name, and bio are in the HTML, not an empty <code>app-root</code>.</span></label></li>
+            <li><label><input type="checkbox"> <span>The LCP image is the profile banner. It has <code>fetchpriority="high"</code> and is not <code>loading="lazy"</code>.</span></label></li>
+            <li><label><input type="checkbox"> <span>DevTools: no NG05xx hydration errors on that profile.</span></label></li>
+            <li><label><input type="checkbox"> <span>Logged-in visit of a private creator: public first paint, then follow/subscribe state updates without wiping the feed unless privacy actually changed.</span></label></li>
+            <li><label><input type="checkbox"> <span>Logged-out visit does not fire a second user-by-username request after TransferState is consumed.</span></label></li>
           </ul>
         </div>
 
         <div class="group">
           <h3>Logo and tenant chrome</h3>
           <ul class="checks">
-            <li><label><input type="checkbox"> TopFans header logo is sharp on a 2× screen and not letterboxed into a 290×32 strip.</label></li>
-            <li><label><input type="checkbox"> One white-label site with a tall logo and one with a wide logo. Both stay inside the 32px header, no crop.</label></li>
-            <li><label><input type="checkbox"> The logo request uses a width near 290 or 240, not a 2× banner-sized asset.</label></li>
+            <li><label><input type="checkbox"> <span>TopFans header logo is sharp on a 2× screen and not letterboxed into a 290×32 strip.</span></label></li>
+            <li><label><input type="checkbox"> <span>One white-label site with a tall logo and one with a wide logo. Both stay inside the 32px header, no crop.</span></label></li>
+            <li><label><input type="checkbox"> <span>The logo request uses a width near 290 or 240, not a 2× banner-sized asset.</span></label></li>
           </ul>
         </div>
 
         <div class="group">
           <h3>Deferral</h3>
           <ul class="checks">
-            <li><label><input type="checkbox"> A 16:9 gap appears before the welcome video player, then the player fills it. The rest of the feed does not jump.</label></li>
-            <li><label><input type="checkbox"> The sidebar shows the existing loading skeleton, then merchandise and ads, at the same height.</label></li>
-            <li><label><input type="checkbox"> After idle, giveaway, fund, groups, badge, and unlock modals still open. They must not be in the initial JS for the profile.</label></li>
-            <li><label><input type="checkbox"> Filters, pagination, delayed ads, and scroll/unlock restore still insert ads the way service cleanup does. Posts must not wait on ads for a normal load.</label></li>
+            <li><label><input type="checkbox"> <span>A 16:9 gap appears before the welcome video player, then the player fills it. The rest of the feed does not jump.</span></label></li>
+            <li><label><input type="checkbox"> <span>The sidebar shows the existing loading skeleton, then merchandise and ads, at the same height.</span></label></li>
+            <li><label><input type="checkbox"> <span>After idle, giveaway, fund, groups, badge, and unlock modals still open. They must not be in the initial JS for the profile.</span></label></li>
+            <li><label><input type="checkbox"> <span>Filters, pagination, delayed ads, and scroll/unlock restore still insert ads the way service cleanup does. Posts must not wait on ads for a normal load.</span></label></li>
           </ul>
         </div>
 
         <div class="group">
           <h3>CSS and cache</h3>
           <ul class="checks">
-            <li><label><input type="checkbox"> Dropdowns, modals, nav tabs, cards, and a <code>.spinner-border</code> screen still look like Bootstrap. Navbar, list-group, offcanvas, and placeholder utilities were the ones removed.</label></li>
-            <li><label><input type="checkbox"> After deploy, S3 metadata on <code>index.html</code> is <code>public,max-age=0,must-revalidate</code>. Repeat on a prerendered <code>/{username}/index.html</code> that existed before the change.</label></li>
-            <li><label><input type="checkbox"> A hashed JS or CSS file still has <code>max-age=31536000,immutable</code>.</label></li>
-            <li><label><input type="checkbox"> <code>ngsw.json</code> is must-revalidate, not immutable.</label></li>
-            <li><label><input type="checkbox"> Hard-refresh after a new deploy shows the new HTML without waiting for a CloudFront TTL.</label></li>
+            <li><label><input type="checkbox"> <span>Dropdowns, modals, nav tabs, cards, and a <code>.spinner-border</code> screen still look like Bootstrap. Navbar, list-group, offcanvas, and placeholder utilities were the ones removed.</span></label></li>
+            <li><label><input type="checkbox"> <span>After deploy, S3 metadata on <code>index.html</code> is <code>public,max-age=0,must-revalidate</code>. Repeat on a prerendered <code>/{username}/index.html</code> that existed before the change.</span></label></li>
+            <li><label><input type="checkbox"> <span>A hashed JS or CSS file still has <code>max-age=31536000,immutable</code>.</span></label></li>
+            <li><label><input type="checkbox"> <span><code>ngsw.json</code> is must-revalidate, not immutable.</span></label></li>
+            <li><label><input type="checkbox"> <span>Hard-refresh after a new deploy shows the new HTML without waiting for a CloudFront TTL.</span></label></li>
           </ul>
         </div>
       </section>

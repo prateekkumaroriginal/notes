@@ -1,6 +1,26 @@
 {
   "rewrites": [
     {
+      "source": "/cursor-claude-chatgpt",
+      "destination": "/cursor-claude-chatgpt.html"
+    },
+    {
+      "source": "/payment-checkout-changes-handoff",
+      "destination": "/payment-checkout-changes-handoff.html"
+    },
+    {
+      "source": "/route-preloading-verification",
+      "destination": "/route-preloading-verification.html"
+    },
+    {
+      "source": "/route-preloading-implementation",
+      "destination": "/route-preloading-implementation.html"
+    },
+    {
+      "source": "/route-preloading-qa",
+      "destination": "/route-preloading-qa.html"
+    },
+    {
       "source": "/post-prefetching",
       "destination": "/post-prefetching.html"
     },
