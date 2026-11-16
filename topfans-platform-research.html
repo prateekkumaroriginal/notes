@@ -23,18 +23,18 @@
 #report .navigation a{font:14px/1.4 var(--ui);font-weight:bold;text-decoration:none;padding:10px 12px;letter-spacing:0;color:var(--dim)}
 #report .navigation a:hover{background:var(--surface);color:var(--ink)}
 #report .navigation a span{color:var(--gold);margin-right:6px}
-#report .overview{padding:45px 0 14px}
-#report .section-topline{display:flex;justify-content:space-between;align-items:baseline;gap:16px;margin-bottom:24px}
-#report .section-topline h2{font-size:20px;line-height:1.3;margin:0;letter-spacing:-.02em}
+
+
+
 #report .quiet{font:14px/1.5 var(--ui);color:var(--dim);margin:0}
-#report .ledger{margin:0}
-#report .ledger-row{display:grid;grid-template-columns:145px 1fr 160px;gap:24px;padding:19px 0;border-top:1px solid var(--line);align-items:baseline}
-#report .ledger-row dt{font-weight:bold;font-size:14px}
-#report .ledger-row dd{margin:0;color:var(--dim);font-size:14px;line-height:1.6}
-#report .ledger-row .classification{font:14px/1.5 var(--ui);letter-spacing:0;text-transform:none;text-align:right;color:var(--dim)}
-#report .ledger-row .classification.supported{color:var(--green)}
-#report .ledger-row .classification.inference{color:var(--gold)}
-#report .reading-tools{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid var(--line);padding:28px 0}
+
+
+
+
+
+
+
+
 #report button{font:700 14px/1.4 var(--ui);letter-spacing:0;text-transform:none;cursor:pointer;padding:12px 16px;border:1px solid var(--line);background:transparent;color:var(--ink);border-radius:0}
 #report button:hover{border-color:var(--ink)}
 #report .chapter{scroll-margin-top:20px;border-bottom:1px solid var(--line);padding:49px 0 40px}
@@ -102,10 +102,10 @@
 #report footer{border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;padding:23px 0 35px;color:var(--dim);font:14px/1.6 var(--ui);letter-spacing:0;text-transform:none}
 #report .skip-link{position:absolute;left:-9999px}
 #report .skip-link:focus{left:20px;top:20px;background:var(--background);padding:12px;z-index:10}
-@media(max-width:800px){#report{font-size:16px}#report .hero{padding:46px 0 35px}#report h1{font-size:clamp(60px,11vw,94px)}#report .ledger-row{grid-template-columns:110px minmax(0,1fr);gap:10px 18px}#report .ledger-row .classification{grid-column:2;text-align:left}#report .chapter-header{grid-template-columns:46px minmax(0,1fr);gap:16px}#report .chapter-number{font-size:35px}#report .chapter-body{margin-left:62px}#report .chapter h2{font-size:42px}#report .workflow{gap:16px}#report .source-index{gap:0 20px}}
-@media(max-width:520px){#report .hero{padding-top:35px}#report h1{font-size:clamp(53px,12.8vw,68px)}#report .deck{font-size:16px;margin-top:23px}#report .hero-foot{font-size:14px;gap:10px 18px}#report .navigation{gap:0;padding:8px 0}#report .navigation a{font-size:14px;padding:9px 8px}#report .overview{padding-top:30px}#report .section-topline{display:block}#report .section-topline .quiet{margin-top:8px}#report .ledger-row{grid-template-columns:90px minmax(0,1fr);gap:8px 15px}#report .ledger-row dt{font-size:14px}#report .ledger-row dd{font-size:14px}#report .reading-tools{align-items:flex-start}#report .reading-tools .quiet{max-width:175px}#report .chapter{padding:32px 0}#report .chapter-header{grid-template-columns:32px minmax(0,1fr);gap:12px}#report .chapter-number{font-size:27px}#report .chapter h2{font-size:35px}#report .chapter-kicker{font-size:14px}#report .chapter-lede{font-size:15px;margin-top:14px}#report .chapter-body{margin:23px 0 0}#report .report-fields{grid-template-columns:1fr 1fr}#report .field{padding:15px 8px 15px 0}#report .field .value{font-size:16px}#report .workflow{grid-template-columns:1fr;gap:20px}#report .build-results{grid-template-columns:1fr;gap:18px}#report .evidence{font-size:15px}#report pre{padding:15px;font-size:14px}#report summary{font-size:14px}#report .source-index{grid-template-columns:1fr}#report .sources .quiet{margin-top:8px}}
+@media(max-width:800px){#report{font-size:16px}#report .hero{padding:46px 0 35px}#report h1{font-size:clamp(60px,11vw,94px)}#report .chapter-header{grid-template-columns:46px minmax(0,1fr);gap:16px}#report .chapter-number{font-size:35px}#report .chapter-body{margin-left:62px}#report .chapter h2{font-size:42px}#report .workflow{gap:16px}#report .source-index{gap:0 20px}}
+@media(max-width:520px){#report .hero{padding-top:35px}#report h1{font-size:clamp(53px,12.8vw,68px)}#report .deck{font-size:16px;margin-top:23px}#report .hero-foot{font-size:14px;gap:10px 18px}#report .navigation{gap:0;padding:8px 0}#report .navigation a{font-size:14px;padding:9px 8px}#report .chapter{padding:32px 0}#report .chapter-header{grid-template-columns:32px minmax(0,1fr);gap:12px}#report .chapter-number{font-size:27px}#report .chapter h2{font-size:35px}#report .chapter-kicker{font-size:14px}#report .chapter-lede{font-size:15px;margin-top:14px}#report .chapter-body{margin:23px 0 0}#report .report-fields{grid-template-columns:1fr 1fr}#report .field{padding:15px 8px 15px 0}#report .field .value{font-size:16px}#report .workflow{grid-template-columns:1fr;gap:20px}#report .build-results{grid-template-columns:1fr;gap:18px}#report .evidence{font-size:15px}#report pre{padding:15px;font-size:14px}#report summary{font-size:14px}#report .source-index{grid-template-columns:1fr}#report .sources .quiet{margin-top:8px}}
 @media(prefers-reduced-motion:no-preference){#report a,#report button{transition:color .15s,background .15s,border-color .15s}}
-@media print{#report{--ink:#111;--dim:#444;--line:#ccc;--gold:#805800;--surface:#eee;--green:#116545;max-width:none;font-size:11pt}#report .hero-foot,#report footer{font-size:8pt}#report .navigation,#report .reading-tools,#report .hero{padding:30px 0}#report h1{font-size:64pt}#report .chapter{padding:25px 0;break-inside:auto}#report .chapter-header{break-after:avoid}#report .chapter h2{font-size:30pt}#report .chapter-body{margin-left:0}#report details:not([open])>*:not(summary){display:block}#report .evidence{font-size:10pt;line-height:1.6}#report pre{background:#eee;color:#111;white-space:pre-wrap;break-inside:avoid}#report pre code{white-space:pre-wrap;word-break:break-word}#report .sources{break-before:page}#report a{color:#111;text-decoration:underline}#report .source-index{grid-template-columns:1fr 1fr}}
+@media print{#report{--ink:#111;--dim:#444;--line:#ccc;--gold:#805800;--surface:#eee;--green:#116545;max-width:none;font-size:11pt}#report .hero-foot,#report footer{font-size:8pt}#report .navigation,#report .hero{padding:30px 0}#report h1{font-size:64pt}#report .chapter{padding:25px 0;break-inside:auto}#report .chapter-header{break-after:avoid}#report .chapter h2{font-size:30pt}#report .chapter-body{margin-left:0}#report details:not([open])>*:not(summary){display:block}#report .evidence{font-size:10pt;line-height:1.6}#report pre{background:#eee;color:#111;white-space:pre-wrap;break-inside:avoid}#report pre code{white-space:pre-wrap;word-break:break-word}#report .sources{break-before:page}#report a{color:#111;text-decoration:underline}#report .source-index{grid-template-columns:1fr 1fr}}
 
 #report .table-scroll{overflow-x:auto;margin:22px 0 26px}#report .report-table{width:100%;min-width:620px;border-collapse:collapse;font-size:15px;line-height:1.65;text-align:left}#report .report-table th,#report .report-table td{padding:14px 16px 14px 0;vertical-align:top;border-bottom:1px solid var(--line)}#report .report-table th{color:var(--ink);font-weight:700}#report .report-table th:first-child{width:23%}#report .report-table td{width:38.5%}@media print{#report .table-scroll{overflow:visible}#report .report-table{min-width:0;font-size:10pt}}
 
@@ -113,15 +113,15 @@
 
 #report .problem-statement{max-width:795px;margin-top:12px;border-top:0}#report .problem-statement>summary{padding:8px 0;color:var(--dim);font-weight:600}#report .problem-statement>summary:hover{color:var(--ink)}#report .problem-statement>p{font-size:16px;line-height:1.7;color:var(--ink);margin:8px 0 0;padding:14px 18px;background:var(--surface);border-inline-start:3px solid var(--gold);border-radius:6px}#report .source-disclosure{margin-top:0;border-top:0}#report .source-disclosure>summary{padding:0 0 12px;align-items:baseline}#report .source-disclosure h2{font-size:20px;line-height:1.4;margin:0;letter-spacing:-.02em;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 24px}#report .source-disclosure .source-index{padding-top:12px}
 </style></head><body><main id="report">
- <a class="skip-link" href="#findings">Skip to findings</a>
+ <a class="skip-link" href="#benchmarks">Skip to sections</a>
  <section class="hero" aria-labelledby="report-title">
   <h1 id="report-title">Same product.<span>Less friction.</span></h1>
   <p class="deck">Eight proposed platform changes. Preserve the current design and make development more reliable.</p>
   <div class="hero-foot"><span class="confirmed">Preserve the existing appearance</span><span>8 requested changes</span><span>36 primary source links</span><span>Proposals / not implemented</span></div>
  </section>
  <nav class="navigation" aria-label="Research sections"><a href="#benchmarks"><span>01</span> Benchmarks</a><a href="#logging"><span>02</span> Log removal</a><a href="#icons"><span>03</span> Icons</a><a href="#styling"><span>04</span> SCSS</a><a href="#seo"><span>05</span> SEO tests</a><a href="#documentation"><span>06</span> Code docs</a><a href="#conventions"><span>07</span> Conventions</a><a href="#bootstrap"><span>08</span> Bootstrap</a><a href="#sources">Sources ↗</a></nav>
- <section class="overview" id="findings" aria-labelledby="findings-heading"><div class="section-topline"><h2 id="findings-heading">All eight requested changes</h2><p class="quiet">One section per original request.</p></div><dl class="ledger"><div class="ledger-row"><dt>Rewrite SCSS</dt><dd>Keep component styles local and preserve the current design.</dd><dd class="classification"><a href="#styling">Section 04</a></dd></div><div class="ledger-row"><dt>Profile benchmarks</dt><dd>Compare fixed profile tests across code changes.</dd><dd class="classification"><a href="#benchmarks">Section 01</a></dd></div><div class="ledger-row"><dt>SEO tests</dt><dd>Check HTML, metadata, responses and navigation.</dd><dd class="classification"><a href="#seo">Section 05</a></dd></div><div class="ledger-row"><dt>Build-time logs</dt><dd>Remove disabled logs from compiled files.</dd><dd class="classification"><a href="#logging">Section 02</a></dd></div><div class="ledger-row"><dt>Code documentation</dt><dd>Remove code guidance. Keep external-service docs.</dd><dd class="classification"><a href="#documentation">Section 06</a></dd></div><div class="ledger-row"><dt>Conventions</dt><dd>Replace written rules with automated checks.</dd><dd class="classification"><a href="#conventions">Section 07</a></dd></div><div class="ledger-row"><dt>Bootstrap</dt><dd>Replace its styles and both Angular wrappers.</dd><dd class="classification"><a href="#bootstrap">Section 08</a></dd></div><div class="ledger-row"><dt>Icons</dt><dd>Add custom and external SVGs through one workflow.</dd><dd class="classification"><a href="#icons">Section 03</a></dd></div></dl></section>
- <div class="reading-tools"><p class="quiet">Each section includes the problem, proposal, completion check and sources.</p><button type="button" id="expand-all" aria-expanded="false" hidden>Expand all details +</button></div>
+
+
  <section class="chapter" id="benchmarks" aria-labelledby="benchmarks-heading"><div class="chapter-header"><div class="chapter-number" aria-hidden="true">01</div><div><h2 id="benchmarks-heading">Profile performance benchmarks</h2><details class="problem-statement" id="benchmarks-problem"><summary>Problem statement</summary><p>We need to catch profile performance regressions. Changing data and test conditions can hide whether a code change made the page slower.</p></details><p class="chapter-lede">Benchmark a prerendered profile with fixed test data. Compare each change with the base commit under the same conditions.</p></div></div><div class="chapter-body"><div class="workflow"><div class="workflow-step"><b>01 / Prerender</b><strong>Build a fixed test profile.</strong><p>Record build time, peak memory and output size.</p></div><div class="workflow-step"><b>02 / Browser</b><strong>Load the generated page.</strong><p>Measure asset sizes, requests, LCP, layout shifts and key interactions. Separate cold and warm cache runs.</p></div><div class="workflow-step"><b>03 / Report</b><strong>Compare base and head.</strong><p>Show the change, budget and result. Save raw runs and traces.</p></div></div><p class="boundary-note"><strong>Done when.</strong> CI can repeat the workload and flag size, request-count and timing regressions.</p><details class="research-evidence"><summary>Details and sources</summary><article class="evidence"><p>Serve fixed profile data during both the build and browser tests. Browser mocks cannot control requests made during prerendering. Record the data hash, commits and tool versions.</p><p>Repeat timing runs and compare medians. Set timing limits after measuring normal runner variation. Keep the raw results. <a href="https://github.com/GoogleChrome/lighthouse/blob/main/docs/variability.md">Lighthouse variability</a>; <a href="https://googlechrome.github.io/lighthouse-ci/docs/configuration.html">LHCI median assertions</a>.</p><p>Pin the browser, Node version and runner. Keep viewport, network settings and cache state fixed. <a href="https://playwright.dev/docs/test-use-options">Playwright test settings</a>.</p><p>The <a href="https://github.com/pingdotgg/t3code/pull/37654#issuecomment-6918658501">T3 Code example</a> measures network traffic. Reuse its baseline/current/delta/budget format, not its workload or limits. Its <a href="https://github.com/pingdotgg/t3code/blob/59c6466c935d594f6770501680922fed8228e3d9/apps/server/integration/TransferBudgetReport.integration.ts">report generator</a> and <a href="https://github.com/pingdotgg/t3code/blob/59c6466c935d594f6770501680922fed8228e3d9/.github/scripts/thread-transfer-report.cjs">PR publisher</a> show how results are stored and compared. Fail CI if expected results are missing.</p><p>Lab results cover only the tested conditions. Use field monitoring for real-user INP. <a href="https://web.dev/articles/inp">INP measurement</a>.</p></article></details></div></section>
 <section class="chapter" id="logging" aria-labelledby="logging-heading"><div class="chapter-header"><div class="chapter-number" aria-hidden="true">02</div><div><h2 id="logging-heading">Build-time log removal</h2><details class="problem-statement" id="logging-problem"><summary>Problem statement</summary><p>A silent logger can still ship code and run its arguments. We need builds that remove disabled logs and can include them when needed.</p></details><p class="chapter-lede">Set a build-time flag. Put log calls, argument work and debug-only imports inside its guard. Check the compiled browser and server files.</p></div></div><div class="chapter-body"><div class="build-illustration"><p class="code-label">Example only</p><pre><code>declare const __APP_DIAGNOSTICS__: boolean;
 
@@ -143,22 +143,6 @@ if (__APP_DIAGNOSTICS__) {
 (() => {
   const root = document.getElementById('report');
   if (!root) return;
-  const button = root.querySelector('#expand-all');
-  const details = [...root.querySelectorAll('details')];
-  const sync = () => {
-    const allOpen = details.every(item => item.open);
-    button.textContent = allOpen ? 'Collapse all details −' : 'Expand all details +';
-    button.setAttribute('aria-expanded', String(allOpen));
-  };
-  if (button) {
-    button.hidden = false;
-    button.addEventListener('click', () => {
-      const open = !details.every(item => item.open);
-      details.forEach(item => { item.open = open; });
-      sync();
-    });
-    details.forEach(item => item.addEventListener('toggle', sync));
-  }
   root.querySelectorAll('a[href^="https://"]').forEach(link => {
     link.target = '_blank'; link.rel = 'noopener noreferrer';
   });
