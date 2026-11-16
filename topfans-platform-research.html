@@ -46,10 +46,10 @@
 #report .chapter-body{margin:29px 0 0 94px}
 #report .chapter-source{font-size:14px;color:var(--dim);margin:14px 0 0}
 #report details{margin-top:25px;border-top:1px solid var(--line)}
-#report summary{cursor:pointer;list-style:none;font:700 14px/1.5 var(--ui);letter-spacing:0;text-transform:none;padding:18px 0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+#report summary{cursor:pointer;list-style:none;font:700 14px/1.5 var(--ui);letter-spacing:0;text-transform:none;padding:18px 0;display:flex;align-items:center;justify-content:flex-start;gap:10px;min-height:44px}
 #report summary::-webkit-details-marker{display:none}
-#report summary::after{content:'+';font:400 22px/1 var(--ui);color:var(--gold)}
-#report details[open]>summary::after{content:'−'}
+#report summary::before{content:'+';font:400 22px/1 var(--ui);color:var(--gold);min-width:14px;text-align:center}
+#report details[open]>summary::before{content:'−'}
 #report .evidence{max-width:850px;padding:0 0 16px;font-size:16px;line-height:1.8;color:var(--dim)}
 #report .evidence p{margin:0 0 21px}
 #report .evidence p:last-child{margin-bottom:0}
@@ -111,7 +111,7 @@
 
 @media(max-width:650px){#report .report-table{display:block;min-width:0;width:100%;font-size:15px}#report .report-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}#report .report-table tbody,#report .report-table tbody tr{display:block;width:100%}#report .report-table tbody tr{padding-bottom:12px;border-bottom:1px solid var(--line)}#report .report-table tbody th,#report .report-table tbody th:first-child{display:block;width:100%;padding:16px 0 8px;border:0;font-size:16px}#report .report-table tbody td{display:block;width:100%;padding:8px 0 12px;border:0}#report .report-table td::before{content:attr(data-label);display:block;font-size:14px;font-weight:700;color:var(--ink);margin-bottom:4px}}
 
-#report .problem-statement{max-width:795px;margin-top:12px;border-top:0}#report .problem-statement>summary{padding:8px 0;color:var(--dim);font-weight:600}#report .problem-statement>summary:hover{color:var(--ink)}#report .problem-statement>p{font-size:16px;line-height:1.7;color:var(--dim);margin:8px 0 0}#report .source-disclosure{margin-top:0;border-top:0}#report .source-disclosure>summary{padding:0 0 12px}#report .source-disclosure h2{font-size:20px;line-height:1.4;margin:0;letter-spacing:-.02em;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 24px}#report .source-disclosure .source-index{padding-top:12px}
+#report .problem-statement{max-width:795px;margin-top:12px;border-top:0}#report .problem-statement>summary{padding:8px 0;color:var(--dim);font-weight:600}#report .problem-statement>summary:hover{color:var(--ink)}#report .problem-statement>p{font-size:16px;line-height:1.7;color:var(--ink);margin:8px 0 0;padding:14px 18px;background:var(--surface);border-inline-start:3px solid var(--gold);border-radius:6px}#report .source-disclosure{margin-top:0;border-top:0}#report .source-disclosure>summary{padding:0 0 12px;align-items:baseline}#report .source-disclosure h2{font-size:20px;line-height:1.4;margin:0;letter-spacing:-.02em;display:flex;align-items:baseline;flex-wrap:wrap;gap:8px 24px}#report .source-disclosure .source-index{padding-top:12px}
 </style></head><body><main id="report">
  <a class="skip-link" href="#findings">Skip to findings</a>
  <section class="hero" aria-labelledby="report-title">
