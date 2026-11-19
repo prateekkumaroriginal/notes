@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinical Specialist | Remote X-ray Review and Clinical Assessment</title>
+<style>
+:root {
+  color-scheme: dark;
+  --background: #050505;
+  --foreground: #f5f5f5;
+  --muted: #aaa;
+  --border: #282828;
+  --surface: #121212;
+  --amber: #ffb000;
+  --success: #35c79a;
+  --sans: Arial, Helvetica, sans-serif;
+  --display: "Nimbus Sans Narrow", "Arial Narrow", Impact, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 0 clamp(20px, 5vw, 70px);
+  background: var(--background);
+  color: var(--foreground);
+  font: 17px/1.65 var(--sans);
+  overflow-wrap: anywhere;
+}
+main { max-width: 1160px; margin: 0 auto; }
+a { color: inherit; text-decoration-color: var(--border); text-underline-offset: 4px; }
+a:hover { color: var(--amber); text-decoration-color: currentColor; }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 5px; }
+.hero { padding: 65px 0 50px; }
+h1, .chapter h2, .chapter-number {
+  font-family: var(--display);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+h1 { margin: 0; max-width: 1050px; font-size: clamp(53px, 9vw, 124px); line-height: .96; letter-spacing: -.025em; }
+h1 .accent { display: block; color: var(--amber); }
+.deck { max-width: 720px; margin: 28px 0 0; color: var(--muted); font-size: 19px; line-height: 1.6; }
+.contents { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 0; border-block: 1px solid var(--border); }
+.contents a { padding: 10px 12px; font-size: 14px; font-weight: 700; text-decoration: none; color: var(--muted); }
+.contents a:hover { background: var(--surface); color: var(--foreground); }
+.contents .index { color: var(--amber); margin-right: 6px; }
+.chapter { padding: 49px 0 40px; border-bottom: 1px solid var(--border); scroll-margin-top: 20px; }
+.chapter-header { display: grid; grid-template-columns: 70px minmax(0, 1fr); gap: 24px; }
+.chapter-number { padding-top: 4px; font-size: 44px; line-height: 1; color: var(--muted); }
+.chapter h2 { margin: 0; max-width: 840px; font-size: clamp(35px, 5vw, 57px); line-height: 1.06; letter-spacing: -.015em; }
+.chapter-lede { max-width: 795px; margin: 18px 0 0; color: var(--muted); }
+.chapter-body { margin: 29px 0 0 94px; }
+p { max-width: 850px; }
+.quiet, .done { font-size: 14px; color: var(--muted); }
+.done strong { color: var(--foreground); }
+.success { color: var(--success); }
+.workflow { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 20px; margin-top: 25px; }
+.workflow-step { border-top: 2px solid var(--border); padding-top: 16px; }
+.workflow-step .step-label { display: block; color: var(--amber); font-size: 14px; margin-bottom: 8px; }
+.workflow-step strong { display: block; font-size: 16px; }
+.workflow-step p { margin: 8px 0 0; font-size: 14px; color: var(--muted); }
+code { font: max(14px, .88em)/1.6 var(--mono); }
+pre { max-width: 100%; overflow-x: auto; padding: 20px; background: var(--surface); border-left: 2px solid var(--border); font-size: 14px; }
+pre code { white-space: pre; overflow-wrap: normal; }
+.table-scroll { overflow-x: auto; margin: 22px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 15px; text-align: left; }
+th, td { padding: 14px 16px 14px 0; vertical-align: top; border-bottom: 1px solid var(--border); }
+td { color: var(--muted); }
+details { margin-top: 25px; border-top: 1px solid var(--border); }
+summary { display: flex; align-items: baseline; gap: 10px; min-height: 44px; padding: 12px 0; list-style: none; cursor: pointer; font-size: 14px; font-weight: 700; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: "+"; flex: 0 0 14px; text-align: center; color: var(--amber); font: 22px/1 var(--sans); }
+details[open] > summary::before { content: "−"; }
+.problem { max-width: 795px; margin-top: 12px; border: 0; }
+.problem > summary { color: var(--muted); }
+.problem > .inset { margin-top: 8px; padding: 14px 18px; background: var(--surface); border-left: 3px solid var(--amber); border-radius: 6px; font-size: 16px; }
+.inset > :first-child { margin-top: 0; }
+.inset > :last-child { margin-bottom: 0; }
+.evidence { max-width: 850px; padding-bottom: 16px; color: var(--muted); font-size: 16px; line-height: 1.8; }
+.sources { padding: 32px 0; }
+.sources > details { border: 0; margin: 0; }
+.source-index { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 32px; padding-left: 24px; font-size: 14px; }
+footer { border-top: 1px solid var(--border); padding: 23px 0 35px; color: var(--muted); font-size: 14px; }
+@media (max-width: 800px) {
+  body { font-size: 16px; }
+  .hero { padding: 46px 0 35px; }
+  .chapter-header { grid-template-columns: 46px minmax(0, 1fr); gap: 16px; }
+  .chapter-number { font-size: 35px; }
+  .chapter-body { margin-left: 62px; }
+}
+@media (max-width: 520px) {
+  .hero { padding-top: 35px; }
+  h1 { font-size: clamp(48px, 12vw, 68px); }
+  .deck { font-size: 16px; margin-top: 23px; }
+  .contents a { padding: 9px 8px; }
+  .chapter { padding: 32px 0; }
+  .chapter-header { grid-template-columns: 32px minmax(0, 1fr); gap: 12px; }
+  .chapter-number { font-size: 27px; }
+  .chapter h2 { font-size: 35px; }
+  .chapter-body { margin: 23px 0 0; }
+  .workflow, .source-index { grid-template-columns: 1fr; }
+  pre { padding: 15px; }
+}
+@media print {
+  :root { color-scheme: light; --background: white; --foreground: #111; --muted: #444; --border: #ccc; --surface: #eee; --amber: #805800; --success: #116545; }
+  body { padding: 0; }
+  h1 { font-size: 64pt; }
+  .chapter h2 { font-size: 30pt; }
+  .chapter-body { margin-left: 0; }
+  .chapter-header { break-after: avoid; }
+  details::details-content { content-visibility: visible; }
+  details:not([open]) > :not(summary) { display: block; }
+  pre, pre code { white-space: pre-wrap; overflow-wrap: anywhere; }
+}
+
+:root { color-scheme: dark; }
+body { font-size: 16px; }
+a { color: var(--amber); text-decoration-color: currentColor; }
+a:hover { color: var(--foreground); }
+.hero { padding-bottom: 38px; }
+h1 { max-width: 850px; font-size: clamp(39px, 7.2vw, 90px); }
+h1 .accent { font-size: .66em; margin-top: 9px; line-height: 1.04; }
+.deck { max-width: 760px; }
+.chapter-number { color: var(--amber); }
+.chapter-body { margin-top: 20px; }
+h3 { margin: 28px 0 8px; font-size: 20px; line-height: 1.24; }
+.chapter-body > :first-child, .lanes h3 { margin-top: 0; }
+p { margin: 0 0 13px; }
+ol, ul { padding-left: 24px; margin: 0 0 15px; }
+li + li { margin-top: 8px; }
+.steps li::marker { color: var(--amber); font-weight: 700; }
+.lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px; }
+.lanes > div { border-top: 2px solid var(--border); padding-top: 16px; }
+.lanes > div > p, .chapter-lede { color: var(--muted); }
+.callout { border-left: 3px solid var(--amber); padding: 12px 16px; margin: 18px 0; background: var(--surface); }
+.requirements { list-style: none; padding-left: 0; }
+.requirements li { padding: 9px 0 9px 14px; border-left: 1px solid var(--border); }
+.requirements li + li { margin: 0; }
+.ref { display: block; font: 14px/1.45 var(--mono); color: var(--amber); margin-bottom: 4px; }
+caption { text-align: left; color: var(--foreground); font-weight: 700; font-size: 16px; margin: 0 0 3px; }
+.table-scroll { max-width: 100%; border: 1px solid var(--border); padding: 12px 14px 2px; background: var(--surface); }
+th, td { padding: 10px 12px 10px 0; }
+thead th { color: var(--muted); }
+tbody th { width: 30%; }
+tbody td { color: var(--foreground); }
+tr > :last-child { padding-right: 0; }
+tbody tr:last-child > * { border-bottom: 0; }
+table:has(thead th:nth-child(3)) { min-width: 435px; }
+.decisions { margin: 0; }
+.decisions dt { font-weight: 700; }
+.decisions dt:not(:first-child) { border-top: 1px solid var(--border); margin-top: 14px; padding-top: 14px; }
+.decisions dd { margin: 5px 0 0; color: var(--muted); }
+.sources-line { margin: 18px 0 0; color: var(--muted); font-size: 14px; }
+.sources-line span { margin: 0 4px; }
+.source-index { margin: 12px 0 0; }
+.source-index li + li { margin: 0; }
+.terms { display: flex; gap: 8px 22px; flex-wrap: wrap; font-size: 14px; margin: 14px 0 0; color: var(--muted); }
+.terms > div { display: flex; gap: 6px; }
+.terms dt { color: var(--foreground); font-weight: 700; }
+.terms dd { margin: 0; }
+footer { border-top: 0; }
+@media (max-width: 690px) {
+  .lanes { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 520px) {
+  body { padding: 0 16px; }
+  .hero { padding: 34px 0 26px; }
+  h1 { font-size: clamp(38px, 10vw, 50px); }
+  .chapter h2 { font-size: 30px; }
+  .chapter-number { font-size: 25px; }
+  .table-scroll { padding: 10px 8px 0; }
+  th, td { padding-right: 8px; }
+  table { font-size: 14px; }
+}
+@media print {
+  :root { color-scheme: light; }
+  .chapter { padding-block: 22px; }
+  .hero { padding-block: 24px; }
+  a { color: inherit; }
+}
+</style>
+</head>
+<body>
+<main>
+<header class="hero">
+  <h1>Clinical Specialist <span class="accent">Remote X-ray Review and Clinical Assessment</span></h1>
+  <p class="deck">A single reading guide to the AMRIT Remote X-ray Review spec and the TBMJA Clinical Specialist PRD. Follow the camp X-ray through remote review, then see how TBMJA records a beneficiary’s clinical assessment.</p>
+  <dl class="terms">
+    <div><dt>CXR</dt><dd>Chest X-ray</dd></div>
+    <div><dt>NAAT</dt><dd>Nucleic acid amplification test</dd></div>
+    <div><dt>PACS</dt><dd>Picture archiving and communication system</dd></div>
+  </dl>
+</header>
+<nav class="contents" aria-label="Contents"><a href="#workflows">Workflows</a><a href="#access">Access</a><a href="#images">Image handling</a><a href="#evidence">Beneficiary record</a><a href="#reporting">Reporting</a><a href="#operations">Dashboards</a><a href="#checks">Acceptance checks</a><a href="#handoff">Open decisions</a></nav>
+<section class="chapter" id="workflows" aria-labelledby="workflows-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">01</span>
+  <div><h2 id="workflows-title">The two workflows</h2><p class="chapter-lede">TB screening camps send images for Remote X-ray Review. The Clinical Specialist uses Clinical Assessment &amp; Diagnosis to record a beneficiary’s clinical outcome.</p></div>
+</div>
+<div class="chapter-body">
+<div class="lanes">
+  <div>
+    <h3>Remote X-ray Review</h3>
+    <p>Some digital X-ray devices save images only on a separate laptop. Camps often work offline, and remote specialists cannot access the laptop or camp server.</p>
+    <ol class="steps">
+      <li>The camp user uploads images against a Beneficiary ID.</li>
+      <li>The camp server syncs them to the central PACS when online. An online uploader can send them directly. The case becomes Available.</li>
+      <li>The system can notify active specialists mapped to the camp.</li>
+      <li>A specialist signs in and opens the Pending list.</li>
+      <li>The specialist opens the case, reviews the images in the DICOM viewer, saves annotations if needed, and reports.</li>
+      <li>The system attaches the signed report to the beneficiary record and syncs it back to the camp.</li>
+      <li>The camp user gets a notification in the TB screening application. The system highlights urgent or TB-suggestive results.</li>
+    </ol>
+  </div>
+  <div>
+    <h3>Clinical Assessment &amp; Diagnosis</h3>
+    <p>The TBMJA application lists beneficiaries who meet the assessment rules, including eligible beneficiaries without a chest X-ray.</p>
+    <ol class="steps">
+      <li>The field team records screening and any available test results.</li>
+      <li>TBMJA automatically adds eligible beneficiaries to Pending → Initial.</li>
+      <li>The Clinical Specialist signs in, opens the Clinical Assessment card, and selects a beneficiary.</li>
+      <li>The specialist reads the Beneficiary Clinical Summary, diagnostics, and available CXR evidence.</li>
+      <li>The specialist records an Assessment Outcome and any Recommended Advice, or requests a retake if the CXR is inadequate.</li>
+      <li>TBMJA routes the case to Completed, Pending → Re-review, a Referral list, or the Confirmed TB Cases list according to the outcome and advice.</li>
+    </ol>
+  </div>
+</div>
+<aside class="callout"><strong>Shared form.</strong> Remote Review FR-46 refers to the TBMJA section <em>Clinical Assessment Form → Review of diagnostic evidence</em>. A remote X-ray report and a Clinical Assessment record have different routing rules. See <a href="#handoff">Open integration decisions</a>.</aside>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/download/attachments/203653163/image-2026-11-16_13-25-47.png?version=1&amp;modificationDate=1794815747843&amp;api=v2">Remote Review workflow diagram</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/download/attachments/196902913/Clinical_Specialist_Workflow.png?version=1&amp;modificationDate=1794226019050&amp;api=v2">TBMJA workflow diagram</a></p></div>
+</section>
+<section class="chapter" id="access" aria-labelledby="access-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">02</span>
+  <div><h2 id="access-title">Access and worklists</h2><p class="chapter-lede">Remote Review limits access by camp mapping. TBMJA limits the Clinical Assessment line listing to the specialist’s mapped location.</p></div>
+</div>
+<div class="chapter-body">
+<h3>Remote Review enrollment and sign-in</h3>
+<ul class="requirements">
+  <li><span class="ref">FR-01–03 · Must</span> Admin enrolls specialists in Admin-UI → Employee Master. Name, phone, email, WhatsApp number and place are required. MCI/NMC registration number, qualification, place of work, specialisation and configurable fields are optional enrollment fields. Validate email and 10-digit Indian mobile and WhatsApp numbers. Reject duplicate phone or email.</li>
+  <li><span class="ref">FR-04–05, FR-08 · Must</span> Admin whitelists the registered phone and email, issues a username and temporary password, and sends a welcome message. The doctor changes the password at first sign-in. Only Admin can change whitelisted contacts.</li>
+  <li><span class="ref">FR-06–07, FR-09 · Must</span> Admin can map each doctor to multiple camps and each camp to multiple doctors. Admin can change mappings or deactivate and reactivate accounts. Deactivation ends active sessions and removes case access immediately. Profile details supply the report sign-off.</li>
+  <li><span class="ref">FR-10–12, FR-16 · Must</span> Sign-in uses username or whitelisted phone/email, password, and a six-digit OTP sent to the registered mobile. Configurable defaults are five minutes of validity, three wrong attempts, and up to three resends at intervals of at least 30 seconds. Repeated failures lock the account for a configurable period and alert Admin. Password reset uses an OTP to the registered mobile.</li>
+  <li><span class="ref">FR-13 · Must</span> Token-based sessions have configurable idle and maximum durations. Fifteen minutes is an example idle timeout. Auto-save unsaved report drafts before timeout.</li>
+  <li><span class="ref">FR-14–15 · Could</span> Admin can allow device biometrics via WebAuthn/passkeys per doctor. The doctor first authenticates by password and OTP. Password and OTP remain available, and biometric data stays on the device.</li>
+</ul>
+<h3>Remote Review queue and notifications</h3>
+<ul class="requirements">
+  <li><span class="ref">FR-29–30 · Must</span> A central case is visible only to active specialists mapped to its camp. Opening it locks reporting to that specialist. The lock expires after a configurable idle period if they do not submit.</li>
+  <li><span class="ref">FR-31–33 · Must</span> Pending, Re-review and Completed each show a count and support sorting and filtering by camp, upload date, Beneficiary ID, urgency and case age. A retake upload, a camp clarification or a specialist flag puts the case in Re-review.</li>
+  <li><span class="ref">FR-34–36 · Should</span> Optional browser push or SMS follows the specialist’s preference. Batch alerts by camp and exclude beneficiary names and clinical details. Send reminders after the configurable turnaround target. The target triggers reminders only.</li>
+</ul>
+<h3>TBMJA role and automatic listing</h3>
+<p>Use the existing application, login, and online and offline modes. The Clinical Specialist can be an authorised Medical Officer or above, a chest physician, a radiologist, or another designated specialist. The role can view the line listing, Beneficiary Clinical Summary and CXR viewer. It can view, add and edit an assessment until submission.</p>
+<p>The role has no access to Household, Non-Household, Registration, Admin, Counselling, Contact Tracing or TPT. It has no access to data entry for Anthropometry, General Examination, TB Screening, General OPD or Referral.</p>
+<p>TBMJA lists a beneficiary automatically if any of these rules apply:</p>
+<ul>
+  <li>The beneficiary has an abnormal CXR and a negative or unavailable Truenat result, whether or not they have TB symptoms.</li>
+  <li>The beneficiary has TB symptoms or risk factors, could not undergo CXR, and has a negative or unavailable Truenat result. Risk factors include previous TB with current symptoms, a close household contact with TB, smoking, COPD and HIV. Reasons CXR may be unavailable include pregnancy, paediatric age, and clinical or operational constraints.</li>
+  <li>The beneficiary is a child aged 3–14 years. This rule lists the child directly for Clinical Assessment.</li>
+</ul>
+<p>Home shows only the Clinical Assessment card and Dashboard tab. The card count adds Pending and Completed. Each tab shows its own count and supports oldest or newest listing date and name A–Z. The card and Pending default to oldest first. Completed defaults to newest first.</p>
+<ul>
+  <li><strong>Pending → Initial</strong> contains new cases that need assessment.</li>
+  <li><strong>Pending → Re-review</strong> contains cases that need another assessment, such as inconclusive cases and inadequate-image submissions.</li>
+  <li><strong>Completed</strong> contains closed cases. The outcome and advice rules specify which submissions close a case.</li>
+</ul>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a></p></div>
+</section>
+<section class="chapter" id="images" aria-labelledby="images-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">03</span>
+  <div><h2 id="images-title">Image upload, storage and viewer</h2><p class="chapter-lede">The Remote Review uploader is an extension of MMU-UI. The central PACS supplies DICOM images to the specialist viewer.</p></div>
+</div>
+<div class="chapter-body">
+<h3>Upload and sync</h3>
+<ul class="requirements">
+  <li><span class="ref">FR-17–18 · Must</span> On the X-ray laptop, the radiographer or camp coordinator searches for and selects the Beneficiary ID. Each upload can include multiple images, the view or body part, and clinical notes.</li>
+  <li><span class="ref">FR-19–22 · Must</span> Route offline uploads to the camp server and online uploads directly to the central server. Accept DICOM files. Convert JPEG and PNG exports to DICOM secondary capture with the Beneficiary ID and study details in the header. Validate type and size, warn on DICOM Patient ID mismatch, and support resumable chunked uploads with per-image progress and result.</li>
+  <li><span class="ref">FR-23 · Should</span> Allow the camp user to delete or replace the image until a specialist opens the case.</li>
+  <li><span class="ref">FR-24–27 · Must</span> Queue images on the local server and sync automatically when connectivity returns, with retries and duplicate prevention. The central server stores DICOM and preserves study, series and instance metadata. Provide DICOMweb storage, query and retrieval through STOW-RS, QIDO-RS and WADO-RS. Create a central case linked to the beneficiary after all images in the upload arrive.</li>
+  <li><span class="ref">FR-28 · Should</span> Show the camp user whether the upload is queued at the local server or synced.</li>
+</ul>
+<h3>View and annotate</h3>
+<ul class="requirements">
+  <li><span class="ref">FR-37–38 · Must</span> Show Beneficiary ID, age, sex, camp, X-ray date, view and clinical notes. Mask name and contact details. Stream from the central PACS to a browser viewer such as OHIF on desktop, phone and tablet.</li>
+  <li><span class="ref">FR-39–40 · Must</span> Viewer tools include zoom, pan, window/level, invert, rotate/flip, length and angle measurement, and full screen. Annotation tools include arrows, freehand drawing, ellipse and rectangle regions, text, and measurement markings.</li>
+  <li><span class="ref">FR-41–42 · Must</span> Save each annotation version under the original image. Keep the original and earlier versions intact. Record version number, specialist, date and time, and an optional note.</li>
+  <li><span class="ref">FR-43–45 · Should</span> Store annotations in PACS in a DICOM-compatible form such as Structured Report, Presentation State or a derived secondary capture. Let specialists compare earlier X-rays and annotation versions. Disable download and print by default and watermark views with the specialist’s name and time.</li>
+</ul>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a></p></div>
+</section>
+<section class="chapter" id="evidence" aria-labelledby="evidence-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">04</span>
+  <div><h2 id="evidence-title">Beneficiary record and diagnostics</h2><p class="chapter-lede">The Clinical Assessment screen reads information from existing TBMJA modules. The Clinical Specialist stores decisions in a separate Clinical Assessment record. Diagnostic test results stay read-only.</p></div>
+</div>
+<div class="chapter-body">
+<h3>Beneficiary card</h3>
+<p>The card shows status icons for TB Symptoms, CXR and NAAT. Read-only registration data includes full name, age in years, gender, AMRIT ID, head of family, father or husband name, and phone number. Hide the phone if it is the default <code>9999999999</code>. Show the Nikshay ID if available. Show village and the recorded area, such as Tribal-NPVTG, Tribal-PVTG, Rural, Urban, Urban Slum or Unknown.</p>
+<p>Opening the card shows three collapsible parts in TBMJA. These are Clinical Summary, Diagnostics and CXR image viewer, and Clinical Assessment Form.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Read-only Clinical Summary"><table><caption>Read-only Clinical Summary</caption><thead><tr><th scope="col">Information</th><th scope="col">Source and display</th></tr></thead><tbody><tr><th scope="row">Date and name</th><td>Show the date the case entered Clinical Assessment &amp; Diagnosis and the full name from Beneficiary Registration.</td></tr><tr><th scope="row">Measurements</th><td>Show weight in kg, height in cm, BMI, temperature in °F with hypothermia, normal or fever label, and pulse, systolic and diastolic blood pressure, and random blood sugar with units where specified.</td></tr><tr><th scope="row">Chief complaint and medication</th><td>Show complaint, medication advised, frequency, duration and any remarks in order. Use “Nothing Relevant Reported” if the app has no information.</td></tr><tr><th scope="row">TB symptoms</th><td>Show symptoms marked Yes, including other recorded symptoms, history of TB, current anti-TB drugs and TB in the family. If all are No, show “Asymptomatic”.</td></tr><tr><th scope="row">Clinical signs</th><td>Show only signs marked Present among pallor, icterus, cyanosis, clubbing, lymphadenopathy and oedema. If none are present, show “Nothing Relevant Reported”.</td></tr><tr><th scope="row">Risk factors and HIV status</th><td>Show all recorded key population and risk factors from TB Screening. Show the recorded HIV status of positive/reactive, negative or unknown.</td></tr><tr><th scope="row">Field notes</th><td>Show text, author, role and date for notes added to the card by a nurse, counselling officer or lab technician.</td></tr></tbody></table></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Read-only Diagnostics"><table><caption>Read-only Diagnostics</caption><thead><tr><th scope="col">Information</th><th scope="col">Source and display</th></tr></thead><tbody><tr><th scope="row">CXR result</th><td>Show result and date from Referral → Digital Chest X-ray, recorded by device sync or manual entry. If CXR was not conducted, show the recorded reason. For pregnancy, show “Not referred: Pregnant”.</td></tr><tr><th scope="row">CXR image and AI report</th><td>When the CXR result is recorded, fetch the image and AI-generated PDF from the central server. Open the image with the DICOM viewer and its tools.</td></tr><tr><th scope="row">NAAT MTB test</th><td>Show the result from Referral → NAAT, or the recorded reason NAAT was not conducted. Hide the reason when a result exists.</td></tr><tr><th scope="row">Cy-TB and Liquid Culture</th><td>Show Cy-TB positive or negative, and Liquid Culture growth or no growth, only when results are available for the beneficiary.</td></tr></tbody></table></div>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a></p></div>
+</section>
+<section class="chapter" id="reporting" aria-labelledby="reporting-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">05</span>
+  <div><h2 id="reporting-title">Reporting, re-review and results</h2><p class="chapter-lede">Remote Review returns a signed image report to the camp. TBMJA records the Assessment Outcome and routes the beneficiary according to that outcome and any Recommended Advice.</p></div>
+</div>
+<div class="chapter-body">
+<h3>Remote Review report</h3>
+<ul class="requirements">
+  <li><span class="ref">FR-46–48 · Must</span> Use the TBMJA diagnostic evidence form structure. Record findings, impression, normal or abnormal, TB-suggestive status (yes, no or indeterminate), other findings, recommendation, urgency (routine or urgent), and the annotation version used. Sign-off uses the specialist’s name, MCI/NMC number, contact details, place and submission time.</li>
+  <li><span class="ref">FR-49–50 · Must</span> Save a draft and submit later. Submitted reports are read-only. For an unreadable image, record the reason and request a camp retake. The retake upload puts the case in Re-review. See the <a href="#handoff">FR-50 wording issue</a>.</li>
+  <li><span class="ref">FR-51–52 · Should</span> Correct submitted reports with an addendum that preserves the original. Generate a PDF with the annotated image version and sign-off.</li>
+  <li><span class="ref">FR-53–56 · Must</span> Attach the report to the beneficiary. Sync it to the camp server and TB screening application. Notify the camp user and make the report viewable. Highlight urgent or TB-suggestive results and notify the camp immediately.</li>
+</ul>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Remote Review status"><table><caption>Remote Review status</caption><thead><tr><th scope="col">Detailed status</th><th scope="col">When it applies</th><th scope="col">Camp / specialist</th></tr></thead><tbody><tr><th scope="row">Queued at local server</th><td>The upload is still on the camp server.</td><td>Pending / hidden</td></tr><tr><th scope="row">Available</th><td>The central server has created the case.</td><td>Pending / Pending</td></tr><tr><th scope="row">In review</th><td>A specialist has opened and locked the case.</td><td>Pending / Pending, with reviewer shown to others</td></tr><tr><th scope="row">Draft saved</th><td>The specialist saved a report without submitting.</td><td>Pending / Pending</td></tr><tr><th scope="row">Re-take requested</th><td>The specialist marked the image unreadable.</td><td>Pending / hidden until the retake arrives</td></tr><tr><th scope="row">Re-review</th><td>A retake arrives, the camp asks for clarification, or the specialist flags the case.</td><td>Pending / Re-review</td></tr><tr><th scope="row">Completed</th><td>The specialist submits the report.</td><td>Completed / Completed</td></tr><tr><th scope="row">Completed – Urgent</th><td>The completed report is urgent or TB-suggestive.</td><td>Completed / Completed</td></tr></tbody></table></div>
+<p>Remote Review sets these statuses automatically. Camp users cannot mark cases Completed.</p>
+<h3>TBMJA Clinical Assessment Form</h3>
+<p>Open the form from Start Assessment, Continue Draft or Review New Evidence in the Beneficiary Clinical Summary. All text fields allow speech-to-text input.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Assessment fields"><table><caption>Assessment fields</caption><thead><tr><th scope="col">Field</th><th scope="col">Input and rules</th></tr></thead><tbody><tr><th scope="row">Assessment Date</th><td>Required date picker. Defaults to today. It cannot be in the future or before the latest TB Screening, CXR or NAAT date. It is fixed after submission.</td></tr><tr><th scope="row">Clinical Specialist Name and Type</th><td>Read-only full name from the user profile. Type comes from login configuration and is Medical Officer, Chest Physician, Radiologist or Other.</td></tr><tr><th scope="row">Is the Quality of CXR adequate</th><td>Yes or No, with Yes as the default. For No, enable only Remarks, Cancel and Submit. Fill Remarks with the need for another CXR. On submission, move directly to Pending → Re-review.</td></tr><tr><th scope="row">Clinical interpretation of CXR</th><td>Dropdown plus free text up to 500 characters. Required when CXR image reviewed is Yes. Uses the clinical interpretation CDSS knowledge base for AI autocomplete.</td></tr><tr><th scope="row">Clinical Assessment Notes</th><td>Free text. Required when CXR image reviewed is Yes. Keep the length between 10 and 1,000 characters. Use the separate Clinical Assessment terms knowledge base for AI autocomplete.</td></tr><tr><th scope="row">Assessment Outcome / Prognosis</th><td>Required single selection. See the outcome table for values and routing.</td></tr><tr><th scope="row">Recommended Advice</th><td>Required multi-select for an inconclusive assessment. See the advice table for choices and routing.</td></tr><tr><th scope="row">Advice other Investigation details</th><td>Free text up to 200 characters. Required when the specialist selects other investigations.</td></tr><tr><th scope="row">Remarks / Notes</th><td>Optional alphanumeric text up to 200 characters. Auto-fill when the CXR quality is inadequate.</td></tr><tr><th scope="row">Results of previous visits</th><td>Read-only, by visit. Show available interpretations, assessment notes and recommended next steps. Omit blank values.</td></tr></tbody></table></div>
+<p>The clinical domain team supplies the two CDSS knowledge bases. The PRD calls for adding new specialist terms to the relevant knowledge base. It enables Review of diagnostic evidence only if a CXR is available and otherwise shows “CXR not available”. The <a href="#handoff">open decisions</a> explain the effect of that rule on assessments without a CXR.</p>
+<p>Cancel asks for confirmation. Yes returns to the Beneficiary Clinical Summary and discards changes since the last draft. No keeps the form open. Submit applies the routing rules below.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="TBMJA Assessment Outcome"><table><caption>TBMJA Assessment Outcome</caption><thead><tr><th scope="col">Selected outcome</th><th scope="col">Routing after submission</th></tr></thead><tbody><tr><th scope="row">Normal</th><td>Move to Completed.</td></tr><tr><th scope="row">Abnormal - Suggestive of TB</th><td>Move to Completed and list the beneficiary in Confirmed TB Cases for follow-up such as counselling and contact tracing.</td></tr><tr><th scope="row">Abnormal - Not Suggestive of TB</th><td>Move to Completed.</td></tr><tr><th scope="row">Assessment inconclusive / additional information required</th><td>Move to Pending → Re-review. Apply the routing for selected Recommended Advice.</td></tr></tbody></table></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="TBMJA Recommended Advice"><table><caption>TBMJA Recommended Advice</caption><thead><tr><th scope="col">Selected advice</th><th scope="col">Routing after submission</th></tr></thead><tbody><tr><th scope="row">Advice NAAT</th><td>Re-list in Referral → NAAT and keep the assessment in Pending → Re-review.</td></tr><tr><th scope="row">Repeat Chest X-ray</th><td>Re-list in Referral → Digital Chest X-ray and keep the assessment in Pending → Re-review.</td></tr><tr><th scope="row">Referred to a specialist or a higher centre for further clinical evaluation</th><td>Move to Completed.</td></tr><tr><th scope="row">Advice other Investigations</th><td>Require investigation details and keep the assessment in Pending → Re-review.</td></tr></tbody></table></div>
+<p>When new evidence arrives, the specialist can return to the Beneficiary Clinical Summary for re-review.</p>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a></p></div>
+</section>
+<section class="chapter" id="operations" aria-labelledby="operations-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">06</span>
+  <div><h2 id="operations-title">Dashboards and service requirements</h2><p class="chapter-lede">Remote Review measures camp uploads and specialist turnaround. TBMJA tracks clinical assessments and their outcomes.</p></div>
+</div>
+<div class="chapter-body">
+<h3>Remote Review operations</h3>
+<ul class="requirements">
+  <li><span class="ref">FR-57 · Must</span> Audit enrollment, mapping, login, OTP, upload, sync, case open, annotation save, report submit and notification. Record user, time and device or IP address.</li>
+  <li><span class="ref">FR-58 · Should</span> Give supervisors or Admin a dashboard for cases by status and camp, time pending, and turnaround by specialist.</li>
+</ul>
+<p>Proposed success measures include the share of X-rays in PACS with a valid Beneficiary ID, zero unauthorised access incidents, median time from Available to report submission, the share of cases with a current status, and the share of annotated cases with versions linked to the original image. The spec leaves measure targets to confirm.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="TBMJA Clinical Assessment indicators"><table><caption>TBMJA Clinical Assessment indicators</caption><thead><tr><th scope="col">Indicator</th><th scope="col">Calculation</th><th scope="col">Breakdowns</th></tr></thead><tbody><tr><th scope="row">Referred for clinical assessment</th><td>Count of listed beneficiaries.</td><td>Sex, age, pregnancy</td></tr><tr><th scope="row">Assessed by Clinical Specialist</th><td>Completed assessments as a count and share of all referred.</td><td>Sex, age, pregnancy</td></tr><tr><th scope="row">Pending → Initial</th><td>Count awaiting first assessment.</td><td>Sex, age</td></tr><tr><th scope="row">Pending → Re-review</th><td>Count awaiting re-review.</td><td>Sex, age</td></tr><tr><th scope="row">Clinical Outcome</th><td>Percentage for each of the four assessment outcomes.</td><td>Sex, age, pregnancy</td></tr><tr><th scope="row">CXR image reviewed</th><td>Images reviewed as a share of available CXR images.</td><td>Village, time</td></tr><tr><th scope="row">Recommended Advice</th><td>Count and share of all referred with at least one of the four advice options.</td><td>Sex, age</td></tr></tbody></table></div>
+<p>Apply Time Period and Village filters to all TBMJA counts. For this role, restrict counts to the mapped location. Sex groups are male, female and transgender. Age groups are children under 15, adults 15–59 and elderly people aged 60 or older.</p>
+<details>
+  <summary>Remote Review non-functional requirements</summary>
+  <div class="table-scroll" tabindex="0" role="region" aria-label="Non-functional requirements"><table><caption>Non-functional requirements</caption><thead><tr><th scope="col">ID</th><th scope="col">Requirement</th></tr></thead><tbody><tr><th scope="row">NFR-01</th><td>Support offline upload to the camp local server. Sync automatically when online, resume interrupted transfers, and prevent duplicates.</td></tr><tr><th scope="row">NFR-02</th><td>Use HTTPS with TLS 1.2 or later, encrypt images and reports at rest, hash passwords, and use single-use OTPs.</td></tr><tr><th scope="row">NFR-03</th><td>Use role-based access and camp mapping. Check access on every PACS image request.</td></tr><tr><th scope="row">NFR-04</th><td>The spec calls for DPDP Act 2023 and ABDM health data guideline compliance. Capture consent for remote review at camp and mask the beneficiary’s name to remote specialists.</td></tr><tr><th scope="row">NFR-05</th><td>Use DICOM storage and DICOMweb in PACS and preserve original images when saving annotations. The spec names Orthanc and dcm4chee as examples.</td></tr><tr><th scope="row">NFR-06</th><td>Use approved DLT-registered SMS templates. Keep personal and clinical data out of messages.</td></tr><tr><th scope="row">NFR-07</th><td>Show the first image within five seconds on 4G, deliver OTP within 30 seconds, and load the worklist within three seconds.</td></tr><tr><th scope="row">NFR-08</th><td>Target 99.5% monthly availability for the central server, PACS and Remote Review module.</td></tr><tr><th scope="row">NFR-09</th><td>Support concurrent uploads from all active camps and increasing image volume without redesign.</td></tr><tr><th scope="row">NFR-10</th><td>Keep images, annotation versions, reports and audit logs according to programme policy. The retention period is open.</td></tr><tr><th scope="row">NFR-11</th><td>Support desktop and tablet browsers for specialists and provide uploader screens in English and the local language.</td></tr><tr><th scope="row">NFR-12</th><td>Use standard WebAuthn for biometrics and keep biometric data off the server.</td></tr></tbody></table></div>
+</details>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a></p></div>
+</section>
+<section class="chapter" id="checks" aria-labelledby="checks-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">07</span>
+  <div><h2 id="checks-title">Acceptance checks and dependencies</h2><p class="chapter-lede">Use these checks to read the workflow from camp upload to result return, and from TBMJA listing to clinical outcome.</p></div>
+</div>
+<div class="chapter-body">
+<h3>Remote Review acceptance criteria</h3>
+<ol class="steps">
+  <li>Admin can enroll a doctor only if all five required fields are present. Optional fields can be blank.</li>
+  <li>Reject sign-in with a non-whitelisted phone or email. A whitelisted doctor signs in with the correct password and OTP. An idle session ends and requires sign-in again.</li>
+  <li>On a supported device, a doctor can register and use face or fingerprint sign-in. Password and OTP still work.</li>
+  <li>An offline camp can upload three X-rays against one Beneficiary ID. Once the camp comes online, all three arrive as DICOM in the central PACS.</li>
+  <li>A mapped specialist sees the Pending case and gets a notification if enabled. A specialist without the camp mapping cannot see or open it.</li>
+  <li>When one specialist opens the case, other mapped specialists see that it is In review and cannot report on it.</li>
+  <li>Two saves create annotation versions 1 and 2 under the unchanged original.</li>
+  <li>Submission moves the case to Completed, signs the report with the doctor’s profile details, and notifies the camp user.</li>
+  <li>An unreadable report creates a retake request. The new upload returns the case to Re-review.</li>
+  <li>The audit log records the actions in the workflow.</li>
+</ol>
+<h3>TBMJA walkthrough</h3>
+<p>These checks follow the PRD workflow. Start with a qualifying beneficiary and follow the record through the Home card, line listing, clinical evidence and assessment. Check inadequate CXR, each Assessment Outcome, and each Recommended Advice option against the <a href="#reporting">routing rules</a>. Confirm that submission leaves the source test results intact.</p>
+<h3>Remote Review assumptions and dependencies</h3>
+<ul>
+  <li>The device can export DICOM, JPEG or PNG to the laptop. The laptop can reach the camp local server using the camp network. Beneficiary IDs exist before or during the camp.</li>
+  <li>Specialists use a modern browser. The central service needs a PACS and a web viewer that supports annotations.</li>
+  <li>Camp operations depend on the existing local server sync service. Notification and enrollment flows depend on the approved SMS gateway, email service and web push.</li>
+</ul>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a></p></div>
+</section>
+<section class="chapter" id="handoff" aria-labelledby="handoff-title">
+<div class="chapter-header">
+  <span class="chapter-number" aria-hidden="true">08</span>
+  <div><h2 id="handoff-title">Open integration decisions</h2><p class="chapter-lede">The specs agree on the need for a CXR review. These points need a decision before the two workflows can share records or screens.</p></div>
+</div>
+<div class="chapter-body">
+<dl class="decisions">
+  <dt>How does the remote report enter Clinical Assessment?</dt>
+  <dd>FR-46 reuses the diagnostic evidence form structure. FR-53 sends the report to the beneficiary and camp. The PRD reads the CXR result from Referral and stores its own Clinical Assessment record. The pages leave open whether the remote report appears as read-only evidence, supplies any prefilled fields, or triggers a separate assessment.</dd>
+  <dt>Who can see each view?</dt>
+  <dd>Remote Review requires whitelisted contacts, MFA, camp mapping, and masked names and contacts. TBMJA uses its existing login and mapped location. Its beneficiary card includes the name and phone when available. Confirm which access and display rules apply when a user moves between views.</dd>
+  <dt>When can a specialist see a retake case again?</dt>
+  <dd>Remote Review keeps it off the specialist list until the retake arrives. TBMJA lists it in Pending → Re-review immediately after the inadequate-quality submission. FR-50 also says “the Quality of CXR is adequate” where the Remote Review status table and acceptance criteria describe an unreadable image. Confirm the field label and trigger.</dd>
+  <dt>Which fields are available without a CXR?</dt>
+  <dd>TBMJA lists eligible cases without a CXR. Its form text enables the Review of diagnostic evidence section only when a CXR is available, but places Assessment Outcome and Recommended Advice in that section. It also refers to “CXR image reviewed” without defining a separate field in the table. Confirm the available fields and review action.</dd>
+  <dt>What happens when Recommended Advice gives two routes?</dt>
+  <dd>TBMJA supports multiple options. A higher-centre referral closes the assessment, while repeat CXR, NAAT and other investigations return it to Re-review. The PRD leaves the result of selecting both types together open.</dd>
+  <dt>Which notification channels are in scope?</dt>
+  <dd>Remote Review FR-34 names browser push and SMS. The workflow diagram also shows WhatsApp. The written requirements leave that channel open.</dd>
+</dl>
+<p class="sources-line"><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Remote Review spec</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA PRD</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/download/attachments/203653163/image-2026-11-16_13-25-47.png?version=1&amp;modificationDate=1794815747843&amp;api=v2">Remote Review workflow diagram</a> <span aria-hidden="true">·</span> <a href="https://pmp.piramalswasthya.org/confluence/download/attachments/196902913/Clinical_Specialist_Workflow.png?version=1&amp;modificationDate=1794226019050&amp;api=v2">TBMJA workflow diagram</a></p></div>
+</section>
+<footer id="sources">
+<h2>Sources</h2><p>Both Confluence pages were last updated on 16 November 2026.</p>
+<ul class="source-index">
+  <li><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/203653163/Clinical+Specialist+Module+-+Remote+X-ray+Review">Clinical Specialist Module – Remote X-ray Review</a></li>
+  <li><a href="https://pmp.piramalswasthya.org/confluence/spaces/AMRIT/pages/196902913/TBMJA-+Clinical+Specialist+PRD">TBMJA Clinical Specialist PRD</a></li>
+  <li><a href="https://pmp.piramalswasthya.org/confluence/download/attachments/203653163/image-2026-11-16_13-25-47.png?version=1&amp;modificationDate=1794815747843&amp;api=v2">Remote Review workflow diagram</a></li>
+  <li><a href="https://pmp.piramalswasthya.org/confluence/download/attachments/196902913/Clinical_Specialist_Workflow.png?version=1&amp;modificationDate=1794226019050&amp;api=v2">TBMJA workflow diagram</a></li>
+</ul>
+</footer>
+</main>
+</body>
+</html>

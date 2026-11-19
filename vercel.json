@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/clinical-specialist-merged-specification",
+      "destination": "/clinical-specialist-merged-specification.html"
+    },
+    {
       "source": "/topfans-platform-research",
       "destination": "/topfans-platform-research.html"
     },
