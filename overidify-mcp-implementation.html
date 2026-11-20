@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Inside the Overidify MCP Server</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@94,700&family=Geist:wght@400;700&family=Geist+Mono:wght@400&display=swap">
+<style>
+/* Layout: content uses the full width up to 1080px, space (not rules) between sections.
+   Type: sizes on a 4px scale (12 in diagrams / 16 / 20 / 24 / 28 / 32 / 40 / 60), weights 400 and 700 only. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0b0d;
+  --surface: #121418;
+  --surface-2: #181b21;
+  --line: #22262d;
+  --ink: #e6e9ee;
+  --body: #b9bec7;
+  --dim: #8b919b;
+  --faint: #767c87;
+  --button-line: #4b525d;
+  --accent: #7ab1ec;
+  --teal: #8fd0c4;        /* secondary, only for return paths in diagrams and code strings */
+  --code: #b3c8de;
+  --title: "Archivo", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --size-small: 16px;
+  --size-body: 20px;
+  --size-large: 24px;
+  --size-h2: 32px;
+  --size-stat: 40px;
+  --size-h1: 60px;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bg);
+  color: var(--body);
+  font: 400 var(--size-body)/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+}
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--ink); }
+a { color: var(--ink); text-decoration-color: var(--button-line); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent); text-decoration-color: currentColor; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+strong { color: var(--ink); font-weight: 700; }
+em { font-style: normal; color: var(--ink); }
+:not(pre) > code { font: 400 var(--size-small)/1.5 var(--mono); color: var(--code); background: var(--surface-2); padding: 2px 6px; overflow-wrap: anywhere; }
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(20px, env(safe-area-inset-left, 0px), 5vw);
+  padding-right: max(20px, env(safe-area-inset-right, 0px), 5vw);
+}
+@media (min-width: 1240px) { .page { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); } }
+
+/* Titles */
+h1, h2, h3 { font-family: var(--title); font-weight: 700; font-stretch: 94%; color: var(--ink); margin: 0; text-wrap: balance; }
+h1 { font-size: var(--size-h1); line-height: 1.07; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+h2 { font-size: var(--size-h2); line-height: 1.25; letter-spacing: -0.01em; }
+h3 { font-size: var(--size-large); line-height: 1.33; margin-top: 8px; }
+
+/* Hero */
+.hero { padding-block: 80px 40px; display: grid; gap: 24px; }
+.label { font: 400 var(--size-small)/1.5 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); margin: 0; }
+.deck { font-size: var(--size-large); line-height: 1.5; margin: 0; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.fact { padding: 16px 16px 16px 0; display: grid; gap: 4px; }
+.fact + .fact { padding-left: 16px; border-left: 1px solid var(--line); }
+.fact span { font-size: var(--size-small); color: var(--dim); }
+.fact b { font-size: var(--size-body); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+nav.sections { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 0 4px; padding-block: 4px; }
+nav.sections a { font-size: var(--size-small); color: var(--body); text-decoration: none; padding: 12px; min-height: 44px; display: inline-flex; align-items: center; }
+nav.sections a:first-child { padding-left: 0; }
+nav.sections a:hover { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); }
+
+/* Sections: separated by space only */
+section { padding-block: 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; scroll-margin-top: 16px; min-width: 0; }
+section > h2 { margin-bottom: 4px; }
+section > p, section > ul, section > ol { margin: 0; }
+ul, ol { padding-left: 24px; }
+li + li { margin-top: 8px; }
+li::marker { color: var(--dim); }
+.quiet { font-size: var(--size-small); color: var(--dim); }
+
+/* Code */
+.code { display: grid; gap: 8px; min-width: 0; }
+.code .file { font: 400 var(--size-small)/1.5 var(--mono); color: var(--dim); }
+pre { margin: 0; padding: 20px 24px; background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--accent); overflow-x: auto; font: 400 var(--size-small)/1.75 var(--mono); color: var(--ink); tab-size: 2; }
+pre code { font: inherit; }
+.k { color: var(--accent); }
+.s { color: var(--teal); }
+.c { color: var(--faint); }
+
+/* Figures */
+figure { margin: 0; display: grid; gap: 12px; min-width: 0; }
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); padding: 24px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+figcaption { font-size: var(--size-small); line-height: 1.5; color: var(--dim); }
+.d-box { fill: var(--surface-2); stroke: var(--line); stroke-width: 1.2; }
+.d-box.key { stroke: color-mix(in srgb, var(--accent) 70%, var(--line)); }
+.d-box.ok { stroke: color-mix(in srgb, var(--teal) 70%, var(--line)); }
+.d-note { fill: color-mix(in srgb, var(--accent) 8%, var(--surface)); stroke: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.d-title { fill: var(--ink); font: 700 16px var(--font); }
+.d-sub { fill: var(--dim); font: 400 12px var(--mono); }
+.d-label { fill: var(--ink); font: 400 12px var(--mono); }
+.d-label.dim { fill: var(--dim); }
+.d-edge { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+.d-edge.back { stroke: var(--teal); }
+.d-edge.dash { stroke: var(--faint); stroke-dasharray: 5 5; }
+.d-life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+.d-step { fill: var(--accent); }
+.d-step-n { fill: var(--bg); font: 700 12px var(--font); }
+
+/* Notes in two or three columns */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.note { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 8px; align-content: start; }
+.note b { font: 400 var(--size-small)/1.5 var(--mono); color: var(--accent); }
+.note p { margin: 0; }
+
+/* Setup file anatomy */
+.stack { display: grid; border: 1px solid var(--line); }
+.layer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: 24px; padding: 16px 20px; align-items: center; }
+.layer + .layer { border-top: 1px solid var(--line); }
+.layer:first-child { background: var(--surface); }
+.layer code { background: none !important; padding: 0 !important; }
+.layer span { font-size: var(--size-small); color: var(--dim); }
+
+/* Checks table */
+.table { overflow-x: auto; border-top: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: var(--size-small); line-height: 1.5; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font: 400 var(--size-small)/1.5 var(--mono); color: var(--dim); }
+td:first-child { color: var(--ink); white-space: nowrap; font-family: var(--mono); }
+td.status { color: var(--accent); font-family: var(--mono); white-space: nowrap; }
+
+/* Test results */
+.results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.result { padding: 20px 16px 20px 0; display: grid; gap: 4px; align-content: start; }
+.result + .result { padding-left: 16px; border-left: 1px solid var(--line); }
+.result .value { font: 700 var(--size-stat)/1.2 var(--title); font-stretch: 94%; color: var(--ink); font-variant-numeric: tabular-nums; }
+.result p { margin: 0; font-size: var(--size-small); line-height: 1.5; color: var(--dim); }
+
+.next { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); background: var(--surface); padding: 24px; }
+.next p { margin: 0; }
+.next a { font-weight: 700; text-decoration: none; border: 1px solid var(--button-line); padding: 8px 16px; }
+.next a:hover { border-color: var(--accent); }
+
+footer { padding-block: 8px 64px; font-size: var(--size-small); color: var(--faint); display: flex; flex-wrap: wrap; gap: 4px 20px; }
+footer a { color: var(--dim); }
+
+@media (max-width: 760px) {
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact:nth-child(3) { padding-left: 0; border-left: 0; }
+  .fact:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .pair, .steps, .results { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .result + .result { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .layer { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+@media (max-width: 680px) {
+  :root { --size-h1: 40px; --size-h2: 28px; --size-stat: 32px; }
+  .hero { padding-block: 48px 32px; gap: 20px; }
+  nav.sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+  nav.sections a, nav.sections a:first-child { padding: 12px 0; }
+  section { padding-block: 32px; gap: 20px; }
+  section > h2 { margin-bottom: 0; }
+  .diagram { padding: 16px; }
+  pre { padding: 16px; }
+  .next { padding: 16px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <p class="label">Engineering</p>
+  <h1>How the Overidify <span>MCP server</span> works</h1>
+  <p class="deck">A Chrome extension can't listen on a port, so Overidify can't host an MCP server by itself. This post covers the local helper that hosts it, how tool calls reach the extension, how setup works without the source code, and how it was tested.</p>
+  <div class="facts">
+    <div class="fact"><span>Helper</span><b>Node.js, 8 KB</b></div>
+    <div class="fact"><span>Transport</span><b>Streamable HTTP</b></div>
+    <div class="fact"><span>Tools</span><b>7</b></div>
+    <div class="fact"><span>Tests</span><b>174 + 52</b></div>
+  </div>
+</header>
+
+<nav class="sections" aria-label="Sections">
+  <a href="#problem">The problem</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#bridge">The bridge</a>
+  <a href="#call">A tool call</a>
+  <a href="#validation">Validation</a>
+  <a href="#endpoint">The endpoint</a>
+  <a href="#setup">Setup</a>
+  <a href="#agents">Agents</a>
+  <a href="#testing">Testing</a>
+  <a href="#limits">Limits</a>
+</nav>
+
+<main>
+  <section id="problem">
+    <h2>The extension can't be the server</h2>
+    <p>MCP clients connect to a server in one of two ways. They start it as a process, or they connect to it over HTTP. A Manifest V3 extension supports neither. Its service worker can't open a listening socket, other programs can't start it, and Chrome stops it when it's idle.</p>
+    <p>Chrome does offer <strong>native messaging</strong>. An extension can ask Chrome to start a registered program and exchange messages with it over stdin and stdout. Overidify uses that. When you turn on the MCP server, the service worker calls <code>chrome.runtime.connectNative('com.overidify.mcp')</code>. Chrome starts a small Node.js helper, and the helper serves <code>http://127.0.0.1:47821/mcp</code>.</p>
+    <p>An open native port also keeps the service worker running. Agents don't wait for it to wake up.</p>
+  </section>
+
+  <section id="architecture">
+    <h2>Architecture</h2>
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 1080 330" role="img" aria-labelledby="arch-title">
+          <title id="arch-title">The agent sends HTTP requests to the helper. The helper relays them over native messaging to the service worker, which saves and activates rules. The Agents page changes settings, and the service worker asks Chrome to start the helper.</title>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--accent)"/></marker>
+            <marker id="arrow-dim" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--dim)"/></marker>
+          </defs>
+          <rect class="d-box" x="10" y="40" width="180" height="110"/>
+          <text class="d-title" x="100" y="86" text-anchor="middle">AI agent</text>
+          <text class="d-sub" x="100" y="108" text-anchor="middle">Claude Code</text>
+          <text class="d-sub" x="100" y="125" text-anchor="middle">Codex · Cursor</text>
+
+          <rect class="d-box key" x="310" y="40" width="190" height="110"/>
+          <text class="d-title" x="405" y="86" text-anchor="middle">MCP helper</text>
+          <text class="d-sub" x="405" y="108" text-anchor="middle">Node.js process</text>
+          <text class="d-sub" x="405" y="125" text-anchor="middle">127.0.0.1:47821/mcp</text>
+
+          <rect class="d-box key" x="620" y="40" width="190" height="110"/>
+          <text class="d-title" x="715" y="86" text-anchor="middle">Service worker</text>
+          <text class="d-sub" x="715" y="108" text-anchor="middle">Overidify extension</text>
+          <text class="d-sub" x="715" y="125" text-anchor="middle">tools · validation</text>
+
+          <rect class="d-box ok" x="920" y="40" width="150" height="110"/>
+          <text class="d-title" x="995" y="86" text-anchor="middle">Rules</text>
+          <text class="d-sub" x="995" y="108" text-anchor="middle">chrome.storage</text>
+          <text class="d-sub" x="995" y="125" text-anchor="middle">+ active rules</text>
+
+          <line class="d-edge" x1="194" y1="95" x2="306" y2="95" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+          <text class="d-label" x="250" y="80" text-anchor="middle">HTTP POST</text>
+          <text class="d-label dim" x="250" y="118" text-anchor="middle">Bearer token</text>
+
+          <line class="d-edge" x1="504" y1="95" x2="616" y2="95" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+          <text class="d-label" x="560" y="80" text-anchor="middle">stdin / stdout</text>
+          <text class="d-label dim" x="560" y="118" text-anchor="middle">framed JSON</text>
+
+          <line class="d-edge" x1="814" y1="95" x2="916" y2="95" marker-end="url(#arrow)"/>
+          <text class="d-label" x="865" y="80" text-anchor="middle">save</text>
+          <text class="d-label dim" x="865" y="118" text-anchor="middle">+ activate</text>
+
+          <path class="d-edge dash" d="M660,150 L660,186 L405,186 L405,154" marker-end="url(#arrow-dim)"/>
+          <text class="d-label dim" x="532" y="206" text-anchor="middle">Chrome starts it: connectNative()</text>
+
+          <rect class="d-box" x="620" y="232" width="190" height="84"/>
+          <text class="d-title" x="715" y="266" text-anchor="middle">Agents page</text>
+          <text class="d-sub" x="715" y="288" text-anchor="middle">switch · port · token</text>
+          <path class="d-edge dash" d="M770,232 L770,154" marker-end="url(#arrow-dim)"/>
+          <text class="d-label dim" x="782" y="200">mcpSettings</text>
+        </svg>
+      </div>
+      <figcaption>The helper exists only while Chrome is open and the MCP server switch is on. Turning the switch off closes the port, and the helper exits when its stdin ends.</figcaption>
+    </figure>
+    <h3>The helper stays thin</h3>
+    <p>The helper has no rule logic. When the service worker connects, its first message carries the port, the token, the extension version, the server instructions, and the tool definitions. The helper serves whatever tools it receives and forwards each call.</p>
+    <p>New or changed tools therefore ship with the extension, and the helper doesn't need reinstalling. Both sides exchange a bridge protocol number. If an update changes the messages themselves, the Agents page asks you to run setup again.</p>
+    <div class="code">
+      <span class="file">src/lib/mcp-protocol.ts</span>
+<pre><code><span class="k">type</span> ExtensionToHostMessage =
+  | { type: <span class="s">'start'</span>; protocol: number; port: number; token: string; version: string; instructions: string; tools: McpToolDefinition[] }
+  | { type: <span class="s">'result'</span>; id: number; result: McpToolResult }
+
+<span class="k">type</span> HostToExtensionMessage =
+  | { type: <span class="s">'status'</span>; protocol: number; state: <span class="s">'listening'</span>; url: string }
+  | { type: <span class="s">'status'</span>; protocol: number; state: <span class="s">'error'</span>; message: string }
+  | { type: <span class="s">'call'</span>; id: number; name: string; arguments: Record&lt;string, unknown&gt; }
+  | { type: <span class="s">'chunk'</span>; id: number; index: number; total: number; data: string }</code></pre>
+    </div>
+  </section>
+
+  <section id="bridge">
+    <h2>The native messaging bridge</h2>
+    <p>Each native message is a 4-byte little-endian length followed by UTF-8 JSON. The helper encodes and decodes that framing itself. Its reader handles messages split across pipe reads.</p>
+    <p>Chrome rejects any message from a native program larger than 1 MB. A Network Rule's mock body can be bigger than that. So the helper measures each message's UTF-8 size before sending it. Messages under the limit go as they are. Larger ones are split into 256K-character chunks, which stay under 1 MB even when every character takes three bytes, and the extension reassembles them by call ID.</p>
+    <div class="code">
+      <span class="file">src/lib/mcp-protocol.ts</span>
+<pre><code><span class="k">export function</span> splitNativeMessage(message, id, size = NATIVE_CHUNK_SIZE) {
+  <span class="k">const</span> text = JSON.stringify(message)
+  <span class="k">if</span> (<span class="k">new</span> TextEncoder().encode(text).length &lt;= NATIVE_MESSAGE_LIMIT) <span class="k">return</span> [message]
+  <span class="k">const</span> total = Math.ceil(text.length / size)
+  <span class="k">return</span> Array.from({ length: total }, (_, index) =&gt; ({
+    type: <span class="s">'chunk'</span>, id, index, total, data: text.slice(index * size, (index + 1) * size),
+  }))
+}</code></pre>
+    </div>
+    <p>Each call the helper forwards waits at most 60 seconds for a result. When the extension disconnects, Chrome closes the helper's stdin and the helper exits, which also closes any open requests.</p>
+  </section>
+
+  <section id="call">
+    <h2>One tool call, end to end</h2>
+    <figure>
+      <div class="diagram">
+        <svg viewBox="0 0 960 560" role="img" aria-labelledby="seq-title">
+          <title id="seq-title">The agent posts a tool call. The helper checks it and forwards it to the service worker, which validates, saves, and activates. The result returns the same way.</title>
+          <defs>
+            <marker id="a2" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--accent)"/></marker>
+            <marker id="a3" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--teal)"/></marker>
+          </defs>
+          <rect class="d-box" x="35" y="16" width="130" height="44"/><text class="d-title" x="100" y="43" text-anchor="middle">Agent</text>
+          <rect class="d-box key" x="305" y="16" width="130" height="44"/><text class="d-title" x="370" y="43" text-anchor="middle">Helper</text>
+          <rect class="d-box key" x="565" y="16" width="150" height="44"/><text class="d-title" x="640" y="43" text-anchor="middle">Service worker</text>
+          <rect class="d-box ok" x="790" y="16" width="140" height="44"/><text class="d-title" x="860" y="43" text-anchor="middle">Storage</text>
+
+          <line class="d-life" x1="100" y1="60" x2="100" y2="544"/>
+          <line class="d-life" x1="370" y1="60" x2="370" y2="544"/>
+          <line class="d-life" x1="640" y1="60" x2="640" y2="544"/>
+          <line class="d-life" x1="860" y1="60" x2="860" y2="544"/>
+
+          <line class="d-edge" x1="100" y1="110" x2="366" y2="110" marker-end="url(#a2)"/>
+          <circle class="d-step" cx="100" cy="110" r="10"/><text class="d-step-n" x="100" y="114" text-anchor="middle">1</text>
+          <text class="d-label" x="235" y="100" text-anchor="middle">POST /mcp · tools/call</text>
+          <text class="d-label dim" x="235" y="128" text-anchor="middle">create_header_rule { … }</text>
+
+          <rect class="d-note" x="270" y="150" width="200" height="34"/>
+          <circle class="d-step" cx="270" cy="167" r="10"/><text class="d-step-n" x="270" y="171" text-anchor="middle">2</text>
+          <text class="d-label" x="374" y="171" text-anchor="middle">check host · origin · token</text>
+
+          <line class="d-edge" x1="370" y1="215" x2="636" y2="215" marker-end="url(#a2)"/>
+          <circle class="d-step" cx="370" cy="215" r="10"/><text class="d-step-n" x="370" y="219" text-anchor="middle">3</text>
+          <text class="d-label" x="505" y="205" text-anchor="middle">{ type: 'call', id, name, arguments }</text>
+          <text class="d-label dim" x="505" y="233" text-anchor="middle">length-prefixed JSON · chunked over 1 MB</text>
+
+          <rect class="d-note" x="510" y="255" width="260" height="34"/>
+          <circle class="d-step" cx="510" cy="272" r="10"/><text class="d-step-n" x="510" y="276" text-anchor="middle">4</text>
+          <text class="d-label" x="645" y="276" text-anchor="middle">validate with zod · normalize</text>
+
+          <line class="d-edge" x1="640" y1="325" x2="856" y2="325" marker-end="url(#a2)"/>
+          <circle class="d-step" cx="640" cy="325" r="10"/><text class="d-step-n" x="640" y="329" text-anchor="middle">5</text>
+          <text class="d-label" x="750" y="315" text-anchor="middle">updateSavedRules()</text>
+          <text class="d-label dim" x="750" y="343" text-anchor="middle">both storage locks held</text>
+
+          <line class="d-edge" x1="640" y1="385" x2="856" y2="385" marker-end="url(#a2)"/>
+          <circle class="d-step" cx="640" cy="385" r="10"/><text class="d-step-n" x="640" y="389" text-anchor="middle">6</text>
+          <text class="d-label" x="750" y="375" text-anchor="middle">activate()</text>
+          <text class="d-label dim" x="750" y="403" text-anchor="middle">queueSync + syncNetworkRules</text>
+
+          <line class="d-edge back" x1="640" y1="445" x2="374" y2="445" marker-end="url(#a3)"/>
+          <circle class="d-step" cx="640" cy="445" r="10"/><text class="d-step-n" x="640" y="449" text-anchor="middle">7</text>
+          <text class="d-label" x="505" y="435" text-anchor="middle">{ type: 'result', id, result }</text>
+
+          <line class="d-edge back" x1="370" y1="505" x2="104" y2="505" marker-end="url(#a3)"/>
+          <circle class="d-step" cx="370" cy="505" r="10"/><text class="d-step-n" x="370" y="509" text-anchor="middle">8</text>
+          <text class="d-label" x="235" y="495" text-anchor="middle">JSON-RPC result</text>
+          <text class="d-label dim" x="235" y="523" text-anchor="middle">content + structuredContent</text>
+        </svg>
+      </div>
+      <figcaption>The result has two parts: a JSON text summary in <code>content</code> for the model to read, and the same data in <code>structuredContent</code> for clients that parse it.</figcaption>
+    </figure>
+  </section>
+
+  <section id="validation">
+    <h2>Agents get the same checks as Settings</h2>
+    <p>Each tool's arguments are a strict zod object, and the tool's published input schema is generated from that same object. What an agent reads in <code>tools/list</code> always matches what the server enforces. Strict objects reject unknown keys, so a typo such as <code>enable</code> for <code>enabled</code> fails loudly instead of being ignored.</p>
+    <div class="code">
+      <span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">export const</span> MCP_TOOLS = (Object.keys(RUN) <span class="k">as</span> ToolName[]).map(name =&gt; {
+  <span class="k">const</span> inputSchema = z.toJSONSchema(RUN[name].input, { io: <span class="s">'input'</span> })
+  <span class="k">delete</span> inputSchema.$schema
+  <span class="k">return</span> { name, ...DESCRIPTIONS[name], inputSchema }
+})</code></pre>
+    </div>
+    <p>After the arguments pass, the rule goes through the same draft schemas and normalization as the Settings forms. Field paths in errors use the tool's names, like <code>websites</code> and <code>headers.0.value</code>, so the agent can fix its call. The <code>zod/mini</code> build has no default error messages, so the parser loads the English locale. Without it, every error would read "Invalid input".</p>
+    <div class="pair">
+      <div class="note"><b>Saving</b><p><code>updateSavedRules()</code> reads, changes, and writes while holding both storage locks. An agent and an open Settings tab can't overwrite each other.</p></div>
+      <div class="note"><b>Activating</b><p><code>chrome.runtime.sendMessage</code> never reaches its own sender, so the worker passes in an <code>activate()</code> function that runs the header sync and the network rule sync directly.</p></div>
+      <div class="note"><b>Updating</b><p><code>update_rule</code> merges the given fields over the saved rule. It rejects fields from another rule type and keeps Switch option IDs when names match, so the selected option survives an edit.</p></div>
+      <div class="note"><b>Reporting</b><p>Results say whether the change is active, which tabs need a reload, or that it saved but Chrome didn't confirm it. An agent never reports success that didn't happen.</p></div>
+    </div>
+  </section>
+
+  <section id="endpoint">
+    <h2>The HTTP endpoint</h2>
+    <p>The helper implements the part of Streamable HTTP that tools need, without the MCP SDK. The whole helper builds to one 8 KB file with no dependencies, which keeps the setup file small and simple to install.</p>
+    <ul>
+      <li>Methods: <code>initialize</code>, <code>ping</code>, <code>tools/list</code>, and <code>tools/call</code>. Batches work.</li>
+      <li>Every response is plain JSON. Notifications get <code>202</code>, and <code>GET</code> gets <code>405</code> because there's no event stream to open.</li>
+      <li>Protocol versions <code>2025-11-25</code>, <code>2025-06-18</code>, <code>2025-03-26</code>, and <code>2024-11-05</code>.</li>
+    </ul>
+    <p>The server checks every request before any tool runs. The checks are ordered from cheapest to most specific:</p>
+    <div class="table">
+      <table>
+        <thead><tr><th>Check</th><th>Why</th><th>Response</th></tr></thead>
+        <tbody>
+          <tr><td>Host is loopback</td><td>Blocks DNS rebinding, where a site points its own name at 127.0.0.1.</td><td class="status">403</td></tr>
+          <tr><td>No Origin header</td><td>Browsers add one to page requests. Agents don't.</td><td class="status">403</td></tr>
+          <tr><td>Bearer token</td><td>Compared in constant time on SHA-256 digests.</td><td class="status">401</td></tr>
+          <tr><td>POST only</td><td>No event stream is offered.</td><td class="status">405</td></tr>
+          <tr><td>JSON body</td><td>Content type must be <code>application/json</code>, at most 32 MiB.</td><td class="status">415 / 413</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="quiet">The server also binds only to 127.0.0.1, and the native host manifest allows only Overidify's extension ID to start the helper.</p>
+  </section>
+
+  <section id="setup">
+    <h2>Setup without the source code</h2>
+    <p>Chrome starts only native programs registered on that computer, so each machine needs a one-time setup. The extension builds the setup file itself, from two bundles that ship inside it:</p>
+    <div class="stack" aria-label="Contents of overidify-mcp-setup.mjs">
+      <div class="layer"><code>globalThis.__overidifyMcpSetup = { extensionId, host }</code><span>Added by the Agents page. <code>host</code> is the helper's source.</span></div>
+      <div class="layer"><code>mcp/install.mjs</code><span>The installer, built for Node 20 and shipped in the extension.</span></div>
+    </div>
+    <p>The page fetches both bundles from its own package, joins them, and downloads <code>overidify-mcp-setup.mjs</code>. Running it with Node does three things:</p>
+    <div class="steps">
+      <div class="note"><b>Copy</b><p>Puts the helper in a user data folder, so it keeps working if the download is deleted.</p></div>
+      <div class="note"><b>Wrap</b><p>Writes a launcher that runs the helper with the absolute path of the Node that ran setup. Chrome doesn't use your shell's PATH, and this keeps nvm installs working.</p></div>
+      <div class="note"><b>Register</b><p>Writes the host manifest for each Chrome, Chromium, Edge, Brave, and Vivaldi profile it finds. On Windows it writes registry keys. Extension IDs from earlier runs are kept.</p></div>
+    </div>
+    <p>Meanwhile the Agents page shows that setup is needed and quietly retries the connection every two seconds. The status stays steady during retries, and once setup finishes the server starts without a Retry click. The setup prompt on that page relies on this. The agent runs the setup file, waits for the server to answer, then adds itself.</p>
+  </section>
+
+  <section id="agents">
+    <h2>One server for every agent</h2>
+    <p>Claude Code, Codex, and Cursor all connect over Streamable HTTP and can send a fixed <code>Authorization</code> header. One server works for all three. Only the config format differs, so the Agents page has a tab for each.</p>
+    <p>Each CLI was tested against the real server:</p>
+    <ul>
+      <li><strong>Claude Code 2.1.329</strong> reported <em>Connected</em> in <code>claude mcp list</code>. It first sends a <code>server/discover</code> probe, gets <em>method not found</em>, and falls back to <code>initialize</code>.</li>
+      <li><strong>Codex CLI 0.171.0</strong> sent the token through <code>http_headers</code> in <code>config.toml</code>, then initialized and listed the tools.</li>
+      <li><strong>Cursor's CLI agent</strong> listed all seven tools with their arguments from <code>mcp.json</code>.</li>
+    </ul>
+  </section>
+
+  <section id="testing">
+    <h2>Testing</h2>
+    <div class="results">
+      <div class="result"><span class="value">174</span><p>unit tests pass, including the tools, the endpoint, and the installer.</p></div>
+      <div class="result"><span class="value">52</span><p>browser tests pass in real Chromium, including the full MCP flow.</p></div>
+      <div class="result"><span class="value">3</span><p>agent CLIs connected to the server: Claude Code, Codex, and Cursor.</p></div>
+    </div>
+    <ul>
+      <li><strong>Tools:</strong> normalization, errors with field paths, partial updates, Switch option IDs, and activation failures.</li>
+      <li><strong>Endpoint:</strong> every rejection happens before a tool runs, along with JSON-RPC behavior and the framing for a body over 1 MB.</li>
+      <li><strong>Installer:</strong> profile detection, merged extension IDs, path quoting, and the Windows registry and launcher.</li>
+      <li><strong>End to end:</strong> the browser test downloads the setup file from the page, runs it with Node, and waits for the automatic connection. An agent then creates a Header Rule and a Network Rule. A page request gets the mock response, and the test server receives the header.</li>
+    </ul>
+    <p class="quiet">One-off checks in Chromium also covered a 3 MB mock body, the missing-helper and port-in-use errors, turning the server off, and the Agents page at phone width.</p>
+  </section>
+
+  <section id="limits">
+    <h2>Limits</h2>
+    <ul>
+      <li>The helper needs Node.js 20 or newer. Removing that would mean shipping a compiled helper for each operating system.</li>
+      <li>Setup has run for real only on Linux. The macOS and Windows paths are covered by unit tests.</li>
+      <li>No real agent has run the setup prompt from start to finish yet. The Cursor editor is untested; Cursor's CLI was tested.</li>
+      <li>Each browser profile with MCP on needs its own port.</li>
+    </ul>
+    <div class="next">
+      <p>Looking for the short version?</p>
+      <a href="/overidify-mcp-announcement">Read the announcement →</a>
+    </div>
+  </section>
+</main>
+
+<footer><span>Overidify</span><a href="https://github.com/prateekkumaroriginal/overidify">Source on GitHub</a></footer>
+</div>
+</body>
+</html>

@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overidify for AI Agents</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@94,700&family=Geist:wght@400;700&family=Geist+Mono:wght@400&display=swap">
+<style>
+/* Layout: content uses the full width up to 1080px, space (not rules) between sections.
+   Type: sizes on a 4px scale (16 / 20 / 24 / 28 / 32 / 40 / 60), weights 400 and 700 only. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0b0d;
+  --surface: #121418;
+  --code-bg: #181b21;
+  --line: #22262d;
+  --ink: #e6e9ee;
+  --body: #b9bec7;
+  --dim: #8b919b;
+  --faint: #767c87;
+  --button-line: #4b525d;
+  --accent: #7ab1ec;
+  --code: #b3c8de;
+  --title: "Archivo", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --size-small: 16px;
+  --size-body: 20px;
+  --size-large: 24px;
+  --size-h2: 32px;
+  --size-h1: 60px;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bg);
+  color: var(--body);
+  font: 400 var(--size-body)/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+}
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--ink); }
+a { color: var(--ink); text-decoration-color: var(--button-line); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent); text-decoration-color: currentColor; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+strong { color: var(--ink); font-weight: 700; }
+em { font-style: normal; color: var(--ink); }
+code { font: 400 var(--size-small)/1.5 var(--mono); color: var(--code); background: var(--code-bg); padding: 2px 6px; white-space: nowrap; }
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(20px, env(safe-area-inset-left, 0px), 5vw);
+  padding-right: max(20px, env(safe-area-inset-right, 0px), 5vw);
+}
+@media (min-width: 1240px) { .page { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); } }
+
+/* Titles */
+h1, h2, h3 { font-family: var(--title); font-weight: 700; font-stretch: 94%; color: var(--ink); margin: 0; text-wrap: balance; }
+h1 { font-size: var(--size-h1); line-height: 1.07; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+h2 { font-size: var(--size-h2); line-height: 1.25; letter-spacing: -0.01em; }
+h3 { font-size: var(--size-large); line-height: 1.33; }
+
+/* Hero */
+.hero { padding-block: 80px 40px; display: grid; gap: 24px; }
+.label { font: 400 var(--size-small)/1.5 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); margin: 0; }
+.deck { font-size: var(--size-large); line-height: 1.5; margin: 0; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 24px; font-size: var(--size-small); color: var(--dim); margin: 0; }
+
+nav.sections { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 0 4px; padding-block: 4px; }
+nav.sections a { font-size: var(--size-small); color: var(--body); text-decoration: none; padding: 12px; min-height: 44px; display: inline-flex; align-items: center; }
+nav.sections a:first-child { padding-left: 0; }
+nav.sections a:hover { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); }
+
+/* Sections: separated by space only */
+section { padding-block: 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; scroll-margin-top: 16px; }
+section > h2 { margin-bottom: 4px; }
+section > p, section > ul { margin: 0; }
+ul { padding-left: 24px; }
+li + li { margin-top: 8px; }
+li::marker { color: var(--dim); }
+
+/* Example conversation */
+.example { display: grid; gap: 12px; }
+.chat { border: 1px solid var(--line); display: grid; }
+.turn { padding: 24px; display: grid; gap: 8px; }
+.turn + .turn { border-top: 1px solid var(--line); }
+.turn .who { font: 400 var(--size-small)/1.5 var(--mono); color: var(--dim); }
+.turn.you { background: var(--surface); }
+.turn p { margin: 0; }
+.turn ul { margin: 4px 0 0; }
+.turn li + li { margin-top: 4px; }
+.caption { font-size: var(--size-small); line-height: 1.5; color: var(--dim); margin: 0; }
+
+/* Capabilities: 2 × 2, inner rules only */
+.abilities { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line); }
+.ability { padding: 24px 24px 24px 0; display: grid; gap: 8px; align-content: start; border-bottom: 1px solid var(--line); }
+.ability:nth-child(even) { padding-left: 24px; padding-right: 0; border-left: 1px solid var(--line); }
+.ability:nth-last-child(-n+2) { border-bottom: 0; }
+.ability p { margin: 0; }
+
+/* Rows: steps and privacy, inner rules only */
+.rows { display: grid; border-top: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px 24px; padding-block: 24px; border-bottom: 1px solid var(--line); }
+.row:last-child { border-bottom: 0; }
+.row > b { font: 400 var(--size-small)/2 var(--mono); color: var(--accent); }
+.row > div { display: grid; gap: 4px; }
+.row p { margin: 0; }
+.rows.plain .row { grid-template-columns: minmax(0, 1fr); }
+
+.next { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); background: var(--surface); padding: 24px; }
+.next p { margin: 0; }
+.next a { font-weight: 700; text-decoration: none; border: 1px solid var(--button-line); padding: 8px 16px; }
+.next a:hover { border-color: var(--accent); }
+
+footer { padding-block: 8px 64px; font-size: var(--size-small); color: var(--faint); display: flex; flex-wrap: wrap; gap: 4px 20px; }
+footer a { color: var(--dim); }
+
+@media (max-width: 680px) {
+  :root { --size-h1: 40px; --size-h2: 28px; }
+  .hero { padding-block: 48px 32px; gap: 20px; }
+  nav.sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+  nav.sections a, nav.sections a:first-child { padding: 12px 0; }
+  section { padding-block: 32px; gap: 20px; }
+  section > h2 { margin-bottom: 0; }
+  .abilities { grid-template-columns: minmax(0, 1fr); }
+  .ability, .ability:nth-child(even) { padding: 16px 0 20px; border-left: 0; }
+  .ability:nth-last-child(2) { border-bottom: 1px solid var(--line); }
+  .row { grid-template-columns: minmax(0, 1fr); gap: 4px; padding-block: 16px 20px; }
+  .row > b { line-height: 1.5; }
+  .turn { padding: 20px 16px; }
+  .next { padding: 16px; }
+  code { white-space: normal; overflow-wrap: anywhere; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <p class="label">Announcement</p>
+  <h1>Overidify now works with <span>AI agents</span></h1>
+  <p class="deck">Claude Code, Codex, and Cursor can now create, edit, and delete your Header, Switch, and Network Rules. Describe the rule you need, and your agent sets it up.</p>
+  <p class="meta"><span>Runs on your computer</span><span>Requires Node.js 20 or newer</span></p>
+</header>
+
+<nav class="sections" aria-label="Sections">
+  <a href="#example">Example</a>
+  <a href="#why">Why</a>
+  <a href="#capabilities">Capabilities</a>
+  <a href="#setup">Setup</a>
+  <a href="#privacy">Privacy</a>
+  <a href="#notes">Notes</a>
+</nav>
+
+<main>
+  <section id="example">
+    <h2>Ask for a rule</h2>
+    <div class="example">
+      <div class="chat">
+        <div class="turn you">
+          <span class="who">You</span>
+          <p>On localhost:4200, mock <code>GET /v1/chats</code> on api.example.com with an empty list, and add <code>X-Debug: 1</code> to every request.</p>
+        </div>
+        <div class="turn agent">
+          <span class="who">Agent</span>
+          <p>Created two rules for localhost:4200:</p>
+          <ul>
+            <li><strong>Chats mock</strong>, a Network Rule that returns <code>200</code> with <code>[]</code></li>
+            <li><strong>Debug header</strong>, a Header Rule that sets <code>X-Debug: 1</code></li>
+          </ul>
+          <p>Both are on. Reload your open localhost:4200 tab so the mock applies.</p>
+        </div>
+      </div>
+      <p class="caption">Example conversation. Your agent's wording will differ.</p>
+    </div>
+  </section>
+
+  <section id="why">
+    <h2>Rules take a while to set up</h2>
+    <p>A Network Rule needs a request URL, a method, a status code, headers, a response body, and the websites it runs on. A Switch Rule needs every option and its headers. Mocking several endpoints or preparing test accounts means a lot of form filling.</p>
+    <p>Your agent already knows the API you're working on. Now it can create the rules too.</p>
+  </section>
+
+  <section id="capabilities">
+    <h2>What agents can do</h2>
+    <div class="abilities">
+      <div class="ability"><h3>Read</h3><p>List your rules or open one to see every setting.</p></div>
+      <div class="ability"><h3>Create</h3><p>Add Header, Switch, and Network Rules.</p></div>
+      <div class="ability"><h3>Change</h3><p>Edit any setting, turn rules on or off, and choose a Switch option.</p></div>
+      <div class="ability"><h3>Delete</h3><p>Remove rules you no longer need.</p></div>
+    </div>
+    <p>Agents get the same checks as Settings. If something is wrong, such as an invalid URL or a header without a value, nothing is saved and the agent is told which field to fix. Valid changes apply right away and appear in Settings.</p>
+  </section>
+
+  <section id="setup">
+    <h2>Get started</h2>
+    <div class="rows">
+      <div class="row"><b>Step 1</b><div><h3>Turn it on</h3><p>Open Overidify Settings, click <strong>Agents</strong>, and turn on <strong>MCP server</strong>.</p></div></div>
+      <div class="row"><b>Step 2</b><div><h3>Connect your agent</h3><p>Click <strong>Copy prompt and download setup file</strong> and paste the prompt into your agent. It installs the helper and adds Overidify to its settings.</p></div></div>
+      <div class="row"><b>Step 3</b><div><h3>Start asking</h3><p>Open a new agent session and describe the rules you want.</p></div></div>
+    </div>
+    <p>To do it yourself, the Agents page also has the setup file and the configuration for each agent.</p>
+  </section>
+
+  <section id="privacy">
+    <h2>Only agents on your computer can connect</h2>
+    <div class="rows plain">
+      <div class="row"><div><h3>Local only</h3><p>The server only accepts connections from your own computer.</p></div></div>
+      <div class="row"><div><h3>Token required</h3><p>Agents need an access token. Regenerate it any time to disconnect them.</p></div></div>
+      <div class="row"><div><h3>Websites can't connect</h3><p>Pages you visit in the browser can't reach the server.</p></div></div>
+    </div>
+  </section>
+
+  <section id="notes">
+    <h2>Good to know</h2>
+    <ul>
+      <li>Chrome must be open with <strong>MCP server</strong> turned on.</li>
+      <li>Overidify asks for one new permission, <em>“Communicate with cooperating native applications”</em>. Chrome uses it to start the local helper.</li>
+      <li>After some updates, the Agents page asks you to run setup again.</li>
+      <li>If you use Overidify in two browser profiles, give each one its own port.</li>
+    </ul>
+    <div class="next">
+      <p>Want the technical details?</p>
+      <a href="/overidify-mcp-implementation">How the MCP server works →</a>
+    </div>
+  </section>
+</main>
+
+<footer><span>Overidify</span><a href="https://github.com/prateekkumaroriginal/overidify">Source on GitHub</a></footer>
+</div>
+</body>
+</html>

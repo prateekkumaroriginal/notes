@@ -1,6 +1,14 @@
 {
   "rewrites": [
     {
+      "source": "/overidify-mcp-announcement",
+      "destination": "/overidify-mcp-announcement.html"
+    },
+    {
+      "source": "/overidify-mcp-implementation",
+      "destination": "/overidify-mcp-implementation.html"
+    },
+    {
       "source": "/clinical-specialist-merged-specification",
       "destination": "/clinical-specialist-merged-specification.html"
     },
