@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/overidify-mcp-code",
+      "destination": "/overidify-mcp-code.html"
+    },
+    {
       "source": "/overidify-mcp-announcement",
       "destination": "/overidify-mcp-announcement.html"
     },

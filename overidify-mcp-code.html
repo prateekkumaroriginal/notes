@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Overidify MCP Code Walkthrough</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@94,700&family=Geist:wght@400;700&family=Geist+Mono:wght@400&display=swap">
+<style>
+/* Layout: content uses the full width up to 1080px, space (not rules) between sections.
+   Type: sizes on a 4px scale (12 in diagrams / 16 / 20 / 24 / 28 / 32 / 40 / 60), weights 400 and 700 only. */
+:root {
+  color-scheme: dark;
+  --bg: #0a0b0d;
+  --surface: #121418;
+  --surface-2: #181b21;
+  --line: #22262d;
+  --ink: #e6e9ee;
+  --body: #b9bec7;
+  --dim: #8b919b;
+  --faint: #767c87;
+  --button-line: #4b525d;
+  --accent: #7ab1ec;
+  --teal: #8fd0c4;        /* secondary, only for return paths in diagrams and code strings */
+  --code: #b3c8de;
+  --title: "Archivo", "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "Geist Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  --size-small: 16px;
+  --size-body: 20px;
+  --size-large: 24px;
+  --size-h2: 32px;
+  --size-stat: 40px;
+  --size-h1: 60px;
+}
+* { box-sizing: border-box; }
+html { background: var(--bg); scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  margin: 0;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: var(--bg);
+  color: var(--body);
+  font: 400 var(--size-body)/1.6 var(--font);
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+}
+::selection { background: color-mix(in srgb, var(--accent) 35%, transparent); color: var(--ink); }
+a { color: var(--ink); text-decoration-color: var(--button-line); text-underline-offset: 4px; text-decoration-thickness: 1px; }
+a:hover { color: var(--accent); text-decoration-color: currentColor; }
+a:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
+strong { color: var(--ink); font-weight: 700; }
+em { font-style: normal; color: var(--ink); }
+:not(pre) > code { font: 400 var(--size-small)/1.5 var(--mono); color: var(--code); background: var(--surface-2); padding: 2px 6px; overflow-wrap: anywhere; }
+
+.page {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding-left: max(20px, env(safe-area-inset-left, 0px), 5vw);
+  padding-right: max(20px, env(safe-area-inset-right, 0px), 5vw);
+}
+@media (min-width: 1240px) { .page { padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); } }
+
+/* Titles */
+h1, h2, h3 { font-family: var(--title); font-weight: 700; font-stretch: 94%; color: var(--ink); margin: 0; text-wrap: balance; }
+h1 { font-size: var(--size-h1); line-height: 1.07; letter-spacing: -0.02em; }
+h1 span { color: var(--accent); }
+h2 { font-size: var(--size-h2); line-height: 1.25; letter-spacing: -0.01em; }
+h3 { font-size: var(--size-large); line-height: 1.33; margin-top: 8px; }
+
+/* Hero */
+.hero { padding-block: 80px 40px; display: grid; gap: 24px; }
+.label { font: 400 var(--size-small)/1.5 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); margin: 0; }
+.deck { font-size: var(--size-large); line-height: 1.5; margin: 0; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.fact { padding: 16px 16px 16px 0; display: grid; gap: 4px; }
+.fact + .fact { padding-left: 16px; border-left: 1px solid var(--line); }
+.fact span { font-size: var(--size-small); color: var(--dim); }
+.fact b { font-size: var(--size-body); font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
+
+nav.sections { border-bottom: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 0 4px; padding-block: 4px; }
+nav.sections a { font-size: var(--size-small); color: var(--body); text-decoration: none; padding: 12px; min-height: 44px; display: inline-flex; align-items: center; }
+nav.sections a:first-child { padding-left: 0; }
+nav.sections a:hover { color: var(--ink); text-decoration: underline; text-decoration-color: var(--accent); }
+
+/* Sections: separated by space only */
+section { padding-block: 48px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; scroll-margin-top: 16px; min-width: 0; }
+section > h2 { margin-bottom: 4px; }
+section > p, section > ul, section > ol { margin: 0; }
+ul, ol { padding-left: 24px; }
+li + li { margin-top: 8px; }
+li::marker { color: var(--dim); }
+.quiet { font-size: var(--size-small); color: var(--dim); }
+
+/* Code */
+.code { display: grid; gap: 8px; min-width: 0; }
+.code .file { font: 400 var(--size-small)/1.5 var(--mono); color: var(--dim); }
+pre { margin: 0; padding: 20px 24px; background: var(--surface); border: 1px solid var(--line); border-left: 2px solid var(--accent); overflow-x: auto; font: 400 var(--size-small)/1.75 var(--mono); color: var(--ink); tab-size: 2; }
+pre code { font: inherit; }
+.k { color: var(--accent); }
+.s { color: var(--teal); }
+.c { color: var(--faint); }
+
+/* Figures */
+figure { margin: 0; display: grid; gap: 12px; min-width: 0; }
+.diagram { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); padding: 24px; }
+.diagram svg { display: block; width: 100%; min-width: 760px; height: auto; }
+figcaption { font-size: var(--size-small); line-height: 1.5; color: var(--dim); }
+.d-box { fill: var(--surface-2); stroke: var(--line); stroke-width: 1.2; }
+.d-box.key { stroke: color-mix(in srgb, var(--accent) 70%, var(--line)); }
+.d-box.ok { stroke: color-mix(in srgb, var(--teal) 70%, var(--line)); }
+.d-note { fill: color-mix(in srgb, var(--accent) 8%, var(--surface)); stroke: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.d-title { fill: var(--ink); font: 700 16px var(--font); }
+.d-sub { fill: var(--dim); font: 400 12px var(--mono); }
+.d-label { fill: var(--ink); font: 400 12px var(--mono); }
+.d-label.dim { fill: var(--dim); }
+.d-edge { stroke: var(--accent); stroke-width: 1.6; fill: none; }
+.d-edge.back { stroke: var(--teal); }
+.d-edge.dash { stroke: var(--faint); stroke-dasharray: 5 5; }
+.d-life { stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 3 5; }
+.d-step { fill: var(--accent); }
+.d-step-n { fill: var(--bg); font: 700 12px var(--font); }
+
+/* Notes in two or three columns */
+.pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px; }
+.steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
+.note { border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 8px; align-content: start; }
+.note b { font: 400 var(--size-small)/1.5 var(--mono); color: var(--accent); }
+.note p { margin: 0; }
+
+/* Setup file anatomy */
+.stack { display: grid; border: 1px solid var(--line); }
+.layer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 280px); gap: 24px; padding: 16px 20px; align-items: center; }
+.layer + .layer { border-top: 1px solid var(--line); }
+.layer:first-child { background: var(--surface); }
+.layer code { background: none !important; padding: 0 !important; }
+.layer span { font-size: var(--size-small); color: var(--dim); }
+
+/* Checks table */
+.table { overflow-x: auto; border-top: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; font-size: var(--size-small); line-height: 1.5; }
+th, td { text-align: left; vertical-align: top; padding: 12px 16px 12px 0; border-bottom: 1px solid var(--line); }
+tr:last-child td { border-bottom: 0; }
+th { font: 400 var(--size-small)/1.5 var(--mono); color: var(--dim); }
+td:first-child { color: var(--ink); white-space: nowrap; font-family: var(--mono); }
+td.status { color: var(--accent); font-family: var(--mono); white-space: nowrap; }
+
+/* Test results */
+.results { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.result { padding: 20px 16px 20px 0; display: grid; gap: 4px; align-content: start; }
+.result + .result { padding-left: 16px; border-left: 1px solid var(--line); }
+.result .value { font: 700 var(--size-stat)/1.2 var(--title); font-stretch: 94%; color: var(--ink); font-variant-numeric: tabular-nums; }
+.result p { margin: 0; font-size: var(--size-small); line-height: 1.5; color: var(--dim); }
+
+.next { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border: 1px solid var(--line); background: var(--surface); padding: 24px; }
+.next p { margin: 0; }
+.next a { font-weight: 700; text-decoration: none; border: 1px solid var(--button-line); padding: 8px 16px; }
+.next a:hover { border-color: var(--accent); }
+
+footer { padding-block: 8px 64px; font-size: var(--size-small); color: var(--faint); display: flex; flex-wrap: wrap; gap: 4px 20px; }
+footer a { color: var(--dim); }
+
+@media (max-width: 760px) {
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fact:nth-child(3) { padding-left: 0; border-left: 0; }
+  .fact:nth-child(n+3) { border-top: 1px solid var(--line); }
+  .pair, .steps, .results { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .result + .result { padding-left: 0; border-left: 0; border-top: 1px solid var(--line); }
+  .layer { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+}
+@media (max-width: 680px) {
+  :root { --size-h1: 40px; --size-h2: 28px; --size-stat: 32px; }
+  .hero { padding-block: 48px 32px; gap: 20px; }
+  nav.sections { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; }
+  nav.sections a, nav.sections a:first-child { padding: 12px 0; }
+  section { padding-block: 32px; gap: 20px; }
+  section > h2 { margin-bottom: 0; }
+  .diagram { padding: 16px; }
+  pre { padding: 16px; }
+  .next { padding: 16px; }
+}
+
+.d-zone { fill: none; stroke: var(--line); stroke-width: 1.2; stroke-dasharray: 4 4; }
+.d-zone-title { fill: var(--dim); font: 400 12px var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.code + p, p + .code { margin-top: 0; }
+td:nth-child(2) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="hero">
+  <p class="label">Code walkthrough</p>
+  <h1>The Overidify MCP server, <span>file by file</span></h1>
+  <p class="deck">This post follows the code behind the MCP server: the shared message contract, the tools, the service worker bridge, the Node helper, the setup file, and the build. Excerpts are copied from the source.</p>
+  <div class="facts">
+    <div class="fact"><span>New source files</span><b>9</b></div>
+    <div class="fact"><span>Lines of new code</span><b>about 1,150</b></div>
+    <div class="fact"><span>Runtime dependencies added</span><b>0</b></div>
+    <div class="fact"><span>Retained tests</span><b>3 unit files, 1 browser</b></div>
+  </div>
+</header>
+
+<nav class="sections" aria-label="Sections">
+  <a href="#map">File map</a>
+  <a href="#contract">Contract</a>
+  <a href="#tools">Tools</a>
+  <a href="#saving">Saving</a>
+  <a href="#worker">Service worker</a>
+  <a href="#helper">Helper</a>
+  <a href="#endpoint">Endpoint</a>
+  <a href="#setup">Setup</a>
+  <a href="#build">Build</a>
+  <a href="#tests">Tests</a>
+</nav>
+
+<main>
+  <section id="map">
+    <h2>File map</h2>
+    <p>The code splits by where it runs. Most of it runs inside the extension. The Node helper is small, and only the shared protocol module is used on both sides.</p>
+    <figure>
+      <div class="diagram">
+<svg viewBox="0 0 1080 380" role="img" aria-labelledby="map-title">
+  <title id="map-title">Files grouped by where they run: the Chrome extension (Agents page, service worker, shared modules), the Node helper, and the setup file. The shared protocol module is used by both the extension and the helper.</title>
+  <defs>
+    <marker id="m-a" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--accent)"/></marker>
+    <marker id="m-d" viewBox="0 0 10 10" refX="10" refY="5" markerUnits="userSpaceOnUse" markerWidth="11" markerHeight="11" orient="auto"><path d="M0,0 L10,5 L0,10 z" style="fill: var(--dim)"/></marker>
+  </defs>
+  <rect class="d-zone" x="10" y="16" width="580" height="250"/>
+  <text class="d-zone-title" x="30" y="44">Chrome extension</text>
+  <rect class="d-box" x="30" y="64" width="260" height="76"/>
+  <text class="d-title" x="46" y="94">Agents page</text>
+  <text class="d-sub" x="46" y="118">src/options/McpSettings.tsx</text>
+  <rect class="d-box key" x="30" y="160" width="260" height="90"/>
+  <text class="d-title" x="46" y="190">Service worker</text>
+  <text class="d-sub" x="46" y="214">src/background/mcp.ts</text>
+  <text class="d-sub" x="46" y="234">src/background/index.ts</text>
+  <rect class="d-box" x="310" y="64" width="260" height="150"/>
+  <text class="d-title" x="326" y="94">Shared modules</text>
+  <text class="d-sub" x="326" y="122">src/lib/mcp-tools.ts</text>
+  <text class="d-sub" x="326" y="146">src/lib/mcp-settings.ts</text>
+  <text class="d-sub" x="326" y="170">src/lib/mcp-protocol.ts</text>
+  <text class="d-sub" x="326" y="194">src/lib/rule-transfer-storage.ts</text>
+
+  <rect class="d-zone" x="690" y="16" width="380" height="250"/>
+  <text class="d-zone-title" x="710" y="44">Node helper</text>
+  <text class="d-sub" x="710" y="78">mcp-host/main.ts</text>
+  <text class="d-sub" x="710" y="102">mcp-host/server.ts</text>
+  <text class="d-sub" x="710" y="126">mcp-host/native-messaging.ts</text>
+  <text class="d-sub" x="710" y="150">src/lib/mcp-protocol.ts (shared)</text>
+
+  <rect class="d-zone" x="690" y="296" width="380" height="76"/>
+  <text class="d-zone-title" x="710" y="324">Setup file</text>
+  <text class="d-sub" x="710" y="352">mcp-host/install.ts + embedded helper</text>
+
+  <line class="d-edge" x1="294" y1="236" x2="686" y2="236" marker-end="url(#m-a)" marker-start="url(#m-a)"/>
+  <text class="d-label" x="640" y="226" text-anchor="middle">stdin/out</text>
+  <line class="d-edge dash" x1="880" y1="296" x2="880" y2="270" marker-end="url(#m-d)"/>
+</svg></div>
+      <figcaption>The extension and the helper only talk through native messaging. The setup file installs the helper and registers it with Chrome.</figcaption>
+    </figure>
+    <div class="table">
+      <table>
+        <thead><tr><th>File</th><th>Lines</th><th>Job</th></tr></thead>
+        <tbody>
+          <tr><td>src/lib/mcp-protocol.ts</td><td>70</td><td>Message types and constants shared by both sides, chunking, and the setup file builder</td></tr>
+          <tr><td>src/lib/mcp-tools.ts</td><td>331</td><td>Tool schemas, argument checks, rule building, saving, and activation results</td></tr>
+          <tr><td>src/lib/mcp-settings.ts</td><td>64</td><td>The switch, port, and token in local storage, and the server status in session storage</td></tr>
+          <tr><td>src/background/mcp.ts</td><td>86</td><td>Starts the helper, relays calls, and tracks the status</td></tr>
+          <tr><td>src/options/McpSettings.tsx</td><td>260</td><td>The Agents page</td></tr>
+          <tr><td>mcp-host/main.ts</td><td>55</td><td>Helper entry point: waits for the start message, listens, and relays calls</td></tr>
+          <tr><td>mcp-host/server.ts</td><td>133</td><td>HTTP checks and JSON-RPC handling</td></tr>
+          <tr><td>mcp-host/native-messaging.ts</td><td>23</td><td>Chrome's length-prefixed message framing</td></tr>
+          <tr><td>mcp-host/install.ts</td><td>132</td><td>Installer and uninstaller for Linux, macOS, and Windows</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="quiet">Existing files changed slightly: <code>rule-transfer-storage.ts</code> gained <code>updateSavedRules()</code>, <code>network.ts</code> exports its sync function, <code>index.ts</code> starts the bridge, the manifest asks for <code>nativeMessaging</code>, and <code>vite.config.ts</code> builds the helper.</p>
+  </section>
+
+  <section id="contract">
+    <h2>The shared contract</h2>
+    <p><code>mcp-protocol.ts</code> defines every message that crosses the native port. It imports nothing from Chrome or Node, so the extension build and the helper build can both use it. The types make the bridge explicit: the extension sends <code>start</code> once and then <code>result</code> messages, and the helper sends <code>status</code>, <code>call</code>, and <code>chunk</code> messages.</p>
+    <div class="code"><span class="file">src/lib/mcp-protocol.ts</span>
+<pre><code><span class="k">export</span> <span class="k">type</span> ExtensionToHostMessage =
+  | { <span class="k">type</span>: <span class="s">&#x27;start&#x27;</span>; protocol: number; port: number; token: string; version: string; instructions: string; tools: McpToolDefinition[] }
+  | { <span class="k">type</span>: <span class="s">&#x27;result&#x27;</span>; id: number; result: McpToolResult }
+
+<span class="k">export</span> <span class="k">type</span> HostToExtensionMessage =
+  | { <span class="k">type</span>: <span class="s">&#x27;status&#x27;</span>; protocol: number; state: <span class="s">&#x27;listening&#x27;</span>; url: string }
+  | { <span class="k">type</span>: <span class="s">&#x27;status&#x27;</span>; protocol: number; state: <span class="s">&#x27;error&#x27;</span>; message: string }
+  | { <span class="k">type</span>: <span class="s">&#x27;call&#x27;</span>; id: number; name: string; arguments: Record&lt;string, unknown&gt; }
+  | { <span class="k">type</span>: <span class="s">&#x27;chunk&#x27;</span>; id: number; index: number; total: number; data: string }</code></pre>
+</div>
+    <p>The <code>start</code> message carries the tool definitions. The helper never has its own copy of them, so changing a tool only needs an extension update.</p>
+    <h3>Messages over 1 MB</h3>
+    <p>Chrome drops any message from a native program larger than 1 MB, and a mock body can be bigger. The helper measures the real UTF-8 size before sending. Anything too large becomes a series of <code>chunk</code> messages of 256K characters. Even at three bytes per character, each chunk stays under the limit.</p>
+    <div class="code"><span class="file">src/lib/mcp-protocol.ts</span>
+<pre><code><span class="c">// Chrome rejects host-to-extension messages over 1 MB. Split larger ones into</span>
+<span class="c">// chunks that stay below it even when every character needs 3 UTF-8 bytes.</span>
+<span class="k">const</span> NATIVE_MESSAGE_LIMIT = 1024 * 1024 - 1024
+<span class="k">export</span> <span class="k">const</span> NATIVE_CHUNK_SIZE = 256 * 1024
+
+<span class="k">export</span> <span class="k">function</span> splitNativeMessage(message: HostToExtensionMessage, id: number, size = NATIVE_CHUNK_SIZE): HostToExtensionMessage[] {
+  <span class="k">const</span> text = JSON.stringify(message)
+  <span class="k">if</span> (<span class="k">new</span> TextEncoder().encode(text).length &lt;= NATIVE_MESSAGE_LIMIT) <span class="k">return</span> [message]
+  <span class="k">const</span> total = Math.ceil(text.length / size)
+  <span class="k">return</span> Array.<span class="k">from</span>({ length: total }, (_, index) =&gt; ({
+    <span class="k">type</span>: <span class="s">&#x27;chunk&#x27;</span> <span class="k">as</span> <span class="k">const</span>, id, index, total, data: text.slice(index * size, (index + 1) * size),
+  }))
+}</code></pre>
+</div>
+    <p>The service worker puts the pieces back together by call ID and only acts once every piece has arrived.</p>
+    <div class="code"><span class="file">src/lib/mcp-protocol.ts</span>
+<pre><code><span class="k">export</span> <span class="k">function</span> createChunkAssembler() {
+  <span class="k">const</span> pending = <span class="k">new</span> Map&lt;number, string[]&gt;()
+  <span class="k">return</span> (chunk: Extract&lt;HostToExtensionMessage, { <span class="k">type</span>: <span class="s">&#x27;chunk&#x27;</span> }&gt;): unknown =&gt; {
+    <span class="k">const</span> parts = pending.get(chunk.id) ?? []
+    parts[chunk.index] = chunk.data
+    pending.set(chunk.id, parts)
+    <span class="k">if</span> (parts.filter(part =&gt; part !== undefined).length &lt; chunk.total) <span class="k">return</span> undefined
+    pending.delete(chunk.id)
+    <span class="k">return</span> JSON.parse(parts.join(<span class="s">&#x27;&#x27;</span>))
+  }
+}</code></pre>
+</div>
+  </section>
+
+  <section id="tools">
+    <h2>Tools: one definition, two jobs</h2>
+    <p>Each tool's input is a strict <code>zod/mini</code> object. The same object validates arguments and produces the JSON Schema that agents read in <code>tools/list</code>, so the two can't drift apart. Defaults live in the schema, which is how <code>create_network_rule</code> fills in <code>GET</code>, status 200, and a JSON content type.</p>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">const</span> CreateNetworkInput = z.strictObject({
+  name: Name, websites: Websites, requestUrl: RequestUrl,
+  method: z._default(Method, <span class="s">&#x27;GET&#x27;</span>),
+  status: z._default(Status, 200),
+  body: z._default(Body, <span class="s">&#x27;&#x27;</span>),
+  headers: z._default(ResponseHeaders, [{ name: <span class="s">&#x27;Content-Type&#x27;</span>, value: <span class="s">&#x27;application/json&#x27;</span> }]),
+  mode: z._default(Mode, <span class="s">&#x27;bypass&#x27;</span>),
+  enabled: z._default(Enabled, true),
+})</code></pre>
+</div>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">const</span> RUN = {
+  list_rules: { input: ListInput, run: listRules },
+  get_rule: { input: GetInput, run: getRule },
+  create_header_rule: { input: CreateHeaderInput, run: createHeaderRule },
+  create_switch_rule: { input: CreateSwitchInput, run: createSwitchRule },
+  create_network_rule: { input: CreateNetworkInput, run: createNetworkRule },
+  update_rule: { input: UpdateInput, run: updateRule },
+  delete_rules: { input: DeleteInput, run: deleteRules },
+} <span class="k">as</span> <span class="k">const</span>
+
+<span class="k">export</span> <span class="k">const</span> MCP_TOOLS: McpToolDefinition[] = (Object.keys(RUN) <span class="k">as</span> ToolName[]).map(name =&gt; {
+  <span class="k">const</span> inputSchema = z.toJSONSchema(RUN[name].input, { io: <span class="s">&#x27;input&#x27;</span> }) <span class="k">as</span> Record&lt;string, unknown&gt;
+  delete inputSchema.$schema
+  <span class="k">return</span> { name, ...DESCRIPTIONS[name], inputSchema }
+})</code></pre>
+</div>
+    <h3>Calling a tool</h3>
+    <p><code>callMcpTool()</code> is the single entry point. It parses the arguments, runs the tool, and always returns an MCP result, never a thrown error. Expected problems use <code>ToolError</code> and reach the agent as written. Anything unexpected gets a short prefix so the agent knows it wasn't its fault.</p>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">class</span> ToolError <span class="k">extends</span> Error {}
+<span class="c">// zod/mini omits default messages. Agents need them to correct their arguments.</span>
+<span class="k">const</span> ARGUMENT_ERRORS = z.locales.en().localeError
+
+<span class="k">export</span> <span class="k">async</span> <span class="k">function</span> callMcpTool(name: string, args: unknown, deps: McpToolDeps): Promise&lt;McpToolResult&gt; {
+  <span class="k">try</span> {
+    <span class="k">if</span> (!Object.hasOwn(RUN, name)) <span class="k">throw</span> <span class="k">new</span> ToolError(<span class="s">`Unknown tool: ${name}.`</span>)
+    <span class="k">const</span> tool = RUN[name <span class="k">as</span> ToolName]
+    <span class="k">const</span> parsed = tool.input.safeParse(args ?? {}, { error: ARGUMENT_ERRORS })
+    <span class="k">if</span> (!parsed.success) <span class="k">throw</span> <span class="k">new</span> ToolError(<span class="s">`Invalid arguments. ${formatIssues(parsed.error.issues)}`</span>)
+    <span class="k">const</span> result = <span class="k">await</span> (tool.run <span class="k">as</span> (input: unknown, deps: McpToolDeps) =&gt; Promise&lt;Record&lt;string, unknown&gt;&gt;)(parsed.data, deps)
+    <span class="k">return</span> { content: [{ <span class="k">type</span>: <span class="s">&#x27;text&#x27;</span>, text: JSON.stringify(result, null, 2) }], structuredContent: result }
+  } <span class="k">catch</span> (error) {
+    <span class="k">const</span> message = error instanceof ToolError ? error.message : <span class="s">`Overidify could not complete this request. ${error instanceof Error ? error.message : String(error)}`</span>
+    <span class="k">return</span> { content: [{ <span class="k">type</span>: <span class="s">&#x27;text&#x27;</span>, text: message }], isError: true }
+  }
+}</code></pre>
+</div>
+    <p>The <code>zod/mini</code> build ships without error messages to stay small. Without the English locale, every argument error would read "Invalid input", which gives an agent nothing to fix.</p>
+    <h3>Building a rule</h3>
+    <p>After the arguments pass, the tool builds a rule draft and checks it with the same draft schemas the Settings forms use. It then normalizes it the same way: trimmed names, cleaned website lists, and cleaned headers. Error paths are renamed from internal field names to the tool's names, so <code>url</code> becomes <code>websites</code>.</p>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">function</span> buildRequestHeaderRule(draft: Omit&lt;HeaderRule, <span class="s">&#x27;order&#x27;</span>&gt; | Omit&lt;SwitchRule, <span class="s">&#x27;order&#x27;</span>&gt;, order: number): RequestHeaderRule {
+  <span class="k">if</span> (draft.kind === <span class="s">&#x27;header-rule&#x27;</span>) {
+    validate(HeaderRuleDraftSchema, draft)
+    <span class="k">return</span> { ...draft, name: draft.name.trim(), url: normalizeWebsiteScope(draft.url), headers: sanitizeHeaders(draft.headers), order }
+  }
+  validate(SwitchRuleDraftSchema, draft)
+  <span class="k">return</span> {
+    ...draft, name: draft.name.trim(), url: normalizeWebsiteScope(draft.url), order,
+    options: draft.options.map(option =&gt; ({ ...option, name: option.name.trim(), headers: sanitizeHeaders(option.headers) })),
+  }
+}
+
+<span class="k">const</span> FIELD_NAMES: Record&lt;string, string&gt; = { url: <span class="s">&#x27;websites&#x27;</span>, key: <span class="s">&#x27;name&#x27;</span> }</code></pre>
+</div>
+  </section>
+
+  <section id="saving">
+    <h2>Saving and activating</h2>
+    <p>Every write goes through <code>save()</code>. It reads, changes, and writes rules in one locked step, normalizes both rule lists like the Settings page does, then activates the result and reports what happened.</p>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">async</span> <span class="k">function</span> save(deps: McpToolDeps, update: (rules: RuleCollection) =&gt; { rules: RuleCollection; rule?: TransferRule; result?: Record&lt;string, unknown&gt; }) {
+  <span class="k">const</span> saved = <span class="k">await</span> deps.updateRules(rules =&gt; {
+    <span class="k">const</span> next = update(rules)
+    <span class="k">return</span> {
+      rules: {
+        requestHeaderRules: normalizeRequestHeaderRules(next.rules.requestHeaderRules),
+        networkRules: normalizeNetworkRules(next.rules.networkRules),
+      },
+      result: next,
+    }
+  })
+  <span class="k">const</span> activation = <span class="k">await</span> deps.activate().<span class="k">catch</span>((error: unknown) =&gt; ({
+    ok: false, reloadTabIds: [], error: error instanceof Error ? error.message : String(error),
+  }))
+  <span class="k">return</span> {
+    ...saved.rule ? { rule: viewRule(saved.rule, true) } : {},
+    ...saved.result,
+    activation: activation.ok
+      ? activation.reloadTabIds.length
+        ? { applied: true, note: <span class="s">`Saved. Reload ${activation.reloadTabIds.length} matching website tab(s) to apply the latest Network Rules.`</span> }
+        : { applied: true }
+      : { applied: false, note: <span class="s">`Saved, but Overidify did not confirm the change is active. ${activation.error ?? &#x27;&#x27;}`</span>.trim() },
+  }
+}</code></pre>
+</div>
+    <p>The lock lives in <code>updateSavedRules()</code>. It holds both storage locks for the whole read-modify-write, so an agent and an open Settings tab can't overwrite each other's changes.</p>
+    <div class="code"><span class="file">src/lib/rule-transfer-storage.ts</span>
+<pre><code><span class="k">export</span> <span class="k">async</span> <span class="k">function</span> updateSavedRules&lt;T&gt;(update: (rules: RuleCollection) =&gt; { rules: RuleCollection; result: T }): Promise&lt;T&gt; {
+  <span class="k">return</span> withRuleStorageLocks(<span class="k">async</span> () =&gt; {
+    <span class="k">const</span> [requestHeaderRules, networkRules] = <span class="k">await</span> Promise.all([getRequestHeaderRules(), getNetworkRules()])
+    <span class="k">const</span> next = update({ requestHeaderRules, networkRules })
+    <span class="k">await</span> persistRules(next.rules)
+    <span class="k">return</span> next.result
+  })
+}</code></pre>
+</div>
+    <h3>Partial updates</h3>
+    <p><code>update_rule</code> merges only the fields that were passed. Each rule type allows a fixed set of fields, so a Network Rule field sent to a Switch Rule fails with a clear message instead of being ignored.</p>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">const</span> FIELDS_BY_TYPE = {
+  <span class="s">&#x27;header-rule&#x27;</span>: [<span class="s">&#x27;headers&#x27;</span>],
+  <span class="s">&#x27;switch-rule&#x27;</span>: [<span class="s">&#x27;options&#x27;</span>, <span class="s">&#x27;selectedOption&#x27;</span>],
+  <span class="s">&#x27;network-rule&#x27;</span>: [<span class="s">&#x27;requestUrl&#x27;</span>, <span class="s">&#x27;method&#x27;</span>, <span class="s">&#x27;status&#x27;</span>, <span class="s">&#x27;body&#x27;</span>, <span class="s">&#x27;headers&#x27;</span>, <span class="s">&#x27;mode&#x27;</span>],
+} <span class="k">as</span> <span class="k">const</span>
+
+<span class="c">// Inside updateRule:</span>
+<span class="k">const</span> allowed: readonly string[] = FIELDS_BY_TYPE[<span class="k">type</span>]
+<span class="k">const</span> misplaced = Object.keys(input).filter(key =&gt; ![<span class="s">&#x27;id&#x27;</span>, <span class="s">&#x27;name&#x27;</span>, <span class="s">&#x27;websites&#x27;</span>, <span class="s">&#x27;enabled&#x27;</span>, ...allowed].includes(key))
+<span class="k">if</span> (misplaced.length) <span class="k">throw</span> <span class="k">new</span> ToolError(<span class="s">`${misplaced.join(&#x27;, &#x27;)} cannot be changed on a ${RULE_NAMES[type]}.`</span>)
+<span class="k">const</span> common = { id: current.id, name: input.name ?? current.name, url: input.websites ?? current.url, enabled: input.enabled ?? current.enabled }</code></pre>
+</div>
+    <p>Switch options are matched by name when they are replaced. A matching option keeps its ID, so the selected option survives an edit that rewrites the option list.</p>
+    <div class="code"><span class="file">src/lib/mcp-tools.ts</span>
+<pre><code><span class="k">function</span> buildSwitchOptions(input: z.infer&lt;<span class="k">typeof</span> SwitchOptionInput&gt;[], existing: SwitchRule[<span class="s">&#x27;options&#x27;</span>] = []): SwitchRule[<span class="s">&#x27;options&#x27;</span>] {
+  <span class="k">const</span> previous = <span class="k">new</span> Map(existing.map(option =&gt; [option.name.trim().toLowerCase(), option.id]))
+  <span class="k">return</span> input.map(option =&gt; ({
+    id: previous.get(option.name.trim().toLowerCase()) ?? createRuleId(),
+    name: option.name, headers: fromHeaders(option.headers),
+  }))
+}</code></pre>
+</div>
+  </section>
+
+  <section id="worker">
+    <h2>The service worker bridge</h2>
+    <p><code>startMcpBridge()</code> runs when the service worker starts, whenever the MCP settings change, and when the Agents page asks it to reconnect. Each attempt closes the old port, reads the settings, and asks Chrome to start the helper.</p>
+    <div class="code"><span class="file">src/background/mcp.ts</span>
+<pre><code><span class="c">// A quiet attempt keeps the current error visible instead of flashing Starting while the page polls for setup.</span>
+<span class="k">async</span> <span class="k">function</span> connect(quiet = false) {
+  stop()
+  <span class="k">const</span> settings = <span class="k">await</span> getMcpSettings()
+  <span class="k">if</span> (!settings.enabled || !settings.token) <span class="k">return</span> setStatus({ state: <span class="s">&#x27;off&#x27;</span> })
+  <span class="k">if</span> (!quiet) <span class="k">await</span> setStatus({ state: <span class="s">&#x27;starting&#x27;</span> })
+  <span class="k">let</span> port: chrome.runtime.Port
+  <span class="k">try</span> {
+    <span class="c">// The open native port also keeps this worker alive while MCP is enabled.</span>
+    port = chrome.runtime.connectNative(MCP_HOST_NAME)
+  } <span class="k">catch</span> (error) {
+    <span class="k">return</span> setStatus({ state: <span class="s">&#x27;error&#x27;</span>, message: <span class="s">`${error instanceof Error ? error.message : String(error)} ${SETUP_HINT}`</span>, setupNeeded: true })
+  }</code></pre>
+</div>
+    <p>The listeners turn Chrome's errors into statuses. "Not found" and "forbidden" mean the helper isn't registered, so the page shows the setup steps. A protocol mismatch means the installed helper is from an older version.</p>
+    <div class="code"><span class="file">src/background/mcp.ts</span>
+<pre><code>port.onDisconnect.addListener(() =&gt; {
+  <span class="k">const</span> reason = chrome.runtime.lastError?.message ?? <span class="s">&#x27;The MCP helper stopped.&#x27;</span>
+  <span class="k">const</span> setupNeeded = /not found|forbidden/i.test(reason)
+  fail({ state: <span class="s">&#x27;error&#x27;</span>, message: setupNeeded ? <span class="s">`Chrome could not start the Overidify MCP helper (${reason}) ${SETUP_HINT}`</span> : reason, setupNeeded })
+})
+port.onMessage.addListener((raw: HostToExtensionMessage) =&gt; {
+  <span class="k">const</span> message = (raw.<span class="k">type</span> === <span class="s">&#x27;chunk&#x27;</span> ? assemble(raw) : raw) <span class="k">as</span> HostToExtensionMessage | undefined
+  <span class="k">if</span> (!message) <span class="k">return</span>
+  <span class="k">if</span> (message.<span class="k">type</span> === <span class="s">&#x27;status&#x27;</span>) {
+    <span class="k">if</span> (message.protocol !== MCP_BRIDGE_PROTOCOL) {
+      fail({ state: <span class="s">&#x27;error&#x27;</span>, message: <span class="s">`The installed MCP helper does not match this version of Overidify. ${SETUP_HINT}`</span>, setupNeeded: true })
+    } <span class="k">else</span> <span class="k">if</span> (message.state === <span class="s">&#x27;error&#x27;</span>) fail({ state: <span class="s">&#x27;error&#x27;</span>, message: message.message })
+    <span class="k">else</span> <span class="k">if</span> (host === port) void setStatus({ state: <span class="s">&#x27;running&#x27;</span>, url: message.url })
+  } <span class="k">else</span> <span class="k">if</span> (message.<span class="k">type</span> === <span class="s">&#x27;call&#x27;</span>) {
+    void callMcpTool(message.name, message.arguments, deps).then(result =&gt; post({ <span class="k">type</span>: <span class="s">&#x27;result&#x27;</span>, id: message.id, result }))
+  }
+})
+post({
+  <span class="k">type</span>: <span class="s">&#x27;start&#x27;</span>, protocol: MCP_BRIDGE_PROTOCOL, port: settings.port, token: settings.token,
+  version: chrome.runtime.getManifest().version, instructions: MCP_INSTRUCTIONS, tools: MCP_TOOLS,
+})</code></pre>
+</div>
+    <h3>Activating from inside the worker</h3>
+    <p>The Settings page activates rules by sending a message to the worker. Tool calls already run in the worker, and <code>chrome.runtime.sendMessage</code> never reaches its own sender. So <code>index.ts</code> passes in an activation function that calls the header sync and the network sync directly.</p>
+    <div class="code"><span class="file">src/background/index.ts</span>
+<pre><code><span class="c">// Rule changes made over MCP happen in this worker, so activate them directly.</span>
+startMcpBridge(<span class="k">async</span> () =&gt; {
+  <span class="k">const</span> [headers, network] = <span class="k">await</span> Promise.allSettled([queueSync(), syncNetworkRules()])
+  <span class="k">const</span> errors = [headers, network].flatMap(result =&gt; result.status === <span class="s">&#x27;rejected&#x27;</span>
+    ? [result.reason instanceof Error ? result.reason.message : String(result.reason)] : [])
+  <span class="k">return</span> {
+    ok: errors.length === 0,
+    reloadTabIds: network.status === <span class="s">&#x27;fulfilled&#x27;</span> ? network.value : [],
+    error: errors.length ? errors.join(<span class="s">&#x27; &#x27;</span>) : undefined,
+  }
+})</code></pre>
+</div>
+    <h3>Settings and status</h3>
+    <p>The switch, port, and token live in <code>chrome.storage.local</code>. The status lives in <code>chrome.storage.session</code>, because it only describes the current browser session. Saving settings always leaves a token in place, so the server can never start without one.</p>
+    <div class="code"><span class="file">src/lib/mcp-settings.ts</span>
+<pre><code><span class="c">// Enabling always leaves a token in place, so the endpoint is never unauthenticated.</span>
+<span class="k">export</span> <span class="k">async</span> <span class="k">function</span> updateMcpSettings(update: Partial&lt;McpSettings&gt;): Promise&lt;McpSettings&gt; {
+  <span class="k">return</span> navigator.locks.request(MCP_SETTINGS_KEY, <span class="k">async</span> () =&gt; {
+    <span class="k">const</span> next = { ...<span class="k">await</span> getMcpSettings(), ...update }
+    <span class="k">if</span> (!isValidMcpPort(next.port)) <span class="k">throw</span> <span class="k">new</span> Error(<span class="s">&#x27;Use a port from 1024 to 65535.&#x27;</span>)
+    <span class="k">if</span> (!next.token) next.token = createMcpToken()
+    <span class="k">await</span> chrome.storage.local.set({ [MCP_SETTINGS_KEY]: next })
+    <span class="k">return</span> next
+  })
+}</code></pre>
+</div>
+  </section>
+
+  <section id="helper">
+    <h2>The Node helper</h2>
+    <p>The helper is a relay. It reads framed messages from stdin, writes framed messages to stdout, and serves HTTP. Framing is a 4-byte length followed by JSON, and the reader keeps a buffer because a pipe can split a message across reads.</p>
+    <div class="code"><span class="file">mcp-host/native-messaging.ts</span>
+<pre><code><span class="c">// Chrome frames each message as a 32-bit native-endian length followed by UTF-8 JSON.</span>
+<span class="k">export</span> <span class="k">function</span> encodeNativeMessage(message: unknown): Buffer {
+  <span class="k">const</span> body = Buffer.<span class="k">from</span>(JSON.stringify(message), <span class="s">&#x27;utf8&#x27;</span>)
+  <span class="k">const</span> header = Buffer.alloc(4)
+  header.writeUInt32LE(body.length)
+  <span class="k">return</span> Buffer.concat([header, body])
+}
+
+<span class="k">export</span> <span class="k">function</span> readNativeMessages(input: Readable, onMessage: (message: unknown) =&gt; void): void {
+  <span class="k">let</span> buffered = Buffer.alloc(0)
+  input.on(<span class="s">&#x27;data&#x27;</span>, (chunk: Buffer) =&gt; {
+    buffered = Buffer.concat([buffered, chunk])
+    <span class="k">while</span> (buffered.length &gt;= 4) {
+      <span class="k">const</span> length = buffered.readUInt32LE(0)
+      <span class="k">if</span> (buffered.length &lt; 4 + length) <span class="k">break</span>
+      <span class="k">const</span> body = buffered.subarray(4, 4 + length)
+      buffered = buffered.subarray(4 + length)
+      onMessage(JSON.parse(body.toString(<span class="s">&#x27;utf8&#x27;</span>)))
+    }
+  })
+}</code></pre>
+</div>
+    <p>When the <code>start</code> message arrives, the helper checks the protocol number and starts listening on <code>127.0.0.1</code>. Errors such as a port already in use go back to the extension as a status, which the Agents page shows.</p>
+    <div class="code"><span class="file">mcp-host/main.ts</span>
+<pre><code>server = createMcpHttpServer({ ...message, callTool })
+server.on(<span class="s">&#x27;error&#x27;</span>, (error: NodeJS.ErrnoException) =&gt; {
+  send({
+    <span class="k">type</span>: <span class="s">&#x27;status&#x27;</span>, protocol: MCP_BRIDGE_PROTOCOL, state: <span class="s">&#x27;error&#x27;</span>,
+    message: error.code === <span class="s">&#x27;EADDRINUSE&#x27;</span> ? <span class="s">`Port ${port} is already in use. Choose another port.`</span> : <span class="s">`The MCP server could not start: ${error.message}`</span>,
+  })
+})
+server.listen(port, <span class="s">&#x27;127.0.0.1&#x27;</span>, () =&gt; {
+  send({ <span class="k">type</span>: <span class="s">&#x27;status&#x27;</span>, protocol: MCP_BRIDGE_PROTOCOL, state: <span class="s">&#x27;listening&#x27;</span>, url: <span class="s">`http://127.0.0.1:${port}/mcp`</span> })
+})</code></pre>
+</div>
+    <p>Each tool call gets an ID and waits in a map for its result, with a 60-second limit. When the extension disconnects, Chrome closes stdin and the helper exits.</p>
+    <div class="code"><span class="file">mcp-host/main.ts</span>
+<pre><code><span class="k">function</span> callTool(name: string, args: Record&lt;string, unknown&gt;): Promise&lt;McpToolResult&gt; {
+  <span class="k">return</span> <span class="k">new</span> Promise(resolve =&gt; {
+    <span class="k">const</span> id = nextId++
+    <span class="k">const</span> timer = setTimeout(() =&gt; {
+      pending.delete(id)
+      resolve({ isError: true, content: [{ <span class="k">type</span>: <span class="s">&#x27;text&#x27;</span>, text: <span class="s">&#x27;Overidify did not respond in time. Check that the browser is running, then try again.&#x27;</span> }] })
+    }, CALL_TIMEOUT_MS)
+    pending.set(id, result =&gt; { pending.delete(id); clearTimeout(timer); resolve(result) })
+    send({ <span class="k">type</span>: <span class="s">&#x27;call&#x27;</span>, id, name, arguments: args })
+  })
+}
+
+readNativeMessages(process.stdin, raw =&gt; {
+  <span class="k">const</span> message = raw <span class="k">as</span> ExtensionToHostMessage
+  <span class="k">if</span> (message.<span class="k">type</span> === <span class="s">&#x27;start&#x27;</span>) start(message)
+  <span class="k">else</span> <span class="k">if</span> (message.<span class="k">type</span> === <span class="s">&#x27;result&#x27;</span>) pending.get(message.id)?.(message.result)
+})
+<span class="c">// Chrome closes stdin when the extension disconnects or the browser exits.</span>
+process.stdin.on(<span class="s">&#x27;end&#x27;</span>, () =&gt; process.exit(0))</code></pre>
+</div>
+  </section>
+
+  <section id="endpoint">
+    <h2>The HTTP endpoint</h2>
+    <p>The endpoint implements what tools need from Streamable HTTP, without the MCP SDK, so the helper has no dependencies and builds to one 8 KB file. Every request passes the same checks before any JSON is parsed.</p>
+    <div class="code"><span class="file">mcp-host/server.ts</span>
+<pre><code><span class="c">// Reject DNS-rebound names and browser pages. Agents connect without an Origin.</span>
+<span class="k">const</span> hostname = (request.headers.host ?? <span class="s">&#x27;&#x27;</span>).replace(/:\d+$/, <span class="s">&#x27;&#x27;</span>).toLowerCase()
+<span class="k">if</span> (!LOOPBACK_HOSTS.has(hostname)) <span class="k">return</span> sendText(response, 403, <span class="s">&#x27;Forbidden host.&#x27;</span>)
+<span class="k">if</span> (request.headers.origin !== undefined) <span class="k">return</span> sendText(response, 403, <span class="s">&#x27;Browser requests are not allowed.&#x27;</span>)
+<span class="k">if</span> (!isAuthorized(request.headers.authorization, options.token)) {
+  response.setHeader(<span class="s">&#x27;WWW-Authenticate&#x27;</span>, <span class="s">&#x27;Bearer realm=&quot;overidify&quot;&#x27;</span>)
+  <span class="k">return</span> sendText(response, 401, <span class="s">&#x27;Missing or invalid bearer token. Copy the connection settings from Overidify.&#x27;</span>)
+}
+
+<span class="k">function</span> isAuthorized(header: string | undefined, token: string): boolean {
+  <span class="k">const</span> digest = (value: string) =&gt; createHash(<span class="s">&#x27;sha256&#x27;</span>).update(value).digest()
+  <span class="k">return</span> Boolean(token) &amp;&amp; timingSafeEqual(digest(header ?? <span class="s">&#x27;&#x27;</span>), digest(<span class="s">`Bearer ${token}`</span>))
+}</code></pre>
+</div>
+    <p>Tokens are compared as SHA-256 digests with <code>timingSafeEqual</code>, which needs equal-length inputs and takes the same time whether the token is right or wrong. After the checks come the method, the protocol version header, the content type, and a 32 MiB body limit.</p>
+    <h3>JSON-RPC</h3>
+    <p>Each message in a request, or each message in a batch, goes through one switch. Notifications have no <code>id</code> and get no reply, and a request that contains only notifications gets <code>202</code>.</p>
+    <div class="code"><span class="file">mcp-host/server.ts</span>
+<pre><code><span class="c">// Notifications and responses to server requests need no reply.</span>
+<span class="k">if</span> (<span class="k">typeof</span> message.method !== <span class="s">&#x27;string&#x27;</span> || !(<span class="s">&#x27;id&#x27;</span> <span class="k">in</span> message)) <span class="k">return</span> null
+
+<span class="k">switch</span> (message.method) {
+  <span class="k">case</span> <span class="s">&#x27;initialize&#x27;</span>: {
+    <span class="k">const</span> requested = params.protocolVersion
+    <span class="k">return</span> ok({
+      protocolVersion: <span class="k">typeof</span> requested === <span class="s">&#x27;string&#x27;</span> &amp;&amp; SUPPORTED_PROTOCOL_VERSIONS.includes(requested) ? requested : SUPPORTED_PROTOCOL_VERSIONS[0],
+      capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: <span class="s">&#x27;overidify&#x27;</span>, title: <span class="s">&#x27;Overidify&#x27;</span>, version: options.version },
+      instructions: options.instructions,
+    })
+  }
+  <span class="k">case</span> <span class="s">&#x27;ping&#x27;</span>:
+    <span class="k">return</span> ok({})
+  <span class="k">case</span> <span class="s">&#x27;tools/list&#x27;</span>:
+    <span class="k">return</span> ok({ tools: options.tools })
+  <span class="k">case</span> <span class="s">&#x27;tools/call&#x27;</span>: {
+    <span class="k">const</span> name = params.name
+    <span class="k">if</span> (<span class="k">typeof</span> name !== <span class="s">&#x27;string&#x27;</span> || !options.tools.some(tool =&gt; tool.name === name)) <span class="k">return</span> fail(-32602, <span class="s">`Unknown tool: ${String(name)}.`</span>)
+    <span class="k">if</span> (params.arguments !== undefined &amp;&amp; !isRecord(params.arguments)) <span class="k">return</span> fail(-32602, <span class="s">&#x27;Tool arguments must be an object.&#x27;</span>)
+    <span class="k">return</span> ok(<span class="k">await</span> options.callTool(name, params.arguments ?? {}))
+  }
+  <span class="k">default</span>:
+    <span class="k">return</span> fail(-32601, <span class="s">`Method not found: ${message.method}.`</span>)
+}</code></pre>
+</div>
+  </section>
+
+  <section id="setup">
+    <h2>The setup file</h2>
+    <p>Chrome only starts native programs registered on that computer, and most users don't have the repository. So the Agents page builds a setup file from two bundles shipped inside the extension. The builder prepends one line that carries the extension ID and the helper source.</p>
+    <div class="code"><span class="file">src/lib/mcp-protocol.ts</span>
+<pre><code>/** Builds the standalone setup script: the installer with the helper and extension ID embedded. */
+<span class="k">export</span> <span class="k">function</span> createMcpSetupScript(installer: string, setup: McpEmbeddedSetup) {
+  <span class="k">return</span> <span class="s">`globalThis.${MCP_SETUP_GLOBAL} = ${JSON.stringify(setup)};\n${installer}`</span>
+}</code></pre>
+</div>
+    <div class="code"><span class="file">src/options/McpSettings.tsx</span>
+<pre><code><span class="k">const</span> [installer, host] = <span class="k">await</span> Promise.all([<span class="s">&#x27;mcp/install.mjs&#x27;</span>, <span class="s">&#x27;mcp/host.mjs&#x27;</span>].map(<span class="k">async</span> path =&gt; {
+  <span class="k">const</span> response = <span class="k">await</span> fetch(chrome.runtime.getURL(path))
+  <span class="k">if</span> (!response.ok) <span class="k">throw</span> <span class="k">new</span> Error()
+  <span class="k">return</span> response.text()
+}))
+<span class="k">const</span> link = document.createElement(<span class="s">&#x27;a&#x27;</span>)
+link.href = URL.createObjectURL(<span class="k">new</span> Blob([createMcpSetupScript(installer, { extensionId: chrome.runtime.id, host })], { <span class="k">type</span>: <span class="s">&#x27;text/javascript&#x27;</span> }))
+link.download = MCP_SETUP_FILE
+link.click()</code></pre>
+</div>
+    <p>When the installer runs, it looks for that embedded value. With it, no arguments are needed. Without it, the same installer works from the extension folder with an extension ID argument.</p>
+    <div class="code"><span class="file">mcp-host/install.ts</span>
+<pre><code><span class="k">const</span> embedded = readMcpEmbeddedSetup(globalThis)
+<span class="k">const</span> result = installMcpHost({ extensionIds: ids.length || !embedded ? ids : [embedded.extensionId], browserDirs, hostCode: embedded?.host })</code></pre>
+</div>
+    <p>The installer copies the helper to a user data folder and writes a small launcher. Chrome starts native programs without your shell's <code>PATH</code>, so the launcher calls the exact Node binary that ran setup, quoted for paths with spaces or apostrophes.</p>
+    <div class="code"><span class="file">mcp-host/install.ts</span>
+<pre><code><span class="k">const</span> node = options.nodePath ?? process.execPath
+<span class="k">const</span> wrapper = join(installDir, platform === <span class="s">&#x27;win32&#x27;</span> ? <span class="s">&#x27;overidify-mcp-host.bat&#x27;</span> : <span class="s">&#x27;overidify-mcp-host&#x27;</span>)
+<span class="k">if</span> (platform === <span class="s">&#x27;win32&#x27;</span>) writeFileSync(wrapper, <span class="s">`@echo off\r\n&quot;${node}&quot; &quot;${host}&quot; %*\r\n`</span>)
+<span class="k">else</span> {
+  <span class="k">const</span> quote = (value: string) =&gt; <span class="s">`&#x27;${value.replaceAll(&quot;&#x27;&quot;, `</span><span class="s">&#x27;\\&#x27;</span><span class="s">&#x27;`)}&#x27;</span><span class="s">`
+  writeFileSync(wrapper, `</span>#!/bin/sh\nexec ${quote(node)} ${quote(host)} <span class="s">&quot;$@&quot;</span>\n`)
+  chmodSync(wrapper, 0o755)
+}</code></pre>
+</div>
+    <p>It then writes a host manifest for each browser profile it finds, or registry keys on Windows, allowing only Overidify's extension IDs. IDs from earlier runs are merged in.</p>
+    <h3>Connecting without Retry</h3>
+    <p>While the helper is missing, the Agents page asks the worker for a quiet reconnect every two seconds. A quiet attempt doesn't change the status to "Starting", so the error message stays steady until the helper starts.</p>
+    <div class="code"><span class="file">src/options/McpSettings.tsx</span>
+<pre><code><span class="c">// While the helper is missing, keep checking so setup run in a terminal (or by an agent) connects without clicking Retry.</span>
+<span class="k">const</span> setupNeeded = status.state === <span class="s">&#x27;error&#x27;</span> &amp;&amp; status.setupNeeded === true
+useEffect(() =&gt; {
+  <span class="k">if</span> (!setupNeeded) <span class="k">return</span>
+  <span class="k">const</span> timer = setInterval(() =&gt; { void chrome.runtime.sendMessage({ <span class="k">type</span>: <span class="s">&#x27;mcp-reconnect&#x27;</span>, quiet: true }) }, 2000)
+  <span class="k">return</span> () =&gt; clearInterval(timer)
+}, [setupNeeded])</code></pre>
+</div>
+  </section>
+
+  <section id="build">
+    <h2>The build</h2>
+    <p>The helper and installer are built during the normal extension build. A small Vite plugin runs a second, Node-targeted build for each entry and emits the result into the extension package as <code>mcp/host.mjs</code> and <code>mcp/install.mjs</code>.</p>
+    <div class="code"><span class="file">vite.config.ts</span>
+<pre><code><span class="k">function</span> mcpHostBundle(): Plugin {
+  <span class="k">return</span> {
+    name: <span class="s">&#x27;overidify-mcp-host-bundle&#x27;</span>,
+    apply: <span class="s">&#x27;build&#x27;</span>,
+    <span class="k">async</span> generateBundle() {
+      <span class="k">for</span> (<span class="k">const</span> [entry, fileName] <span class="k">of</span> [[<span class="s">&#x27;main.ts&#x27;</span>, <span class="s">&#x27;mcp/host.mjs&#x27;</span>], [<span class="s">&#x27;install.ts&#x27;</span>, <span class="s">&#x27;mcp/install.mjs&#x27;</span>]]) {
+        <span class="k">const</span> result = <span class="k">await</span> build({
+          configFile: false, publicDir: false, logLevel: <span class="s">&#x27;error&#x27;</span>,
+          build: {
+            write: false, target: <span class="s">&#x27;node20&#x27;</span>, ssr: fileURLToPath(<span class="k">new</span> URL(<span class="s">`./mcp-host/${entry}`</span>, <span class="k">import</span>.meta.url)),
+            rollupOptions: { output: { format: <span class="s">&#x27;es&#x27;</span> } },
+          },
+        })
+        <span class="c">// … take the generated chunk and emit it into the extension package</span>
+        this.emitFile({ <span class="k">type</span>: <span class="s">&#x27;asset&#x27;</span>, fileName, source: chunk.code })
+      }
+    },
+  }
+}</code></pre>
+</div>
+  </section>
+
+  <section id="tests">
+    <h2>Tests</h2>
+    <p>Each layer is tested at its public boundary.</p>
+    <div class="table">
+      <table>
+        <thead><tr><th>Test file</th><th>What it covers</th></tr></thead>
+        <tbody>
+          <tr><td>tests/mcp-tools.test.ts</td><td>Published schemas, normalization, field errors, partial updates, Switch option IDs, activation failures, list, get, and delete</td></tr>
+          <tr><td>tests/mcp-host.test.ts</td><td>Every HTTP rejection before a tool runs, JSON-RPC methods, batches, notifications, and framing for a body over 1 MB</td></tr>
+          <tr><td>tests/mcp-install.test.ts</td><td>Profile detection, merged extension IDs, launcher quoting, uninstall, and Windows registry keys</td></tr>
+          <tr><td>tests/e2e/mcp.spec.ts</td><td>In Chromium: download the setup file, run it, connect automatically, create rules over HTTP, and see them change real requests</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="next">
+      <p>Want the design first?</p>
+      <a href="/overidify-mcp-implementation">How the MCP server works →</a>
+    </div>
+  </section>
+</main>
+
+<footer><span>Overidify</span><a href="/overidify-mcp-announcement">Announcement</a><a href="https://github.com/prateekkumaroriginal/overidify">Source on GitHub</a></footer>
+</div>
+</body>
+</html>
